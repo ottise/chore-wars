@@ -32,7 +32,7 @@ public class ChoreAllocationWorker : BackgroundService
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var service = scope.ServiceProvider.GetRequiredService<IChoreAllocationService>();
-                    await service.AllocateChoresAsync(stoppingToken);
+                    await service.AllocateAllActiveSeasonsAsync(stoppingToken);
                 }
             }
             catch (Exception ex)

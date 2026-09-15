@@ -44,6 +44,15 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<ChoreOccurrence>> GetUnassignedBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ChoreOccurrences
+            .Include(o => o.Chore)
+            .Where(o => o.Chore.SeasonId == seasonId && o.AssignedUserId == null)
+            .OrderBy(o => o.DueDate)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> HasOccurrencesForSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
         return await _context.ChoreOccurrences

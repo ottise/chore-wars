@@ -1,12 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
-using ChoreWars.Domain.Common.Constants;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Enums;
+using ChoreWars.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace ChoreWars.Application.Services;
@@ -22,69 +23,97 @@ public class ChoreAllocationService : IChoreAllocationService
         _logger = logger;
     }
 
-    public async Task AllocateChoresAsync(CancellationToken cancellationToken = default)
+    public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting AllocateChoresAsync.");
+        _logger.LogInformation($"Starting allocation for season {seasonId}");
 
-        var now = DateTime.UtcNow;
-        var activeSeasons = await _unitOfWork.Seasons.GetActiveSeasonsAsync(now, cancellationToken);
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        if (season.AllocationMethod != AllocationMethod.AUTOMATIC)
+            throw new ConflictException("Season allocation method is not set to AUTOMATIC.");
+
+        var unassignedOccurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList();
+        if (!unassignedOccurrences.Any())
+        {
+            _logger.LogWarning($"No unassigned occurrences found for season {seasonId}");
+            return; // Nothing to allocate
+        }
+
+        var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE)
+            .ToList();
+
+        if (!members.Any())
+            throw new ConflictException("No active members in the household to assign chores to.");
+
+        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken); // Wait, we don't have GetBySeasonIdAsync yet, let's just get it per member or use a new method. I'll need to create GetBySeasonIdAsync.
+
+        // Initialize assigned karma tracker for this allocation session to balance workload
+        var assignedKarma = members.ToDictionary(m => m.UserId, m => 0);
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var occurrence in unassignedOccurrences)
+            {
+                var dayOfWeek = occurrence.DueDate.DayOfWeek;
+
+                // Find eligible members (available on this day)
+                // If a user has explicitly set IsAvailable = false for this DayOfWeek, they are not eligible.
+                // Otherwise, they are eligible.
+                var eligibleMembers = members.Where(m => 
+                {
+                    var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
+                    return availability == null || availability.IsAvailable;
+                }).ToList();
+
+                // If no one is available, fallback to all members
+                if (!eligibleMembers.Any())
+                    eligibleMembers = members;
+
+                // Sort by least assigned karma in this session, then by least overall KarmaBalance to distribute fairly
+                var assignee = eligibleMembers
+                    .OrderBy(m => assignedKarma[m.UserId])
+                    .ThenBy(m => m.KarmaBalance)
+                    .First();
+
+                occurrence.AssignedUserId = assignee.UserId;
+                assignedKarma[assignee.UserId] += occurrence.SnapshotKarma;
+
+                _unitOfWork.ChoreOccurrences.Update(occurrence);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            
+            _logger.LogInformation($"Successfully allocated {unassignedOccurrences.Count} occurrences for season {seasonId}");
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError(ex, $"Failed to allocate occurrences for season {seasonId}");
+            throw;
+        }
+    }
+
+    public async Task AllocateAllActiveSeasonsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Starting AllocateAllActiveSeasonsAsync");
+        var activeSeasons = await _unitOfWork.Seasons.GetActiveSeasonsAsync(DateTime.UtcNow, cancellationToken);
         var autoSeasons = activeSeasons.Where(s => s.AllocationMethod == AllocationMethod.AUTOMATIC).ToList();
 
         foreach (var season in autoSeasons)
         {
             try
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
-                // For simplicity in this implementation, we will fetch chores in the season
-                var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(season.Id, cancellationToken);
-                var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken);
-                
-                // Logic to allocate chores:
-                // 1. Identify which chores need occurrences generated based on FrequencyType (daily, weekly, specific days).
-                // 2. Identify available members.
-                // 3. Assign occurrences balancing availability, workload, karma.
-                
-                foreach (var chore in chores)
-                {
-                    // Basic placeholder for assignment logic
-                    // We'll assign to the member with highest karma for now
-                    if (members.Any())
-                    {
-                        var assignee = members.OrderByDescending(m => m.KarmaBalance).First();
-                        
-                        // Just a dummy logic to avoid too much generation: only if no occurrences exist for today
-                        // In reality, this requires tracking last generated date per chore.
-                        var occurrences = await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(chore.Id, cancellationToken);
-                        if (!occurrences.Any(o => o.DueDate.Date == now.Date))
-                        {
-                            var occurrence = new ChoreOccurrence
-                            {
-                                Id = Guid.NewGuid(),
-                                ChoreId = chore.Id,
-                                AssignedUserId = assignee.UserId,
-                                DueDate = now.AddDays(1), // due tomorrow
-                                Status = ChoreOccurrenceStatus.ASSIGNED,
-                                PenaltyCount = 0
-                            };
-                            
-                            await _unitOfWork.ChoreOccurrences.AddAsync(occurrence, cancellationToken);
-                        }
-                    }
-                }
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-                await _unitOfWork.CommitTransactionAsync(cancellationToken);
-                
-                _logger.LogInformation($"Processed allocation for season {season.Id}.");
+                await AllocateSeasonAsync(season.Id, cancellationToken);
             }
             catch (Exception ex)
             {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                _logger.LogError(ex, $"Error allocating chores for season {season.Id}.");
+                _logger.LogError(ex, $"Failed to allocate season {season.Id} in background worker.");
             }
         }
-
-        _logger.LogInformation("Completed AllocateChoresAsync.");
     }
 }

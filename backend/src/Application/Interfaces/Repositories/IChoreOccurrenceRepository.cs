@@ -11,6 +11,7 @@ public interface IChoreOccurrenceRepository
     Task<ChoreOccurrence?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrence>> GetByAssignedUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrence>> GetByChoreIdAsync(Guid choreId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ChoreOccurrence>> GetUnassignedBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrence>> GetOverdueEligibleOccurrencesAsync(DateTime now, CancellationToken cancellationToken = default);
     Task<bool> HasOccurrencesForSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default);
     Task AddAsync(ChoreOccurrence occurrence, CancellationToken cancellationToken = default);
