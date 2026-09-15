@@ -34,6 +34,7 @@ public class ChoreRepository : IChoreRepository
     public async Task<IEnumerable<Chore>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
         return await _context.Chores
+            .Include(c => c.FrequencyDays)
             .Where(c => c.SeasonId == seasonId)
             .ToListAsync(cancellationToken);
     }

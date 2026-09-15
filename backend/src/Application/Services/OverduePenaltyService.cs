@@ -69,7 +69,7 @@ public class OverduePenaltyService : IOverduePenaltyService
                         {
                             Id = Guid.NewGuid(),
                             HouseId = occurrence.Chore.HouseId,
-                            UserId = occurrence.AssignedUserId,
+                            UserId = occurrence.AssignedUserId.Value,
                             Amount = -PenaltyConstants.SinglePenalty,
                             Type = KarmaTransactionType.PENALTY,
                             ReferenceId = occurrence.Id,
@@ -78,7 +78,7 @@ public class OverduePenaltyService : IOverduePenaltyService
 
                         await _unitOfWork.KarmaTransactions.AddAsync(karmaTransaction, cancellationToken);
                         
-                        var houseMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(occurrence.Chore.HouseId, occurrence.AssignedUserId, cancellationToken);
+                        var houseMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(occurrence.Chore.HouseId, occurrence.AssignedUserId.Value, cancellationToken);
                         if (houseMember != null)
                         {
                             houseMember.KarmaBalance -= PenaltyConstants.SinglePenalty;
@@ -90,12 +90,12 @@ public class OverduePenaltyService : IOverduePenaltyService
                     if (occurrence.PenaltyCount == 1)
                     {
                         occurrence.Status = ChoreOccurrenceStatus.OVERDUE;
-                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId, occurrence.Chore.HouseId), cancellationToken);
+                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId), cancellationToken);
                     }
                     else if (occurrence.PenaltyCount >= PenaltyConstants.MaxPenaltyCount)
                     {
                         occurrence.Status = ChoreOccurrenceStatus.CRITICAL_OVERDUE;
-                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId, occurrence.Chore.HouseId), cancellationToken);
+                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId), cancellationToken);
                     }
 
                     _unitOfWork.ChoreOccurrences.Update(occurrence);

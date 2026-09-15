@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Chore> Chores { get; set; } = null!;
     public DbSet<ChoreFrequencyDay> ChoreFrequencyDays { get; set; } = null!;
     public DbSet<ChoreOccurrence> ChoreOccurrences { get; set; } = null!;
+    public DbSet<SeasonConfirmation> SeasonConfirmations { get; set; } = null!;
     public DbSet<KarmaTransaction> KarmaTransactions { get; set; } = null!;
     public DbSet<Reward> Rewards { get; set; } = null!;
     public DbSet<RewardRedemption> RewardRedemptions { get; set; } = null!;

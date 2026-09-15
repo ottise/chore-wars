@@ -126,12 +126,14 @@ public class ChoreService : IChoreService
             {
                 Id = Guid.NewGuid(),
                 HouseId = chore.HouseId,
-                FromUserId = bounty.PostedByUserId,
-                ToUserId = userId,
+                DebtorUserId = bounty.PostedByUserId,
+                CreditorUserId = userId,
                 Amount = bounty.Amount,
                 Reason = PaymentObligationReason.BOUNTY_PAYMENT,
                 Status = PaymentObligationStatus.PENDING,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                SeasonId = chore.SeasonId,
+                OccurrenceId = occurrenceId
             };
         }
 

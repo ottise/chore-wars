@@ -35,7 +35,7 @@ public class PaymentObligationRepository : IPaymentObligationRepository
     public async Task<IEnumerable<PaymentObligation>> GetPendingObligationsByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await _context.PaymentObligations
-            .Where(p => p.FromUserId == userId && p.Status == Domain.Enums.PaymentObligationStatus.PENDING)
+            .Where(p => p.DebtorUserId == userId && p.Status == Domain.Enums.PaymentObligationStatus.PENDING)
             .OrderBy(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
     }

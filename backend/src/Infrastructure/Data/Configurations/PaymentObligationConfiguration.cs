@@ -23,14 +23,24 @@ public class PaymentObligationConfiguration : IEntityTypeConfiguration<PaymentOb
             .HasForeignKey(x => x.HouseId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(x => x.FromUser)
+        builder.HasOne(x => x.DebtorUser)
             .WithMany()
-            .HasForeignKey(x => x.FromUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(x => x.DebtorUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.ToUser)
+        builder.HasOne(x => x.CreditorUser)
             .WithMany()
-            .HasForeignKey(x => x.ToUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(x => x.CreditorUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.Season)
+            .WithMany()
+            .HasForeignKey(x => x.SeasonId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(x => x.Occurrence)
+            .WithMany()
+            .HasForeignKey(x => x.OccurrenceId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -121,7 +121,7 @@ public class BountyService : IBountyService
         if (payment == null)
             throw new NotFoundException(nameof(PaymentObligation), paymentId);
 
-        if (payment.FromUserId != userId)
+        if (payment.DebtorUserId != userId)
             throw new ForbiddenException("Only the payer can settle the payment.");
 
         if (payment.Status != PaymentObligationStatus.PENDING)

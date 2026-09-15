@@ -18,4 +18,5 @@ public class ChoreSeason
     public ICollection<MemberAvailability> MemberAvailabilities { get; set; } = new List<MemberAvailability>();
     public ICollection<SeasonRanking> Rankings { get; set; } = new List<SeasonRanking>();
     public ICollection<Chore> Chores { get; set; } = new List<Chore>();
+    public ICollection<SeasonConfirmation> Confirmations { get; set; } = new List<SeasonConfirmation>();
 }

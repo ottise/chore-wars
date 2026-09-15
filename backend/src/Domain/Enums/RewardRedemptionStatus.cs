@@ -2,8 +2,8 @@ namespace ChoreWars.Domain.Enums;
 
 public enum RewardRedemptionStatus
 {
-    PENDING = 0,
-    APPROVED = 1,
-    REJECTED = 2,
-    USED = 3
+    UNCLAIMED = 0,
+    CLAIMED = 1,
+    USED = 2,
+    EXPIRED = 3
 }

@@ -22,6 +22,7 @@ public class ChoreOccurrenceConfiguration : IEntityTypeConfiguration<ChoreOccurr
         builder.HasOne(x => x.AssignedUser)
             .WithMany()
             .HasForeignKey(x => x.AssignedUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -72,8 +72,8 @@ public class BountyExpirationService : IBountyExpirationService
                     var obligation = new PaymentObligation
                     {
                         Id = Guid.NewGuid(),
-                        FromUserId = bounty.PostedByUserId,
-                        ToUserId = assignee.UserId,
+                        DebtorUserId = bounty.PostedByUserId,
+                        CreditorUserId = assignee.UserId,
                         HouseId = bounty.ChoreOccurrence.Chore.HouseId,
                         Amount = bounty.Amount * BountyConstants.ForcedReassignmentMultiplier,
                         Reason = PaymentObligationReason.FORCED_REASSIGNMENT,

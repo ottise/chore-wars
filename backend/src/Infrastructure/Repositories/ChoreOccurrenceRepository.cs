@@ -44,6 +44,12 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> HasOccurrencesForSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ChoreOccurrences
+            .AnyAsync(o => o.Chore.SeasonId == seasonId, cancellationToken);
+    }
+
     public async Task<IEnumerable<ChoreOccurrence>> GetOverdueEligibleOccurrencesAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         // Eligibility for penalty:
@@ -59,6 +65,11 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
     public async Task AddAsync(ChoreOccurrence occurrence, CancellationToken cancellationToken = default)
     {
         await _context.ChoreOccurrences.AddAsync(occurrence, cancellationToken);
+    }
+
+    public async Task AddRangeAsync(IEnumerable<ChoreOccurrence> occurrences, CancellationToken cancellationToken = default)
+    {
+        await _context.ChoreOccurrences.AddRangeAsync(occurrences, cancellationToken);
     }
 
     public void Update(ChoreOccurrence occurrence)

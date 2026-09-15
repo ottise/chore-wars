@@ -9,7 +9,9 @@ public class RewardRedemption
     public Guid RewardId { get; set; }
     public Guid UserId { get; set; }
     public RewardRedemptionStatus Status { get; set; }
-    public DateTime RedeemedAt { get; set; }
+    public DateTime? ClaimDeadline { get; set; }
+    public DateTime? UsageDeadline { get; set; }
+    public DateTime? RedeemedAt { get; set; }
     public DateTime? UsedAt { get; set; }
 
     public Reward Reward { get; set; } = null!;
