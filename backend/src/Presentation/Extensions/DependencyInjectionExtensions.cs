@@ -95,6 +95,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IChoreAllocationService, ChoreAllocationService>();
         services.AddScoped<ISeasonEndService, SeasonEndService>();
         services.AddScoped<IAchievementCheckService, AchievementCheckService>();
+        services.AddScoped<IChoreGenerationService, ChoreGenerationService>();
 
         return services;
     }

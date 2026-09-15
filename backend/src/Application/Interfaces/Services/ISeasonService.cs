@@ -13,4 +13,5 @@ public interface ISeasonService
     Task EndSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);
     Task SetAvailabilityAsync(Guid seasonId, MemberAvailabilityRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<SeasonRankingResponse>> GetRankingsAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);
+    Task<SeasonResponse> CloneSeasonAsync(Guid seasonId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default);
 }
