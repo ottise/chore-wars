@@ -37,10 +37,16 @@ cd chore-wars
 
 ### Run Locally (For Active Development)
 
-1. **Database Setup**
+1. **Setup Infrastructure via Docker (Recommended)**
+   To quickly spin up the required PostgreSQL database, Redis cache, and Kafka broker, run:
+   ```bash
+   docker compose up -d postgres redis kafka
+   ```
+
+2. **Database Setup**
    *(Database migrations and initial schema setup are Planned)*
 
-2. **Run Backend**
+3. **Run Backend**
    ```bash
    cd backend
    dotnet run --project src/Presentation/Presentation.csproj
