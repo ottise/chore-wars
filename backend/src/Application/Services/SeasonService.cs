@@ -174,4 +174,76 @@ public class SeasonService : ISeasonService
         var rankings = await _unitOfWork.SeasonRankings.GetBySeasonIdAsync(seasonId, cancellationToken);
         return _mapper.Map<IEnumerable<SeasonRankingResponse>>(rankings);
     }
+
+    public async Task<SeasonResponse> CloneSeasonAsync(Guid seasonId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var originalSeason = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (originalSeason == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(originalSeason.HouseId, userId, cancellationToken);
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only the house owner can clone a season.");
+
+        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(originalSeason.HouseId, cancellationToken);
+        if (activeSeason != null)
+            throw new ConflictException("There is already an active season in this house.");
+
+        var newSeason = new ChoreSeason
+        {
+            Id = Guid.NewGuid(),
+            HouseId = originalSeason.HouseId,
+            Name = request.Name,
+            StartDate = request.StartDate.ToUniversalTime(),
+            EndDate = request.EndDate.ToUniversalTime(),
+            Status = SeasonStatus.DRAFT,
+            AllocationMethod = request.AllocationMethod
+        };
+
+        var originalChores = await _unitOfWork.Chores.GetBySeasonIdAsync(seasonId, cancellationToken);
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.Seasons.AddAsync(newSeason, cancellationToken);
+
+            foreach (var oldChore in originalChores)
+            {
+                var newChore = new Chore
+                {
+                    Id = Guid.NewGuid(),
+                    HouseId = newSeason.HouseId,
+                    SeasonId = newSeason.Id,
+                    Name = oldChore.Name,
+                    Description = oldChore.Description,
+                    KarmaPoints = oldChore.KarmaPoints,
+                    Type = oldChore.Type,
+                    FrequencyType = oldChore.FrequencyType,
+                    FrequencyValue = oldChore.FrequencyValue
+                };
+                
+                foreach (var oldDay in oldChore.FrequencyDays)
+                {
+                    newChore.FrequencyDays.Add(new ChoreFrequencyDay
+                    {
+                        Id = Guid.NewGuid(),
+                        ChoreId = newChore.Id,
+                        DayOfWeek = oldDay.DayOfWeek
+                    });
+                }
+                
+                await _unitOfWork.Chores.AddAsync(newChore, cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+
+        return _mapper.Map<SeasonResponse>(newSeason);
+    }
 }

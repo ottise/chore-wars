@@ -5,5 +5,5 @@ namespace ChoreWars.Application.Interfaces.Services;
 
 public interface IChoreAllocationService
 {
-    Task AllocateChoresAsync(CancellationToken cancellationToken = default);
+    Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default);
 }

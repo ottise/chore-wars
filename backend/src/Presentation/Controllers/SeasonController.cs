@@ -57,4 +57,11 @@ public class SeasonController : ControllerBase
         var rankings = await _seasonService.GetRankingsAsync(seasonId, CurrentUserId, cancellationToken);
         return Ok(rankings);
     }
+
+    [HttpPost("{seasonId}/reuse")]
+    public async Task<IActionResult> CloneSeason(Guid seasonId, [FromBody] CreateSeasonRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _seasonService.CloneSeasonAsync(seasonId, request, CurrentUserId, cancellationToken);
+        return Ok(response);
+    }
 }
