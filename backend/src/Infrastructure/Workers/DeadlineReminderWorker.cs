@@ -36,7 +36,7 @@ public class DeadlineReminderWorker : BackgroundService
                 
                 using (var scope = _scopeFactory.CreateScope())
                 {
-                    var dbContext = scope.ServiceProvider.GetRequiredService<ChoreWarsDbContext>();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     var eventPublisher = scope.ServiceProvider.GetRequiredService<IEventPublisher>();
 
                     var now = DateTime.UtcNow;

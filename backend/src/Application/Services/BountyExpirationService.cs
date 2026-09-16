@@ -89,7 +89,7 @@ public class BountyExpirationService : IBountyExpirationService
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
                 // Publish Event
-                await _eventPublisher.PublishAsync(new BountyExpiredEvent(bounty.Id, bounty.ChoreOccurrenceId), cancellationToken);
+                await _eventPublisher.PublishAsync(new BountyExpiredEvent(bounty.Id, bounty.ChoreOccurrenceId, bounty.PostedByUserId, bounty.ChoreOccurrence.Chore.HouseId), cancellationToken);
 
                 _logger.LogInformation($"Processed expired bounty {bounty.Id}");
             }

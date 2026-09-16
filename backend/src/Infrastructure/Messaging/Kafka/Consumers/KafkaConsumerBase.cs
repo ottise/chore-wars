@@ -8,6 +8,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Polly;
+
 namespace ChoreWars.Infrastructure.Messaging.Kafka.Consumers;
 
 public abstract class KafkaConsumerBase<TEvent> : BackgroundService
@@ -49,6 +51,16 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
 
         _logger.LogInformation($"Started consuming topic {_topic}");
 
+        var retryPolicy = Policy
+            .Handle<Exception>()
+            .WaitAndRetryAsync(
+                retryCount: 3,
+                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                onRetry: (exception, timeSpan, retryCount, context) =>
+                {
+                    _logger.LogWarning(exception, $"[{_topic}] Error processing message. Retrying {retryCount}/3 after {timeSpan.TotalSeconds} seconds.");
+                });
+
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -61,8 +73,18 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
                     var @event = JsonSerializer.Deserialize<TEvent>(consumeResult.Message.Value);
                     if (@event != null)
                     {
-                        using var scope = _scopeFactory.CreateScope();
-                        await ProcessEventAsync(@event, scope.ServiceProvider, cancellationToken);
+                        var policyResult = await retryPolicy.ExecuteAndCaptureAsync(async () =>
+                        {
+                            using var scope = _scopeFactory.CreateScope();
+                            await ProcessEventAsync(@event, scope.ServiceProvider, cancellationToken);
+                        });
+
+                        if (policyResult.Outcome == OutcomeType.Failure)
+                        {
+                            _logger.LogError(policyResult.FinalException, $"[{_topic}] Failed to process message after 3 retries. Moving on (simulated DLQ). Message: {consumeResult.Message.Value}");
+                        }
+                        
+                        // Always commit to prevent poison pill loop
                         consumer.Commit(consumeResult);
                     }
                 }

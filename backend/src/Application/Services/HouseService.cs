@@ -112,6 +112,15 @@ public class HouseService : IHouseService
             throw new ConflictException("Owner cannot leave the house.");
         }
 
+        var userOccurrences = await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(userId, cancellationToken);
+        var activeHouseOccurrences = userOccurrences.Where(o => o.Chore?.HouseId == houseId && 
+            (o.Status == ChoreOccurrenceStatus.ASSIGNED || o.Status == ChoreOccurrenceStatus.OVERDUE)).ToList();
+
+        if (activeHouseOccurrences.Any())
+        {
+            throw new ConflictException("Cannot leave house with active chore occurrences. Please complete or reassign them.");
+        }
+
         member.Status = HouseMemberStatus.LEFT;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

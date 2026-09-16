@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Domain.Entities;
+using ChoreWars.Domain.Enums;
 using ChoreWars.Infrastructure.Data;
 
 namespace ChoreWars.Infrastructure.Repositories;
