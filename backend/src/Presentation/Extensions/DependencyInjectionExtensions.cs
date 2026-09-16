@@ -43,6 +43,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IRewardRedemptionRepository, RewardRedemptionRepository>();
         services.AddScoped<IAchievementRepository, AchievementRepository>();
         services.AddScoped<IUserAchievementRepository, UserAchievementRepository>();
+        services.AddScoped<ISeasonConfirmationRepository, SeasonConfirmationRepository>();
         services.AddScoped<IChoreBountyRepository, ChoreBountyRepository>();
         services.AddScoped<IPaymentObligationRepository, PaymentObligationRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();

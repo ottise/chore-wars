@@ -15,10 +15,12 @@ namespace ChoreWars.Presentation.Controllers;
 public class SeasonController : ControllerBase
 {
     private readonly ISeasonService _seasonService;
+    private readonly IChoreAllocationService _choreAllocationService;
 
-    public SeasonController(ISeasonService seasonService)
+    public SeasonController(ISeasonService seasonService, IChoreAllocationService choreAllocationService)
     {
         _seasonService = seasonService;
+        _choreAllocationService = choreAllocationService;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -63,5 +65,40 @@ public class SeasonController : ControllerBase
     {
         var response = await _seasonService.CloneSeasonAsync(seasonId, request, CurrentUserId, cancellationToken);
         return Ok(response);
+    }
+
+    [HttpPost("{seasonId}/generate-schedule")]
+    public async Task<IActionResult> GenerateSchedule(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _seasonService.GenerateScheduleAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("{seasonId}/confirm")]
+    public async Task<IActionResult> ConfirmSeason(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _seasonService.ConfirmSeasonAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("{seasonId}/reject")]
+    public async Task<IActionResult> RejectSeason(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _seasonService.RejectSeasonAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPut("{seasonId}/occurrences/{occurrenceId}/assign")]
+    public async Task<IActionResult> ManualAllocate(Guid seasonId, Guid occurrenceId, [FromBody] Guid assigneeId, CancellationToken cancellationToken)
+    {
+        await _choreAllocationService.ManualAllocateAsync(seasonId, occurrenceId, assigneeId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpGet("{seasonId}/fairness-warnings")]
+    public async Task<IActionResult> GetFairnessWarnings(Guid seasonId, CancellationToken cancellationToken)
+    {
+        var warnings = await _choreAllocationService.GetFairnessWarningsAsync(seasonId, cancellationToken);
+        return Ok(warnings);
     }
 }

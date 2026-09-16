@@ -21,6 +21,7 @@ public interface IUnitOfWork : IDisposable
     IRewardRedemptionRepository RewardRedemptions { get; }
     IAchievementRepository Achievements { get; }
     IUserAchievementRepository UserAchievements { get; }
+    ISeasonConfirmationRepository SeasonConfirmations { get; }
     IChoreBountyRepository ChoreBounties { get; }
     IPaymentObligationRepository PaymentObligations { get; }
     INotificationRepository Notifications { get; }

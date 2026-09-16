@@ -16,11 +16,15 @@ public class SeasonService : ISeasonService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly IChoreGenerationService _generationService;
+    private readonly IChoreAllocationService _allocationService;
 
-    public SeasonService(IUnitOfWork unitOfWork, IMapper mapper)
+    public SeasonService(IUnitOfWork unitOfWork, IMapper mapper, IChoreGenerationService generationService, IChoreAllocationService allocationService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _generationService = generationService;
+        _allocationService = allocationService;
     }
 
     public async Task<SeasonResponse> CreateSeasonAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -245,5 +249,137 @@ public class SeasonService : ISeasonService
         }
 
         return _mapper.Map<SeasonResponse>(newSeason);
+    }
+
+    public async Task GenerateScheduleAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only the house owner can generate a schedule.");
+
+        if (season.Status != SeasonStatus.DRAFT)
+            throw new ConflictException("Season must be in DRAFT state to generate schedule.");
+
+        // 1. Generate all occurrences for the season
+        await _generationService.GenerateOccurrencesAsync(seasonId, userId);
+
+        // 2. Allocate chores
+        await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
+
+        // 3. Update Season status to REVIEWING
+        season.Status = SeasonStatus.REVIEWING;
+        
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _unitOfWork.Seasons.Update(season);
+
+            // 4. Create SeasonConfirmation records for all active members
+            var activeMembers = await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken);
+            foreach (var activeMember in activeMembers.Where(m => m.Status == HouseMemberStatus.ACTIVE))
+            {
+                var confirmation = new SeasonConfirmation
+                {
+                    Id = Guid.NewGuid(),
+                    SeasonId = seasonId,
+                    UserId = activeMember.UserId,
+                    Status = ConfirmationStatus.PENDING,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _unitOfWork.SeasonConfirmations.AddAsync(confirmation, cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task ConfirmSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        if (season.Status != SeasonStatus.REVIEWING)
+            throw new ConflictException("Season must be in REVIEWING state to confirm.");
+
+        var confirmation = await _unitOfWork.SeasonConfirmations.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
+        if (confirmation == null)
+            throw new ForbiddenException("You are not eligible to confirm this season.");
+
+        if (confirmation.Status == ConfirmationStatus.CONFIRMED)
+            throw new ConflictException("You have already confirmed this season.");
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            confirmation.Status = ConfirmationStatus.CONFIRMED;
+            _unitOfWork.SeasonConfirmations.Update(confirmation);
+
+            // Check if all active members have confirmed
+            var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
+                .Where(m => m.Status == HouseMemberStatus.ACTIVE)
+                .ToList();
+            var allConfirmations = await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken);
+            
+            bool allConfirmed = activeMembers.All(m => 
+                allConfirmations.Any(c => c.UserId == m.UserId && c.Status == ConfirmationStatus.CONFIRMED) || 
+                m.UserId == userId); // Handle current user who just confirmed
+
+            if (allConfirmed)
+            {
+                season.Status = SeasonStatus.ACTIVE;
+                _unitOfWork.Seasons.Update(season);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task RejectSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        if (season.Status != SeasonStatus.REVIEWING)
+            throw new ConflictException("Season must be in REVIEWING state to reject.");
+
+        var confirmation = await _unitOfWork.SeasonConfirmations.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
+        if (confirmation == null)
+            throw new ForbiddenException("You are not eligible to reject this season.");
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            season.Status = SeasonStatus.DRAFT;
+            _unitOfWork.Seasons.Update(season);
+
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 }

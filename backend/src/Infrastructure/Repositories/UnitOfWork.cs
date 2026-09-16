@@ -26,6 +26,7 @@ public class UnitOfWork : IUnitOfWork
     public IRewardRedemptionRepository RewardRedemptions { get; }
     public IAchievementRepository Achievements { get; }
     public IUserAchievementRepository UserAchievements { get; }
+    public ISeasonConfirmationRepository SeasonConfirmations { get; }
     public IChoreBountyRepository ChoreBounties { get; }
     public IPaymentObligationRepository PaymentObligations { get; }
     public INotificationRepository Notifications { get; }
@@ -47,6 +48,7 @@ public class UnitOfWork : IUnitOfWork
         IRewardRedemptionRepository rewardRedemptions,
         IAchievementRepository achievements,
         IUserAchievementRepository userAchievements,
+        ISeasonConfirmationRepository seasonConfirmations,
         IChoreBountyRepository choreBounties,
         IPaymentObligationRepository paymentObligations,
         INotificationRepository notifications)
@@ -67,6 +69,7 @@ public class UnitOfWork : IUnitOfWork
         RewardRedemptions = rewardRedemptions;
         Achievements = achievements;
         UserAchievements = userAchievements;
+        SeasonConfirmations = seasonConfirmations;
         ChoreBounties = choreBounties;
         PaymentObligations = paymentObligations;
         Notifications = notifications;

@@ -81,6 +81,13 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
         await _context.ChoreOccurrences.AddRangeAsync(occurrences, cancellationToken);
     }
 
+    public async Task DeleteBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
+        await _context.ChoreOccurrences
+            .Where(o => o.Chore.SeasonId == seasonId)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public void Update(ChoreOccurrence occurrence)
     {
         _context.ChoreOccurrences.Update(occurrence);
