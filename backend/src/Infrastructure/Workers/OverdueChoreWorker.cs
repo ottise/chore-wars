@@ -40,7 +40,7 @@ public class OverdueChoreWorker : BackgroundService
                 _logger.LogError(ex, "Error occurred executing OverdueChoreWorker.");
             }
 
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+            await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);
         }
     }
 }

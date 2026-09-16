@@ -35,8 +35,15 @@ public class KarmaTransactionRepository : IKarmaTransactionRepository
     public async Task<IEnumerable<KarmaTransaction>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
         return await _context.KarmaTransactions
-            .Where(t => t.SeasonId == seasonId)
-            .OrderByDescending(t => t.CreatedAt)
+            .Where(k => k.SeasonId == seasonId)
+            .OrderByDescending(k => k.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<KarmaTransaction>> GetByReferenceIdAndTypeAsync(Guid referenceId, KarmaTransactionType type, CancellationToken cancellationToken = default)
+    {
+        return await _context.KarmaTransactions
+            .Where(k => k.ReferenceId == referenceId && k.Type == type)
             .ToListAsync(cancellationToken);
     }
 

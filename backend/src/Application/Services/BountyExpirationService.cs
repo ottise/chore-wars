@@ -54,9 +54,9 @@ public class BountyExpirationService : IBountyExpirationService
 
                 if (eligibleMembers.Any())
                 {
-                    // Sort by highest KarmaBalance, then random
+                    // Sort by lowest KarmaBalance, then random
                     var assignee = eligibleMembers
-                        .OrderByDescending(m => m.KarmaBalance)
+                        .OrderBy(m => m.KarmaBalance)
                         .ThenBy(x => Guid.NewGuid())
                         .First();
 
@@ -65,6 +65,7 @@ public class BountyExpirationService : IBountyExpirationService
                     if (occurrence != null)
                     {
                         occurrence.AssignedUserId = assignee.UserId;
+                        occurrence.IsForcedReassigned = true;
                         _unitOfWork.ChoreOccurrences.Update(occurrence);
                     }
 

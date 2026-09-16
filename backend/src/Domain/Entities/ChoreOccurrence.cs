@@ -15,6 +15,7 @@ public class ChoreOccurrence
     public int SnapshotKarma { get; set; }
     public bool IsForcedReassigned { get; set; }
     public string? ProofImageUrl { get; set; }
+    public bool ReminderSent { get; set; }
 
     public Chore Chore { get; set; } = null!;
     public User? AssignedUser { get; set; }

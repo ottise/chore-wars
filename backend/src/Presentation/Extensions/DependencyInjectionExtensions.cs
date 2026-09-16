@@ -66,11 +66,14 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<OverdueChoreWorker>();
         services.AddHostedService<SeasonEndWorker>();
         services.AddHostedService<BountyExpirationWorker>();
+        services.AddHostedService<DeadlineReminderWorker>();
         
         services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.ChoreCompletedConsumer>();
         services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.BountyCreatedConsumer>();
         services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.ChoreOverdueConsumer>();
+        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.BountyExpiredConsumer>();
         services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.SeasonEndedConsumer>();
+        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.DeadlineReminderConsumer>();
 
         return services;
     }
@@ -94,6 +97,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IOverduePenaltyService, OverduePenaltyService>();
         services.AddScoped<IBountyExpirationService, BountyExpirationService>();
         services.AddScoped<IChoreAllocationService, ChoreAllocationService>();
+        services.AddScoped<IKarmaService, KarmaService>();
         services.AddScoped<ISeasonEndService, SeasonEndService>();
         services.AddScoped<IAchievementCheckService, AchievementCheckService>();
         services.AddScoped<IChoreGenerationService, ChoreGenerationService>();

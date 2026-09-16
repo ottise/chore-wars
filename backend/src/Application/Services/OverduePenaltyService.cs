@@ -18,15 +18,18 @@ public class OverduePenaltyService : IOverduePenaltyService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<OverduePenaltyService> _logger;
     private readonly IEventPublisher _eventPublisher;
+    private readonly IKarmaService _karmaService;
 
     public OverduePenaltyService(
         IUnitOfWork unitOfWork,
         ILogger<OverduePenaltyService> logger,
-        IEventPublisher eventPublisher)
+        IEventPublisher eventPublisher,
+        IKarmaService karmaService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _eventPublisher = eventPublisher;
+        _karmaService = karmaService;
     }
 
     public async Task ProcessOverduePenaltiesAsync(CancellationToken cancellationToken = default)
@@ -57,44 +60,43 @@ public class OverduePenaltyService : IOverduePenaltyService
                     expectedPenaltyCount = PenaltyConstants.MaxPenaltyCount;
                 }
 
-                int penaltiesToAdd = expectedPenaltyCount - occurrence.PenaltyCount;
+                if (expectedPenaltyCount <= 0)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    continue;
+                }
+
+                // Query KarmaTransactions for idempotency
+                var existingPenalties = await _unitOfWork.KarmaTransactions.GetByReferenceIdAndTypeAsync(occurrence.Id, KarmaTransactionType.PENALTY, cancellationToken);
+                int penaltiesApplied = existingPenalties.Count();
+
+                int penaltiesToAdd = expectedPenaltyCount - penaltiesApplied;
 
                 if (penaltiesToAdd > 0)
                 {
                     for (int i = 0; i < penaltiesToAdd; i++)
                     {
                         occurrence.PenaltyCount++;
-
-                        var karmaTransaction = new KarmaTransaction
-                        {
-                            Id = Guid.NewGuid(),
-                            HouseId = occurrence.Chore.HouseId,
-                            UserId = occurrence.AssignedUserId.Value,
-                            Amount = -PenaltyConstants.SinglePenalty,
-                            Type = KarmaTransactionType.PENALTY,
-                            ReferenceId = occurrence.Id,
-                            CreatedAt = now
-                        };
-
-                        await _unitOfWork.KarmaTransactions.AddAsync(karmaTransaction, cancellationToken);
-                        
-                        var houseMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(occurrence.Chore.HouseId, occurrence.AssignedUserId.Value, cancellationToken);
-                        if (houseMember != null)
-                        {
-                            houseMember.KarmaBalance -= PenaltyConstants.SinglePenalty;
-                            _unitOfWork.HouseMembers.Update(houseMember);
-                        }
+                        await _karmaService.AddKarmaTransactionAsync(
+                            occurrence.Chore.HouseId,
+                            occurrence.Chore.SeasonId,
+                            occurrence.AssignedUserId.Value,
+                            -PenaltyConstants.SinglePenalty,
+                            KarmaTransactionType.PENALTY,
+                            occurrence.Id,
+                            cancellationToken
+                        );
                     }
 
                     // Update Status
-                    if (occurrence.PenaltyCount == 1)
-                    {
-                        occurrence.Status = ChoreOccurrenceStatus.OVERDUE;
-                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId), cancellationToken);
-                    }
-                    else if (occurrence.PenaltyCount >= PenaltyConstants.MaxPenaltyCount)
+                    if (occurrence.PenaltyCount >= PenaltyConstants.MaxPenaltyCount)
                     {
                         occurrence.Status = ChoreOccurrenceStatus.CRITICAL_OVERDUE;
+                        await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId), cancellationToken);
+                    }
+                    else if (occurrence.PenaltyCount > 0)
+                    {
+                        occurrence.Status = ChoreOccurrenceStatus.OVERDUE;
                         await _eventPublisher.PublishAsync(new ChoreOverdueEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId), cancellationToken);
                     }
 

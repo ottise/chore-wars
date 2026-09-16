@@ -47,9 +47,55 @@ public class GamificationService : IGamificationService
         return _mapper.Map<IEnumerable<RewardResponse>>(rewards);
     }
 
-    public async Task UseChorePassAsync(Guid rewardId, Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task ClaimRewardAsync(Guid redemptionId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var reward = await _unitOfWork.Rewards.GetByIdAsync(rewardId, cancellationToken);
+        var redemption = await _unitOfWork.RewardRedemptions.GetByIdAsync(redemptionId, cancellationToken);
+        if (redemption == null)
+            throw new NotFoundException("Reward redemption not found");
+
+        if (redemption.UserId != userId)
+            throw new ForbiddenException("Cannot claim someone else's reward");
+
+        if (redemption.Status != RewardRedemptionStatus.UNCLAIMED)
+            throw new ConflictException("Reward is already claimed or expired");
+
+        if (redemption.ClaimDeadline.HasValue && redemption.ClaimDeadline.Value < DateTime.UtcNow)
+        {
+            redemption.Status = RewardRedemptionStatus.EXPIRED;
+            _unitOfWork.RewardRedemptions.Update(redemption);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw new ConflictException("Claim deadline has passed");
+        }
+
+        redemption.Status = RewardRedemptionStatus.CLAIMED;
+        
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _unitOfWork.RewardRedemptions.Update(redemption);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task UseChorePassAsync(Guid redemptionId, Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var redemption = await _unitOfWork.RewardRedemptions.GetByIdAsync(redemptionId, cancellationToken);
+        if (redemption == null)
+            throw new NotFoundException("Reward redemption not found");
+
+        if (redemption.UserId != userId)
+            throw new ForbiddenException("Cannot use someone else's reward");
+
+        if (redemption.Status != RewardRedemptionStatus.CLAIMED)
+            throw new ConflictException("Reward must be claimed before use, and cannot be already used");
+
+        var reward = await _unitOfWork.Rewards.GetByIdAsync(redemption.RewardId, cancellationToken);
         if (reward == null || reward.Type != RewardType.CHORE_PASS)
             throw new ConflictException("Invalid reward or not a chore pass.");
 
@@ -59,33 +105,33 @@ public class GamificationService : IGamificationService
 
         if (occurrence.AssignedUserId != userId)
             throw new ForbiddenException("Can only skip your own chore.");
-
-        var ranking = await _unitOfWork.SeasonRankings.GetBySeasonAndUserIdAsync(reward.SeasonId, userId, cancellationToken);
-        if (ranking == null || ranking.Rank != 1)
-            throw new ForbiddenException("You must be Rank 1 to use a Chore Pass.");
-
-        var existingRedemption = await _unitOfWork.RewardRedemptions.GetByRewardAndUserIdAsync(rewardId, userId, cancellationToken);
-        if (existingRedemption != null)
-            throw new ConflictException("You have already used this Chore Pass.");
         
-        occurrence.Status = ChoreOccurrenceStatus.SKIPPED;
+        occurrence.Status = ChoreOccurrenceStatus.SKIPPED; // Initially marked skipped for original user, but we'll reassign it below
         
-        var redemption = new ChoreWars.Domain.Entities.RewardRedemption
-        {
-            Id = Guid.NewGuid(),
-            RewardId = rewardId,
-            UserId = userId,
-            Status = RewardRedemptionStatus.USED,
-            RedeemedAt = DateTime.UtcNow,
-            UsedAt = DateTime.UtcNow
-        };
+        redemption.Status = RewardRedemptionStatus.USED;
+        redemption.UsedAt = DateTime.UtcNow;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // Reassignment logic: Find member with lowest karma to do it
+            var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
+            var eligibleMembers = members.Where(m => m.UserId != userId).ToList();
+
+            if (eligibleMembers.Any())
+            {
+                var assignee = eligibleMembers
+                    .OrderBy(m => m.KarmaBalance)
+                    .ThenBy(x => Guid.NewGuid())
+                    .First();
+
+                occurrence.AssignedUserId = assignee.UserId;
+                occurrence.Status = ChoreOccurrenceStatus.ASSIGNED;
+                occurrence.IsForcedReassigned = true;
+            }
+
             _unitOfWork.ChoreOccurrences.Update(occurrence);
-            await _unitOfWork.RewardRedemptions.AddAsync(redemption, cancellationToken);
-            // Reassignment logic would typically be handled by a worker or event handler
+            _unitOfWork.RewardRedemptions.Update(redemption);
             
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

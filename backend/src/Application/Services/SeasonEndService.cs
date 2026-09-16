@@ -43,17 +43,32 @@ public class SeasonEndService : ISeasonEndService
                 _unitOfWork.Seasons.Update(season);
 
                 var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken);
+                var seasonKarma = await _unitOfWork.KarmaTransactions.GetBySeasonIdAsync(season.Id, cancellationToken);
                 
+                var rankedMembers = members.Select(m => {
+                    var memberTx = seasonKarma.Where(t => t.UserId == m.UserId).ToList();
+                    return new {
+                        Member = m,
+                        TotalKarma = m.KarmaBalance,
+                        CompletedCount = memberTx.Count(t => t.Type == KarmaTransactionType.CHORE_COMPLETED),
+                        BonusCount = memberTx.Count(t => t.Type == KarmaTransactionType.BONUS)
+                    };
+                })
+                .OrderByDescending(x => x.TotalKarma)
+                .ThenByDescending(x => x.CompletedCount)
+                .ThenByDescending(x => x.BonusCount)
+                .ToList();
+
                 // Aggregate Karma for Ranking
                 int rank = 1;
-                foreach (var member in members.OrderByDescending(m => m.KarmaBalance))
+                foreach (var item in rankedMembers)
                 {
                     var ranking = new SeasonRanking
                     {
                         Id = Guid.NewGuid(),
                         SeasonId = season.Id,
-                        UserId = member.UserId,
-                        TotalKarma = member.KarmaBalance,
+                        UserId = item.Member.UserId,
+                        TotalKarma = item.TotalKarma,
                         Rank = rank
                     };
                     
@@ -65,22 +80,22 @@ public class SeasonEndService : ISeasonEndService
                         var chorePassReward = await _unitOfWork.Rewards.GetChorePassRewardAsync(cancellationToken);
                         if (chorePassReward != null)
                         {
-                            var userAchievement = new UserAchievement
+                            var redemption = new RewardRedemption
                             {
                                 Id = Guid.NewGuid(),
-                                UserId = member.UserId,
-                                AchievementId = chorePassReward.Id, // Actually should be UserReward, but keeping with existing model
-                                UnlockedAt = now
+                                RewardId = chorePassReward.Id,
+                                UserId = item.Member.UserId,
+                                Status = RewardRedemptionStatus.UNCLAIMED,
+                                ClaimDeadline = now.AddDays(7), // Example: 7 days to claim
+                                UsageDeadline = now.AddDays(30) // 30 days to use
                             };
-                            await _unitOfWork.UserAchievements.AddAsync(userAchievement, cancellationToken);
-                            
-                            // Alternatively, increment a chore pass count on the member if that exists.
+                            await _unitOfWork.RewardRedemptions.AddAsync(redemption, cancellationToken);
                         }
                     }
 
                     // Reset Karma for next season
-                    member.KarmaBalance = 0;
-                    _unitOfWork.HouseMembers.Update(member);
+                    item.Member.KarmaBalance = 0;
+                    _unitOfWork.HouseMembers.Update(item.Member);
                     
                     rank++;
                 }

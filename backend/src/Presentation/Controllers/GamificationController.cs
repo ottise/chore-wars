@@ -36,10 +36,17 @@ public class GamificationController : ControllerBase
         return Ok(rewards);
     }
 
-    [HttpPost("rewards/{rewardId}/use-chore-pass/{occurrenceId}")]
-    public async Task<IActionResult> UseChorePass(Guid houseId, Guid rewardId, Guid occurrenceId, CancellationToken cancellationToken)
+    [HttpPost("rewards/redemptions/{redemptionId}/claim")]
+    public async Task<IActionResult> ClaimReward(Guid houseId, Guid redemptionId, CancellationToken cancellationToken)
     {
-        await _gamificationService.UseChorePassAsync(rewardId, occurrenceId, CurrentUserId, cancellationToken);
+        await _gamificationService.ClaimRewardAsync(redemptionId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("rewards/redemptions/{redemptionId}/use-chore-pass/{occurrenceId}")]
+    public async Task<IActionResult> UseChorePass(Guid houseId, Guid redemptionId, Guid occurrenceId, CancellationToken cancellationToken)
+    {
+        await _gamificationService.UseChorePassAsync(redemptionId, occurrenceId, CurrentUserId, cancellationToken);
         return Ok();
     }
 

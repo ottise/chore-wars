@@ -12,6 +12,7 @@ public static class KafkaTopics
     public const string CHORE_OVERDUE = "chore.overdue";
     public const string BOUNTY_EXPIRED = "bounty.expired";
     public const string SEASON_ENDED = "season.ended";
+    public const string DEADLINE_REMINDER = "chore.deadline_reminder";
 
     public static readonly IReadOnlyDictionary<Type, string> EventTopicMap = new Dictionary<Type, string>
     {
@@ -20,6 +21,7 @@ public static class KafkaTopics
         { typeof(BountyAcceptedEvent), BOUNTY_ACCEPTED },
         { typeof(ChoreOverdueEvent), CHORE_OVERDUE },
         { typeof(BountyExpiredEvent), BOUNTY_EXPIRED },
-        { typeof(SeasonEndedEvent), SEASON_ENDED }
+        { typeof(SeasonEndedEvent), SEASON_ENDED },
+        { typeof(DeadlineReminderEvent), DEADLINE_REMINDER }
     };
 }

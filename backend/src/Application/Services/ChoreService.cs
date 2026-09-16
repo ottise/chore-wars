@@ -21,12 +21,14 @@ public class ChoreService : IChoreService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly IEventPublisher _eventPublisher;
+    private readonly IKarmaService _karmaService;
 
-    public ChoreService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher)
+    public ChoreService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IKarmaService karmaService)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _eventPublisher = eventPublisher;
+        _karmaService = karmaService;
     }
 
     public async Task<ChoreResponse> CreateChoreAsync(Guid houseId, CreateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -104,18 +106,6 @@ public class ChoreService : IChoreService
         if (chore == null)
             throw new NotFoundException(nameof(Chore), occurrence.ChoreId);
 
-        var karma = new KarmaTransaction 
-        { 
-            Id = Guid.NewGuid(),
-            UserId = userId, 
-            HouseId = chore.HouseId,
-            SeasonId = chore.SeasonId,
-            Amount = chore.KarmaPoints,
-            Type = KarmaTransactionType.CHORE_COMPLETED,
-            ReferenceId = occurrenceId,
-            CreatedAt = DateTime.UtcNow
-        };
-
         var bounty = await _unitOfWork.ChoreBounties.GetByOccurrenceIdAsync(occurrenceId, cancellationToken);
         PaymentObligation? payment = null;
 
@@ -141,7 +131,7 @@ public class ChoreService : IChoreService
         try
         {
             _unitOfWork.ChoreOccurrences.Update(occurrence);
-            await _unitOfWork.KarmaTransactions.AddAsync(karma, cancellationToken);
+            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, chore.SeasonId, userId, chore.KarmaPoints, KarmaTransactionType.CHORE_COMPLETED, occurrenceId, cancellationToken);
             
             if (bounty != null && payment != null)
             {
