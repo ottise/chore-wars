@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Domain.Entities;
+using ChoreWars.Domain.Enums;
 using ChoreWars.Infrastructure.Data;
 
 namespace ChoreWars.Infrastructure.Repositories;
@@ -34,7 +35,7 @@ public class RewardRepository : IRewardRepository
     public async Task<Reward?> GetChorePassRewardAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Rewards
-            .FirstOrDefaultAsync(r => r.Type == ChoreWars.Domain.Enums.RewardType.CHORE_PASS, cancellationToken);
+            .FirstOrDefaultAsync(r => r.Type == RewardType.CHORE_PASS, cancellationToken);
     }
 
     public async Task AddAsync(Reward reward, CancellationToken cancellationToken = default)

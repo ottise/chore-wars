@@ -1,5 +1,4 @@
 using System.Text;
-using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -9,20 +8,19 @@ using StackExchange.Redis;
 using ChoreWars.Application.Interfaces;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
-using ChoreWars.Application.Services;
-using ChoreWars.Application.Validations.Auth;
 using ChoreWars.Infrastructure.Auth;
 using ChoreWars.Infrastructure.Cache.Redis;
 using ChoreWars.Infrastructure.Data;
 using ChoreWars.Infrastructure.Messaging.Kafka;
+using ChoreWars.Infrastructure.Messaging.Kafka.Consumers;
 using ChoreWars.Infrastructure.Repositories;
 using ChoreWars.Infrastructure.Workers;
 
 namespace ChoreWars.Presentation.Extensions;
 
-public static class DependencyInjectionExtensions
+public static class InfrastructureServiceExtensions
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
@@ -68,39 +66,12 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<BountyExpirationWorker>();
         services.AddHostedService<DeadlineReminderWorker>();
         
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.ChoreCompletedConsumer>();
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.BountyCreatedConsumer>();
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.ChoreOverdueConsumer>();
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.BountyExpiredConsumer>();
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.SeasonEndedConsumer>();
-        services.AddHostedService<ChoreWars.Infrastructure.Messaging.Kafka.Consumers.DeadlineReminderConsumer>();
-
-        return services;
-    }
-
-    public static IServiceCollection AddApplication(this IServiceCollection services)
-    {
-        // AutoMapper
-        services.AddAutoMapper(typeof(AuthService).Assembly);
-
-        // FluentValidation
-        services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
-
-        // Services
-        services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IHouseService, HouseService>();
-        services.AddScoped<ISeasonService, SeasonService>();
-        services.AddScoped<IChoreService, ChoreService>();
-        services.AddScoped<IGamificationService, GamificationService>();
-        services.AddScoped<IBountyService, BountyService>();
-        services.AddScoped<INotificationService, NotificationService>();
-        services.AddScoped<IOverduePenaltyService, OverduePenaltyService>();
-        services.AddScoped<IBountyExpirationService, BountyExpirationService>();
-        services.AddScoped<IChoreAllocationService, ChoreAllocationService>();
-        services.AddScoped<IKarmaService, KarmaService>();
-        services.AddScoped<ISeasonEndService, SeasonEndService>();
-        services.AddScoped<IAchievementCheckService, AchievementCheckService>();
-        services.AddScoped<IChoreGenerationService, ChoreGenerationService>();
+        services.AddHostedService<ChoreCompletedConsumer>();
+        services.AddHostedService<BountyCreatedConsumer>();
+        services.AddHostedService<ChoreOverdueConsumer>();
+        services.AddHostedService<BountyExpiredConsumer>();
+        services.AddHostedService<SeasonEndedConsumer>();
+        services.AddHostedService<DeadlineReminderConsumer>();
 
         return services;
     }

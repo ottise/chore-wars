@@ -35,7 +35,7 @@ public class GlobalExceptionMiddleware
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
 
         var statusCode = exception switch
         {
@@ -49,13 +49,19 @@ public class GlobalExceptionMiddleware
 
         context.Response.StatusCode = statusCode;
 
-        var response = new
+        var problemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
         {
-            StatusCode = statusCode,
-            Message = exception.Message,
-            Type = exception.GetType().Name
+            Status = statusCode,
+            Title = exception.GetType().Name,
+            Detail = exception.Message,
+            Instance = context.Request.Path
         };
 
-        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        if (exception is ValidationException validationException)
+        {
+            problemDetails.Extensions["errors"] = validationException.Errors;
+        }
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails));
     }
 }

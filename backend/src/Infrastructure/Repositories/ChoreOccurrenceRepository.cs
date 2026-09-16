@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Domain.Entities;
+using ChoreWars.Domain.Enums;
 using ChoreWars.Infrastructure.Data;
 
 namespace ChoreWars.Infrastructure.Repositories;
@@ -66,7 +67,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
         // Status is ASSIGNED or OVERDUE
         return await _context.ChoreOccurrences
             .Include(o => o.Chore)
-            .Where(o => (o.Status == ChoreWars.Domain.Enums.ChoreOccurrenceStatus.ASSIGNED || o.Status == ChoreWars.Domain.Enums.ChoreOccurrenceStatus.OVERDUE)
+            .Where(o => (o.Status == ChoreOccurrenceStatus.ASSIGNED || o.Status == ChoreOccurrenceStatus.OVERDUE)
                      && o.DueDate < now)
             .ToListAsync(cancellationToken);
     }
