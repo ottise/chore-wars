@@ -9,4 +9,8 @@ public class RewardResponse
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public RewardType Type { get; set; }
+    public Guid? RedemptionId { get; set; }
+    public RewardRedemptionStatus? Status { get; set; }
+    public DateTime? ClaimDeadline { get; set; }
+    public DateTime? UsageDeadline { get; set; }
 }

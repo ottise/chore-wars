@@ -176,7 +176,42 @@ public class SeasonService : ISeasonService
             throw new ForbiddenException();
 
         var rankings = await _unitOfWork.SeasonRankings.GetBySeasonIdAsync(seasonId, cancellationToken);
-        return _mapper.Map<IEnumerable<SeasonRankingResponse>>(rankings);
+        var snapshot = rankings.ToList();
+        if (snapshot.Count > 0)
+            return _mapper.Map<IEnumerable<SeasonRankingResponse>>(snapshot);
+
+        var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken);
+        var transactions = await _unitOfWork.KarmaTransactions.GetBySeasonIdAsync(seasonId, cancellationToken);
+        var liveRanking = members
+            .Select(houseMember =>
+            {
+                var memberTransactions = transactions
+                    .Where(item => item.UserId == houseMember.UserId)
+                    .ToList();
+                return new
+                {
+                    houseMember.UserId,
+                    houseMember.User.DisplayName,
+                    TotalKarma = memberTransactions.Sum(item => item.Amount),
+                    Completed = memberTransactions.Count(item =>
+                        item.Type == KarmaTransactionType.CHORE_COMPLETED),
+                    Bonus = memberTransactions.Count(item =>
+                        item.Type is KarmaTransactionType.BONUS or KarmaTransactionType.BOUNTY_REWARD)
+                };
+            })
+            .OrderByDescending(item => item.TotalKarma)
+            .ThenByDescending(item => item.Completed)
+            .ThenByDescending(item => item.Bonus)
+            .ToList();
+
+        return liveRanking.Select((item, index) => new SeasonRankingResponse
+        {
+            UserId = item.UserId,
+            DisplayName = item.DisplayName,
+            TotalKarma = item.TotalKarma,
+            Rank = index + 1,
+            ChoresCompleted = item.Completed
+        });
     }
 
     public async Task<SeasonResponse> CloneSeasonAsync(Guid seasonId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)

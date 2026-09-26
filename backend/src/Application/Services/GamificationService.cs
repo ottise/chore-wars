@@ -25,12 +25,64 @@ public class GamificationService : IGamificationService
 
     public async Task<int> GetKarmaBalanceAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
+        var summary = await GetKarmaSummaryAsync(houseId, userId, cancellationToken);
+        return summary.Current;
+    }
+
+    public async Task<KarmaSummaryResponse> GetKarmaSummaryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
         var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
         if (activeSeason == null)
-            return 0;
+            return new KarmaSummaryResponse();
 
-        var ranking = await _unitOfWork.SeasonRankings.GetBySeasonAndUserIdAsync(activeSeason.Id, userId, cancellationToken);
-        return ranking?.TotalKarma ?? 0;
+        var transactions = (await _unitOfWork.KarmaTransactions.GetByUserIdAsync(userId, cancellationToken))
+            .Where(item => item.HouseId == houseId && item.SeasonId == activeSeason.Id)
+            .ToList();
+
+        return new KarmaSummaryResponse
+        {
+            Current = transactions.Sum(item => item.Amount),
+            NormalChores = transactions
+                .Where(item => item.Type == KarmaTransactionType.CHORE_COMPLETED)
+                .Sum(item => item.Amount),
+            Bonus = transactions
+                .Where(item => item.Type is KarmaTransactionType.BONUS or KarmaTransactionType.BOUNTY_REWARD)
+                .Sum(item => item.Amount),
+            Penalties = transactions
+                .Where(item => item.Type == KarmaTransactionType.PENALTY)
+                .Sum(item => item.Amount)
+        };
+    }
+
+    public async Task<IEnumerable<KarmaTransactionResponse>> GetKarmaHistoryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
+        var transactions = await _unitOfWork.KarmaTransactions.GetByUserIdAsync(userId, cancellationToken);
+        return transactions
+            .Where(item => item.HouseId == houseId)
+            .Select(item => new KarmaTransactionResponse
+            {
+                Id = item.Id,
+                Amount = item.Amount,
+                Type = item.Type,
+                Description = item.Type switch
+                {
+                    KarmaTransactionType.CHORE_COMPLETED => "Chore completed",
+                    KarmaTransactionType.PENALTY => "Overdue penalty",
+                    KarmaTransactionType.BOUNTY_REWARD => "Bounty reward",
+                    KarmaTransactionType.REWARD_REDEEMED => "Reward redeemed",
+                    KarmaTransactionType.BONUS => "Bonus chore",
+                    _ => "Karma update"
+                },
+                CreatedAt = item.CreatedAt
+            });
     }
 
     public async Task<IEnumerable<RewardResponse>> GetSeasonRewardsAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
@@ -44,7 +96,34 @@ public class GamificationService : IGamificationService
             throw new ForbiddenException();
 
         var rewards = await _unitOfWork.Rewards.GetBySeasonIdAsync(seasonId, cancellationToken);
-        return _mapper.Map<IEnumerable<RewardResponse>>(rewards);
+        var response = new List<RewardResponse>();
+        foreach (var reward in rewards)
+        {
+            var redemption = await _unitOfWork.RewardRedemptions.GetByRewardAndUserIdAsync(
+                reward.Id,
+                userId,
+                cancellationToken);
+            if (redemption == null)
+                continue;
+
+            var status = redemption.Status;
+            if (status == RewardRedemptionStatus.UNCLAIMED &&
+                redemption.ClaimDeadline.HasValue &&
+                redemption.ClaimDeadline.Value < DateTime.UtcNow)
+                status = RewardRedemptionStatus.EXPIRED;
+            if (status == RewardRedemptionStatus.CLAIMED &&
+                redemption.UsageDeadline.HasValue &&
+                redemption.UsageDeadline.Value < DateTime.UtcNow)
+                status = RewardRedemptionStatus.EXPIRED;
+
+            var rewardResponse = _mapper.Map<RewardResponse>(reward);
+            rewardResponse.RedemptionId = redemption.Id;
+            rewardResponse.Status = status;
+            rewardResponse.ClaimDeadline = redemption.ClaimDeadline;
+            rewardResponse.UsageDeadline = redemption.UsageDeadline;
+            response.Add(rewardResponse);
+        }
+        return response;
     }
 
     public async Task ClaimRewardAsync(Guid redemptionId, Guid userId, CancellationToken cancellationToken = default)
@@ -68,6 +147,8 @@ public class GamificationService : IGamificationService
         }
 
         redemption.Status = RewardRedemptionStatus.CLAIMED;
+        redemption.RedeemedAt = DateTime.UtcNow;
+        redemption.UsageDeadline = DateTime.UtcNow.AddDays(10);
         
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -95,6 +176,14 @@ public class GamificationService : IGamificationService
         if (redemption.Status != RewardRedemptionStatus.CLAIMED)
             throw new ConflictException("Reward must be claimed before use, and cannot be already used");
 
+        if (redemption.UsageDeadline.HasValue && redemption.UsageDeadline.Value < DateTime.UtcNow)
+        {
+            redemption.Status = RewardRedemptionStatus.EXPIRED;
+            _unitOfWork.RewardRedemptions.Update(redemption);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            throw new ConflictException("Chore pass has expired");
+        }
+
         var reward = await _unitOfWork.Rewards.GetByIdAsync(redemption.RewardId, cancellationToken);
         if (reward == null || reward.Type != RewardType.CHORE_PASS)
             throw new ConflictException("Invalid reward or not a chore pass.");
@@ -105,31 +194,29 @@ public class GamificationService : IGamificationService
 
         if (occurrence.AssignedUserId != userId)
             throw new ForbiddenException("Can only skip your own chore.");
+
+        if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED)
+            throw new ConflictException("Only a pending chore can be covered by a Chore Pass.");
         
-        occurrence.Status = ChoreOccurrenceStatus.SKIPPED; // Initially marked skipped for original user, but we'll reassign it below
-        
+        var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
+        var eligibleMembers = members.Where(m => m.UserId != userId).ToList();
+        if (!eligibleMembers.Any())
+            throw new ConflictException("No eligible house member is available to cover this chore.");
+
+        var assignee = eligibleMembers
+            .OrderBy(m => m.KarmaBalance)
+            .ThenBy(x => Guid.NewGuid())
+            .First();
+
+        occurrence.AssignedUserId = assignee.UserId;
+        occurrence.Status = ChoreOccurrenceStatus.ASSIGNED;
+        occurrence.IsForcedReassigned = true;
         redemption.Status = RewardRedemptionStatus.USED;
         redemption.UsedAt = DateTime.UtcNow;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Reassignment logic: Find member with lowest karma to do it
-            var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
-            var eligibleMembers = members.Where(m => m.UserId != userId).ToList();
-
-            if (eligibleMembers.Any())
-            {
-                var assignee = eligibleMembers
-                    .OrderBy(m => m.KarmaBalance)
-                    .ThenBy(x => Guid.NewGuid())
-                    .First();
-
-                occurrence.AssignedUserId = assignee.UserId;
-                occurrence.Status = ChoreOccurrenceStatus.ASSIGNED;
-                occurrence.IsForcedReassigned = true;
-            }
-
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             _unitOfWork.RewardRedemptions.Update(redemption);
             
@@ -145,7 +232,19 @@ public class GamificationService : IGamificationService
 
     public async Task<IEnumerable<AchievementResponse>> GetAchievementsAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
         var achievements = await _unitOfWork.Achievements.GetByHouseIdAsync(houseId, cancellationToken);
-        return _mapper.Map<IEnumerable<AchievementResponse>>(achievements);
+        var unlocked = (await _unitOfWork.UserAchievements.GetByUserIdAsync(userId, cancellationToken))
+            .ToDictionary(item => item.AchievementId, item => item.UnlockedAt);
+        return achievements.Select(item =>
+        {
+            var response = _mapper.Map<AchievementResponse>(item);
+            response.IsUnlocked = unlocked.ContainsKey(item.Id);
+            response.UnlockedAt = unlocked.GetValueOrDefault(item.Id);
+            return response;
+        });
     }
 }

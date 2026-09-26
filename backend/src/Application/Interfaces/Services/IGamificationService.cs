@@ -9,6 +9,8 @@ namespace ChoreWars.Application.Interfaces.Services;
 public interface IGamificationService
 {
     Task<int> GetKarmaBalanceAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<KarmaSummaryResponse> GetKarmaSummaryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<KarmaTransactionResponse>> GetKarmaHistoryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<RewardResponse>> GetSeasonRewardsAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);
     Task ClaimRewardAsync(Guid redemptionId, Guid userId, CancellationToken cancellationToken = default);
     Task UseChorePassAsync(Guid redemptionId, Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default);

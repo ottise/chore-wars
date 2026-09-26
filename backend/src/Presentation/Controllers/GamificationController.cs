@@ -25,8 +25,15 @@ public class GamificationController : ControllerBase
     [HttpGet("karma")]
     public async Task<IActionResult> GetKarmaBalance(Guid houseId, CancellationToken cancellationToken)
     {
-        var karma = await _gamificationService.GetKarmaBalanceAsync(houseId, CurrentUserId, cancellationToken);
-        return Ok(new { Karma = karma });
+        var karma = await _gamificationService.GetKarmaSummaryAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(karma);
+    }
+
+    [HttpGet("karma/history")]
+    public async Task<IActionResult> GetKarmaHistory(Guid houseId, CancellationToken cancellationToken)
+    {
+        var history = await _gamificationService.GetKarmaHistoryAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(history);
     }
 
     [HttpGet("seasons/{seasonId}/rewards")]

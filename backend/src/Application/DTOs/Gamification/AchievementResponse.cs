@@ -10,4 +10,6 @@ public class AchievementResponse
     public string Description { get; set; } = string.Empty;
     public AchievementConditionType ConditionType { get; set; }
     public int Threshold { get; set; }
+    public bool IsUnlocked { get; set; }
+    public DateTime? UnlockedAt { get; set; }
 }
