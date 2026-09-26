@@ -16,9 +16,7 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size.fromHeight(50),
-      ),
+      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
       child: isLoading
           ? const SizedBox(
               height: 20,

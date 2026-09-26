@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/storage/local_storage.dart';
+import 'core/widgets/web_preview_frame.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final sharedPreferences = await SharedPreferences.getInstance();
 
   runApp(
@@ -33,6 +35,8 @@ class ChoreWarsApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // we can use local_storage for this later
       routerConfig: router,
+      builder: (context, child) =>
+          WebPreviewFrame(child: child ?? const SizedBox.shrink()),
     );
   }
 }

@@ -69,7 +69,8 @@ public class SeasonEndService : ISeasonEndService
                         SeasonId = season.Id,
                         UserId = item.Member.UserId,
                         TotalKarma = item.TotalKarma,
-                        Rank = rank
+                        Rank = rank,
+                        ChoresCompleted = item.CompletedCount
                     };
                     
                     await _unitOfWork.SeasonRankings.AddAsync(ranking, cancellationToken);
@@ -77,20 +78,32 @@ public class SeasonEndService : ISeasonEndService
                     // Reward Rank #1 with Chore Pass
                     if (rank == 1)
                     {
-                        var chorePassReward = await _unitOfWork.Rewards.GetChorePassRewardAsync(cancellationToken);
-                        if (chorePassReward != null)
+                        var seasonRewards = await _unitOfWork.Rewards.GetBySeasonIdAsync(season.Id, cancellationToken);
+                        var chorePassReward = seasonRewards.FirstOrDefault(reward => reward.Type == RewardType.CHORE_PASS);
+                        if (chorePassReward == null)
                         {
-                            var redemption = new RewardRedemption
+                            chorePassReward = new Reward
                             {
                                 Id = Guid.NewGuid(),
-                                RewardId = chorePassReward.Id,
-                                UserId = item.Member.UserId,
-                                Status = RewardRedemptionStatus.UNCLAIMED,
-                                ClaimDeadline = now.AddDays(7), // Example: 7 days to claim
-                                UsageDeadline = now.AddDays(30) // 30 days to use
+                                HouseId = season.HouseId,
+                                SeasonId = season.Id,
+                                Name = "Chore Pass",
+                                Description = "Skip one assignment without a penalty. The chore will be reassigned.",
+                                Type = RewardType.CHORE_PASS
                             };
-                            await _unitOfWork.RewardRedemptions.AddAsync(redemption, cancellationToken);
+                            await _unitOfWork.Rewards.AddAsync(chorePassReward, cancellationToken);
                         }
+
+                        var redemption = new RewardRedemption
+                        {
+                            Id = Guid.NewGuid(),
+                            RewardId = chorePassReward.Id,
+                            UserId = item.Member.UserId,
+                            Status = RewardRedemptionStatus.UNCLAIMED,
+                            ClaimDeadline = now.AddDays(7),
+                            UsageDeadline = null
+                        };
+                        await _unitOfWork.RewardRedemptions.AddAsync(redemption, cancellationToken);
                     }
 
                     // Reset Karma for next season

@@ -37,6 +37,13 @@ public class ChoreController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("occurrences/{occurrenceId}")]
+    public async Task<IActionResult> GetOccurrence(Guid occurrenceId, CancellationToken cancellationToken)
+    {
+        var response = await _choreService.GetOccurrenceAsync(occurrenceId, CurrentUserId, cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost("occurrences/{occurrenceId}/skip")]
     public async Task<IActionResult> SkipChore(Guid occurrenceId, CancellationToken cancellationToken)
     {

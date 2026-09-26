@@ -16,4 +16,5 @@ public interface IChoreService
     Task CompleteChoreAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default);
     Task SkipChoreAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrenceResponse>> GetMyChoresAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<ChoreOccurrenceResponse> GetOccurrenceAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default);
 }

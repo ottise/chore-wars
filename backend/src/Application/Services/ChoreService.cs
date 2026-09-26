@@ -131,7 +131,13 @@ public class ChoreService : IChoreService
         try
         {
             _unitOfWork.ChoreOccurrences.Update(occurrence);
-            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, chore.SeasonId, userId, chore.KarmaPoints, KarmaTransactionType.CHORE_COMPLETED, occurrenceId, cancellationToken);
+            var transactionType = chore.Type == ChoreType.BONUS
+                ? KarmaTransactionType.BONUS
+                : KarmaTransactionType.CHORE_COMPLETED;
+            var karmaAmount = occurrence.SnapshotKarma > 0
+                ? occurrence.SnapshotKarma
+                : chore.KarmaPoints;
+            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, chore.SeasonId, userId, karmaAmount, transactionType, occurrenceId, cancellationToken);
             
             if (bounty != null && payment != null)
             {
@@ -167,6 +173,11 @@ public class ChoreService : IChoreService
         if (member == null || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only owner can manually skip a chore (unless using a pass).");
 
+        if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED &&
+            occurrence.Status != ChoreOccurrenceStatus.OVERDUE &&
+            occurrence.Status != ChoreOccurrenceStatus.CRITICAL_OVERDUE)
+            throw new ConflictException("Chore is not in a skippable state.");
+
         occurrence.Status = ChoreOccurrenceStatus.SKIPPED;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -192,6 +203,22 @@ public class ChoreService : IChoreService
         var occurrences = await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(userId, cancellationToken);
         var houseOccurrences = occurrences.Where(o => o.Chore != null && o.Chore.HouseId == houseId);
         return _mapper.Map<IEnumerable<ChoreOccurrenceResponse>>(houseOccurrences);
+    }
+
+    public async Task<ChoreOccurrenceResponse> GetOccurrenceAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
+        if (occurrence == null)
+            throw new NotFoundException(nameof(ChoreOccurrence), occurrenceId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(
+            occurrence.Chore.HouseId,
+            userId,
+            cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
+        return _mapper.Map<ChoreOccurrenceResponse>(occurrence);
     }
 
     public async Task<ChoreResponse> UpdateChoreAsync(Guid choreId, UpdateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)
