@@ -29,6 +29,8 @@ public class DeadlineReminderConsumer : KafkaConsumerBase<DeadlineReminderEvent>
             title: "Chore Deadline Approaching",
             message: "One of your assigned chores is due in less than 2 hours. Please complete it soon to avoid a penalty.",
             type: "CHORE_REMINDER",
+            targetType: "CHORE",
+            targetId: @event.ChoreOccurrenceId,
             cancellationToken: cancellationToken);
     }
 }

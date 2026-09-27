@@ -44,6 +44,27 @@ public class BountyController : ControllerBase
         return Ok(bounties);
     }
 
+    [HttpGet("{bountyId}")]
+    public async Task<IActionResult> GetBounty(Guid houseId, Guid bountyId, CancellationToken cancellationToken)
+    {
+        var bounty = await _bountyService.GetBountyAsync(houseId, bountyId, CurrentUserId, cancellationToken);
+        return Ok(bounty);
+    }
+
+    [HttpGet("payments")]
+    public async Task<IActionResult> GetPayments(Guid houseId, CancellationToken cancellationToken)
+    {
+        var payments = await _bountyService.GetPaymentsAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(payments);
+    }
+
+    [HttpGet("payments/{paymentId}")]
+    public async Task<IActionResult> GetPayment(Guid houseId, Guid paymentId, CancellationToken cancellationToken)
+    {
+        var payment = await _bountyService.GetPaymentAsync(houseId, paymentId, CurrentUserId, cancellationToken);
+        return Ok(payment);
+    }
+
     [HttpPost("payments/{paymentId}/settle")]
     public async Task<IActionResult> SettlePayment(Guid houseId, Guid paymentId, CancellationToken cancellationToken)
     {

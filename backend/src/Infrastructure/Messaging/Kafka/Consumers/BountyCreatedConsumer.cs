@@ -34,7 +34,9 @@ public class BountyCreatedConsumer : KafkaConsumerBase<BountyCreatedEvent>
                 houseId: @event.HouseId,
                 title: "New Bounty!",
                 message: "A new bounty has been posted in your house.",
-                type: "BOUNTY_POSTED",
+                type: "BOUNTY_CREATED",
+                targetType: "BOUNTY",
+                targetId: @event.BountyId,
                 cancellationToken: cancellationToken);
         }
     }

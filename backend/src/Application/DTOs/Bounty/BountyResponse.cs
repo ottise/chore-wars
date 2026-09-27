@@ -13,4 +13,6 @@ public class BountyResponse
     public decimal Amount { get; set; }
     public BountyStatus Status { get; set; }
     public DateTime ExpiresAt { get; set; }
+    public string? NewAssigneeDisplayName { get; set; }
+    public decimal? ForcedCompensationAmount { get; set; }
 }

@@ -17,6 +17,9 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
         builder.Property(x => x.Message)
             .HasMaxLength(1000);
 
+        builder.Property(x => x.TargetType)
+            .HasMaxLength(50);
+
         builder.Property(x => x.Type)
             .IsRequired()
             .HasConversion<string>();
