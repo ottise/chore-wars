@@ -5,6 +5,16 @@ using ChoreWars.Presentation.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 builder.Services.AddPresentationServices();
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -19,6 +29,8 @@ app.UseSwaggerDocumentation(app.Environment);
 app.UseCustomMiddleware();
 
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
