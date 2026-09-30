@@ -7,7 +7,7 @@ class AppConstants {
   /// `--dart-define=UI_PREVIEW=false` when connecting the web app to an API.
   static const bool uiPreview = bool.fromEnvironment(
     'UI_PREVIEW',
-    defaultValue: kIsWeb,
+    defaultValue: false,
   );
 
   static const String previewHouseId = 'preview-house';
@@ -17,12 +17,13 @@ class AppConstants {
   static const String previewRedemptionId = 'preview-chore-pass';
 
   // For local development on Android emulator, use 10.0.2.2 instead of localhost
+  // On web, use localhost
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5297/api',
+    defaultValue: kIsWeb ? 'http://localhost:5297/api' : 'http://10.0.2.2:5297/api',
   );
   static const String signalRBaseUrl = String.fromEnvironment(
     'SIGNALR_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5297/hubs',
+    defaultValue: kIsWeb ? 'http://localhost:5297/hubs' : 'http://10.0.2.2:5297/hubs',
   );
 }

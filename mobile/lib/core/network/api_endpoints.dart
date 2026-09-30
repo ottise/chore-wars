@@ -1,15 +1,23 @@
 class ApiEndpoints {
   static const String login = '/auth/login';
   static const String register = '/auth/register';
-  static const String refreshToken = '/auth/refresh';
+  static const String refreshToken = '/auth/refresh-token';
   static const String logout = '/auth/logout';
   static const String profile = '/user/profile';
   static const String houses = '/houses';
   static const String myHouses = '/house/my-houses';
+  static const String myHouses = '/houses/my-houses';
+  static const String joinHouse = '/houses/join';
   static String houseDetails(String id) => '/houses/$id';
-  static String joinHouse = '/houses/join';
   static String leaveHouse(String id) => '/houses/$id/leave';
   static const String chores = '/chores';
+  static String houseMembers(String houseId) => '/houses/$houseId/members';
+  static String kickMember(String houseId, String memberId) =>
+      '/houses/$houseId/members/$memberId';
+  static String transferOwnership(String houseId, String newOwnerId) =>
+      '/houses/$houseId/transfer-ownership/$newOwnerId';
+
+  // Chores
   static String houseChores(String houseId) => '/houses/$houseId/chores';
   static String myChores(String houseId) => '/houses/$houseId/my-chores';
   static String choreDetails(String id) => '/occurrences/$id';
