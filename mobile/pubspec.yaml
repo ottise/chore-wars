@@ -43,6 +43,8 @@ dependencies:
   freezed_annotation: ^3.1.0
   signalr_netcore: ^1.4.4
   intl: ^0.20.3
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.5
 
 dev_dependencies:
   flutter_test:
