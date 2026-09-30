@@ -36,7 +36,9 @@ public class SeasonEndedConsumer : KafkaConsumerBase<SeasonEndedEvent>
                 houseId: @event.HouseId,
                 title: "Season Ended",
                 message: "The current season has ended! Check the leaderboard for your ranking and rewards.",
-                type: "SYSTEM",
+                type: "SEASON_ENDED",
+                targetType: "SEASON",
+                targetId: @event.SeasonId,
                 cancellationToken: cancellationToken);
         }
 

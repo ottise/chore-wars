@@ -14,16 +14,18 @@ public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
+    private readonly INotificationRealtimePublisher _realtimePublisher;
 
-    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper)
+    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper, INotificationRealtimePublisher realtimePublisher)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _realtimePublisher = realtimePublisher;
     }
 
     public async Task<IEnumerable<NotificationResponse>> GetNotificationsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var notifications = await _unitOfWork.Notifications.GetUnreadByUserIdAsync(userId, cancellationToken);
+        var notifications = await _unitOfWork.Notifications.GetByUserIdAsync(userId, cancellationToken);
         return _mapper.Map<IEnumerable<NotificationResponse>>(notifications);
     }
 
@@ -74,7 +76,7 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task CreateNotificationAsync(Guid userId, Guid houseId, string title, string message, string type, CancellationToken cancellationToken = default)
+    public async Task CreateNotificationAsync(Guid userId, Guid houseId, string title, string message, string type, string? targetType = null, Guid? targetId = null, CancellationToken cancellationToken = default)
     {
         var notification = new ChoreWars.Domain.Entities.Notification
         {
@@ -83,6 +85,8 @@ public class NotificationService : INotificationService
             HouseId = houseId,
             Title = title,
             Message = message,
+            TargetType = targetType,
+            TargetId = targetId,
             Type = Enum.Parse<ChoreWars.Domain.Enums.NotificationType>(type, true),
             IsRead = false,
             CreatedAt = DateTime.UtcNow
@@ -90,5 +94,6 @@ public class NotificationService : INotificationService
 
         await _unitOfWork.Notifications.AddAsync(notification, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _realtimePublisher.PublishAsync(_mapper.Map<NotificationResponse>(notification), cancellationToken);
     }
 }

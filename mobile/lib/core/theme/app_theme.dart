@@ -24,28 +24,10 @@ class AppTheme {
       scaffoldBackgroundColor: canvas,
       useMaterial3: true,
       textTheme: const TextTheme(
-        displaySmall: TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -1.2,
-          color: ink,
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 26,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-          color: ink,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: ink,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: ink,
-        ),
+        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: ink),
+        headlineSmall: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: ink),
+        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink),
+        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ink),
         bodyLarge: TextStyle(fontSize: 16, height: 1.45, color: ink),
         bodyMedium: TextStyle(fontSize: 14, height: 1.45, color: muted),
       ),
@@ -55,11 +37,12 @@ class AppTheme {
         scrolledUnderElevation: 0,
         backgroundColor: canvas,
         foregroundColor: ink,
-        titleTextStyle: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.4,
-          color: ink,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: purple.withValues(alpha: 0.14),
+        labelTextStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w700, color: ink),
         ),
       ),
       cardTheme: const CardThemeData(
@@ -70,51 +53,19 @@ class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFE9E7F5)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: purple, width: 2),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          minimumSize: const Size(64, 52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: purple,
-        foregroundColor: Colors.white,
-      ),
     );
   }
 
-  static ThemeData get darkTheme {
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: purple,
-        brightness: Brightness.dark,
-      ),
-      useMaterial3: true,
-      appBarTheme: const AppBarTheme(centerTitle: true),
-    );
-  }
+  static ThemeData get darkTheme => ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: purple,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(centerTitle: true),
+      );
+
+  static const successColor = green;
+  static const warningColor = orange;
+  static const dangerColor = red;
 }

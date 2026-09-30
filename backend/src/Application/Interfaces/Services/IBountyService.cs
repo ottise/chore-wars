@@ -11,5 +11,8 @@ public interface IBountyService
     Task<BountyResponse> CreateBountyAsync(Guid houseId, CreateBountyRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task AcceptBountyAsync(Guid bountyId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<BountyResponse>> GetBountiesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<BountyResponse> GetBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<PaymentObligationResponse>> GetPaymentsAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<PaymentObligationResponse> GetPaymentAsync(Guid houseId, Guid paymentId, Guid userId, CancellationToken cancellationToken = default);
     Task SettlePaymentAsync(Guid paymentId, Guid userId, CancellationToken cancellationToken = default);
 }

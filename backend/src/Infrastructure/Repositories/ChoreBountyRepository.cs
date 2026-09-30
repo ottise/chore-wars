@@ -22,7 +22,13 @@ public class ChoreBountyRepository : IChoreBountyRepository
 
     public async Task<ChoreBounty?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreBounties.FindAsync(new object[] { id }, cancellationToken);
+        return await _context.ChoreBounties
+            .Include(b => b.ChoreOccurrence)
+            .ThenInclude(o => o.Chore)
+            .Include(b => b.ChoreOccurrence)
+            .ThenInclude(o => o.AssignedUser)
+            .Include(b => b.PostedByUser)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
     }
 
     public async Task<ChoreBounty?> GetByOccurrenceIdAsync(Guid occurrenceId, CancellationToken cancellationToken = default)

@@ -35,7 +35,9 @@ public class ChoreCompletedConsumer : KafkaConsumerBase<ChoreCompletedEvent>
             houseId: @event.HouseId,
             title: "Chore Completed",
             message: "You successfully completed a chore!",
-            type: "CHORE_REMINDER", // Re-using type, or could be ACHIEVEMENT
+            type: "CHORE_ASSIGNED",
+            targetType: "CHORE",
+            targetId: @event.OccurrenceId,
             cancellationToken: cancellationToken);
     }
 }

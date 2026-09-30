@@ -21,12 +21,17 @@ public class PaymentObligationRepository : IPaymentObligationRepository
 
     public async Task<PaymentObligation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.PaymentObligations.FindAsync(new object[] { id }, cancellationToken);
+        return await _context.PaymentObligations
+            .Include(p => p.DebtorUser)
+            .Include(p => p.CreditorUser)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
     public async Task<IEnumerable<PaymentObligation>> GetByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
         return await _context.PaymentObligations
+            .Include(p => p.DebtorUser)
+            .Include(p => p.CreditorUser)
             .Where(p => p.HouseId == houseId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);

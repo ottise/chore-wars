@@ -58,7 +58,7 @@ class KarmaHistoryScreen extends ConsumerWidget {
                         ),
                         title: Text(item.description),
                         subtitle: Text(
-                          DateFormat('MMM d, yyyy · h:mm a')
+                          DateFormat('MMM d, yyyy - h:mm a')
                               .format(item.createdAt),
                         ),
                         trailing: Text(

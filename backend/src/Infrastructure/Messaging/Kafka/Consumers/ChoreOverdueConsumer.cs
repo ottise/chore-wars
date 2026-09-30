@@ -28,7 +28,9 @@ public class ChoreOverdueConsumer : KafkaConsumerBase<ChoreOverdueEvent>
             houseId: @event.HouseId,
             title: "Chore Overdue",
             message: "One of your assigned chores is overdue and you have been penalized.",
-            type: "CHORE_REMINDER",
+            type: "CHORE_OVERDUE",
+            targetType: "CHORE",
+            targetId: @event.OccurrenceId,
             cancellationToken: cancellationToken);
     }
 }

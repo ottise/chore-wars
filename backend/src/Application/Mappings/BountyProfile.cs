@@ -10,6 +10,8 @@ public class BountyProfile : Profile
     {
         CreateMap<ChoreBounty, BountyResponse>()
             .ForMember(dest => dest.ChoreName, opt => opt.MapFrom(src => src.ChoreOccurrence.Chore.Name))
-            .ForMember(dest => dest.PostedByDisplayName, opt => opt.MapFrom(src => src.PostedByUser.DisplayName));
+            .ForMember(dest => dest.PostedByDisplayName, opt => opt.MapFrom(src => src.PostedByUser.DisplayName))
+            .ForMember(dest => dest.NewAssigneeDisplayName, opt => opt.MapFrom(src => src.ChoreOccurrence.AssignedUser == null ? null : src.ChoreOccurrence.AssignedUser.DisplayName))
+            .ForMember(dest => dest.ForcedCompensationAmount, opt => opt.Ignore());
     }
 }

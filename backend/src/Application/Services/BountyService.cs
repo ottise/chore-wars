@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -66,7 +67,17 @@ public class BountyService : IBountyService
 
         await _eventPublisher.PublishAsync(new BountyCreatedEvent(bounty.Id, houseId), cancellationToken);
 
-        return _mapper.Map<BountyResponse>(bounty);
+        var response = _mapper.Map<BountyResponse>(bounty);
+        if (bounty.Status == BountyStatus.EXPIRED)
+        {
+            var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
+            response.ForcedCompensationAmount = payments
+                .FirstOrDefault(payment => payment.OccurrenceId == bounty.ChoreOccurrenceId
+                    && payment.Reason == PaymentObligationReason.FORCED_REASSIGNMENT)
+                ?.Amount;
+        }
+
+        return response;
     }
 
     public async Task AcceptBountyAsync(Guid bountyId, Guid userId, CancellationToken cancellationToken = default)
@@ -107,12 +118,66 @@ public class BountyService : IBountyService
 
     public async Task<IEnumerable<BountyResponse>> GetBountiesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
-            throw new ForbiddenException();
+        await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
 
         var bounties = await _unitOfWork.ChoreBounties.GetActiveBountiesByHouseIdAsync(houseId, cancellationToken);
         return _mapper.Map<IEnumerable<BountyResponse>>(bounties);
+    }
+
+    public async Task<BountyResponse> GetBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
+
+        var bounty = await _unitOfWork.ChoreBounties.GetByIdAsync(bountyId, cancellationToken);
+        if (bounty == null || bounty.ChoreOccurrence.Chore.HouseId != houseId)
+            throw new NotFoundException(nameof(ChoreBounty), bountyId);
+
+        return _mapper.Map<BountyResponse>(bounty);
+    }
+
+    public async Task<IEnumerable<PaymentObligationResponse>> GetPaymentsAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
+
+        var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
+        return payments.Select(MapPayment).ToList();
+    }
+
+    public async Task<PaymentObligationResponse> GetPaymentAsync(Guid houseId, Guid paymentId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
+
+        var payment = await _unitOfWork.PaymentObligations.GetByIdAsync(paymentId, cancellationToken);
+        if (payment == null || payment.HouseId != houseId)
+            throw new NotFoundException(nameof(PaymentObligation), paymentId);
+
+        return MapPayment(payment);
+    }
+
+    private async Task EnsureHouseMemberAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+    }
+
+    private static PaymentObligationResponse MapPayment(PaymentObligation payment)
+    {
+        return new PaymentObligationResponse
+        {
+            Id = payment.Id,
+            HouseId = payment.HouseId,
+            OccurrenceId = payment.OccurrenceId,
+            DebtorUserId = payment.DebtorUserId,
+            DebtorDisplayName = payment.DebtorUser.DisplayName,
+            CreditorUserId = payment.CreditorUserId,
+            CreditorDisplayName = payment.CreditorUser.DisplayName,
+            Amount = payment.Amount,
+            Reason = payment.Reason,
+            Status = payment.Status,
+            CreatedAt = payment.CreatedAt,
+            PaidAt = payment.PaidAt
+        };
     }
 
     public async Task SettlePaymentAsync(Guid paymentId, Guid userId, CancellationToken cancellationToken = default)
