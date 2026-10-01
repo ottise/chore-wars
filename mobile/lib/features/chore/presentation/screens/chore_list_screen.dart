@@ -7,7 +7,7 @@ import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../widgets/chore_card.dart';
 
-enum _ChoreFilter { today, upcoming, overdue }
+enum _ChoreFilter { routines, today, upcoming, overdue }
 
 class ChoreListScreen extends ConsumerStatefulWidget {
   const ChoreListScreen({required this.houseId, super.key});
@@ -18,7 +18,7 @@ class ChoreListScreen extends ConsumerStatefulWidget {
 }
 
 class _ChoreListScreenState extends ConsumerState<ChoreListScreen> {
-  _ChoreFilter filter = _ChoreFilter.today;
+  _ChoreFilter filter = _ChoreFilter.routines;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +54,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: SegmentedButton<_ChoreFilter>(
               segments: const [
+                ButtonSegment(value: _ChoreFilter.routines, label: Text('Routines')),
                 ButtonSegment(value: _ChoreFilter.today, label: Text('Today')),
                 ButtonSegment(
                   value: _ChoreFilter.upcoming,
@@ -76,7 +77,44 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> {
                 refreshChoreState(ref, widget.houseId);
                 await ref.read(myChoresProvider(widget.houseId).future);
               },
-              child: occurrences.when(
+                            child: filter == _ChoreFilter.routines
+                  ? templates.when(
+                      loading: () => const LoadingView(),
+                      error: (err, _) => ErrorView(error: err, onRetry: () => ref.invalidate(choreTemplatesProvider(widget.houseId))),
+                      data: (items) {
+                        if (items.isEmpty) {
+                          return const EmptyView(
+                            icon: Icons.playlist_add_rounded,
+                            title: 'No routines yet',
+                            message: 'Create the first chore for this house.',
+                          );
+                        }
+                        return ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 104),
+                          itemCount: items.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final chore = items[index];
+                            return ListTile(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                                child: Icon(Icons.cleaning_services_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                              ),
+                              title: Text(chore.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Text('${chore.frequencyValue} ${chore.frequency.name}\n${chore.karmaPoints} pts', style: const TextStyle(fontSize: 13, height: 1.4)),
+                              isThreeLine: true,
+                              trailing: IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () => context.push('/houses/${widget.houseId}/chores/${chore.id}/edit', extra: chore),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    )
+                  : occurrences.when(
                 loading: () => const LoadingView(),
                 error: (error, _) => ErrorView(
                   error: error,
@@ -138,6 +176,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> {
         chore.status == ChoreStatus.criticalOverdue ||
         (chore.status == ChoreStatus.assigned && chore.dueDate.isBefore(now));
     return switch (filter) {
+      _ChoreFilter.routines => false,
       _ChoreFilter.overdue => overdue,
       _ChoreFilter.today => !overdue && DateUtils.isSameDay(chore.dueDate, now),
       _ChoreFilter.upcoming =>
@@ -209,3 +248,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> {
     );
   }
 }
+
+
+
+

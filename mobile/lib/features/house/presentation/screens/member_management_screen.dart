@@ -5,6 +5,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class MemberManagementScreen extends ConsumerWidget {
   const MemberManagementScreen({required this.houseId, super.key});
@@ -96,7 +98,7 @@ class MemberManagementScreen extends ConsumerWidget {
         showAppMessage(context, '${member.displayName} removed.');
       }
     } catch (error) {
-      if (context.mounted) showAppMessage(context, error.toString(), error: true);
+      if (context.mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     }
   }
 
@@ -135,7 +137,7 @@ class MemberManagementScreen extends ConsumerWidget {
         showAppMessage(context, 'Ownership transferred to ${member.displayName}.');
       }
     } catch (error) {
-      if (context.mounted) showAppMessage(context, error.toString(), error: true);
+      if (context.mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     }
   }
 }

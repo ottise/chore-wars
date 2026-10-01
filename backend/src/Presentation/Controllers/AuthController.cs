@@ -9,7 +9,7 @@ using ChoreWars.Application.Interfaces.Services;
 namespace ChoreWars.Presentation.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;

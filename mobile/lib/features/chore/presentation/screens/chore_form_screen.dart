@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
@@ -73,6 +74,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late ChoreFrequency _frequency;
   late Set<int> _days;
   bool _saving = false;
+  String? _apiError;
 
   bool get _editing => widget.initial != null;
 
@@ -244,6 +246,21 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
           ],
           const SizedBox(height: 16),
           const _ScheduleNote(),
+          if (_apiError != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _apiError!,
+              style: const TextStyle(color: AppTheme.red, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+            if (_apiError!.toLowerCase().contains('season')) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.add_task_rounded),
+                label: const Text('Start new season'),
+                onPressed: () => context.push('/houses/${widget.houseId}/seasons/new'),
+              ),
+            ],
+          ],
           const SizedBox(height: 28),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -278,7 +295,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
       setState(() {});
       return;
     }
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _apiError = null;
+    });
     try {
       final repository = ref.read(choreRepositoryProvider);
       if (_editing) {
@@ -292,7 +312,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         context.pop();
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) setState(() => _apiError = apiErrorMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -329,7 +349,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         showAppMessage(context, 'Chore deleted');
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

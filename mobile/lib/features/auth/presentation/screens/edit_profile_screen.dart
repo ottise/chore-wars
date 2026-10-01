@@ -6,6 +6,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/domain/entities/auth_models.dart';
 import '../providers/auth_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({required this.profile, super.key});
@@ -99,7 +101,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         context.pop();
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

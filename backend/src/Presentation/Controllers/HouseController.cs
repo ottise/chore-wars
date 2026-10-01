@@ -10,7 +10,7 @@ using ChoreWars.Application.Interfaces.Services;
 namespace ChoreWars.Presentation.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/houses")]
 [Authorize]
 public class HouseController : ControllerBase
 {

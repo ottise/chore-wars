@@ -1,3 +1,4 @@
+import '../../../../core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ class HouseDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final house = ref.watch(houseDetailProvider(houseId));
     final members = ref.watch(houseMembersProvider(houseId));
+    final activeSeason = ref.watch(activeSeasonProvider(houseId));
 
     return Scaffold(
       appBar: AppBar(
@@ -53,6 +55,7 @@ class HouseDetailScreen extends ConsumerWidget {
           data: (h) => _HouseBody(
             house: h,
             members: members,
+            activeSeason: activeSeason,
             houseId: houseId,
           ),
         ),
@@ -61,25 +64,68 @@ class HouseDetailScreen extends ConsumerWidget {
   }
 }
 
-class _HouseBody extends StatelessWidget {
+class _HouseBody extends ConsumerWidget {
   const _HouseBody({
     required this.house,
     required this.members,
+    required this.activeSeason,
     required this.houseId,
   });
 
   final House house;
   final AsyncValue<List<HouseMember>> members;
+  final AsyncValue<Map<String, dynamic>?> activeSeason;
   final String houseId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
         _HeaderCard(house: house),
         const SizedBox(height: 20),
-        _QuickActions(house: house, houseId: houseId),
+        _QuickActions(house: house, houseId: houseId, activeSeason: activeSeason),
+        const SizedBox(height: 24),
+        if (activeSeason.value == null)
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: Theme.of(context).colorScheme.primaryContainer,
+            leading: const Icon(Icons.add_task_rounded),
+            title: const Text('Start new season'),
+            subtitle: const Text('Create a season to assign chores'),
+            onTap: () => context.push('/houses/$houseId/seasons/new'),
+          )
+        else if (activeSeason.value!['status'] == 0)
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: Theme.of(context).colorScheme.secondaryContainer,
+            leading: const Icon(Icons.auto_awesome_rounded),
+            title: const Text('Generate Schedule'),
+            subtitle: const Text('AI will allocate chores based on availability'),
+            onTap: () async {
+              try {
+                final dio = ref.read(dioProvider);
+                await dio.post('/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Schedule generated!')));
+                  refreshHouseState(ref, houseId: houseId);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
+              }
+            },
+          )
+        else if (activeSeason.value!['status'] == 1)
+          ListTile(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            tileColor: Theme.of(context).colorScheme.tertiaryContainer,
+            leading: const Icon(Icons.rate_review_rounded),
+            title: const Text('Review Schedule'),
+            subtitle: const Text('Review and confirm the generated schedule'),
+            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason.value!['id']}/review'),
+          ),
         const SizedBox(height: 24),
         Text('Members', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
@@ -147,9 +193,10 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.house, required this.houseId});
+  const _QuickActions({required this.house, required this.houseId, this.activeSeason});
   final House house;
   final String houseId;
+  final AsyncValue<Map<String, dynamic>?>? activeSeason;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +224,18 @@ class _QuickActions extends StatelessWidget {
             icon: Icons.qr_code_rounded,
             label: 'Invite QR',
             onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
+          ),
+        if (activeSeason?.value != null)
+          _ActionChip(
+            icon: Icons.event_available_rounded,
+            label: 'Availability',
+            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/availability'),
+          ),
+        if (activeSeason?.value != null)
+          _ActionChip(
+            icon: Icons.star_rounded,
+            label: 'Bonus Chores',
+            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/bonus-chores'),
           ),
       ],
     );
@@ -269,3 +328,12 @@ class _MemberTile extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+

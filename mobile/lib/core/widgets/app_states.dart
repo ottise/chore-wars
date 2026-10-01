@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/api_error_message.dart';
 
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key});
@@ -79,7 +80,7 @@ class ErrorView extends StatelessWidget {
   );
 
   static String _message(Object error) {
-    final raw = error.toString();
+    final raw = apiErrorMessage(error);
     return raw.startsWith('Exception: ') ? raw.substring(11) : raw;
   }
 }

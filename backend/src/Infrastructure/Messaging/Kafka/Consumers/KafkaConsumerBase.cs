@@ -92,6 +92,10 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
                 {
                     _logger.LogError($"Consume error: {e.Error.Reason}");
                 }
+                catch (OperationCanceledException)
+                {
+                    throw; // Let the outer catch handle it
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Error processing message from topic {_topic}");

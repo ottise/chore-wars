@@ -28,7 +28,7 @@ app.UseSwaggerDocumentation(app.Environment);
 
 app.UseCustomMiddleware();
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 
 app.UseCors();
 

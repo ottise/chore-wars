@@ -8,6 +8,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class ChoreDetailScreen extends ConsumerStatefulWidget {
   const ChoreDetailScreen({
@@ -65,7 +67,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
         showAppMessage(context, '+${detail.karmaPoints} Karma earned');
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -98,7 +100,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       _refreshAffectedState();
       if (mounted) showAppMessage(context, 'Chore skipped');
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

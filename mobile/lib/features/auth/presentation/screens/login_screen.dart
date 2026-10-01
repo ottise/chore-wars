@@ -6,6 +6,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -128,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (mounted) context.go('/houses');
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

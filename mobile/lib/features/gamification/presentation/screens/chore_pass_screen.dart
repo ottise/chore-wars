@@ -6,6 +6,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../chore/domain/entities/chore_models.dart';
 import '../../../chore/presentation/providers/chore_providers.dart';
 import '../providers/gamification_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class ChorePassScreen extends ConsumerStatefulWidget {
   const ChorePassScreen({
@@ -186,7 +188,7 @@ class _ChorePassScreenState extends ConsumerState<ChorePassScreen> {
         Navigator.pop(context);
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _using = false);
     }

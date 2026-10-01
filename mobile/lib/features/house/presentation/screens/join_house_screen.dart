@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../providers/house_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class JoinHouseScreen extends ConsumerStatefulWidget {
   const JoinHouseScreen({super.key});
@@ -93,7 +95,7 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
         context.go('/houses');
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

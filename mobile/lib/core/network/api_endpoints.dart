@@ -5,7 +5,6 @@ class ApiEndpoints {
   static const String logout = '/auth/logout';
   static const String profile = '/user/profile';
   static const String houses = '/houses';
-  static const String myHouses = '/house/my-houses';
   static const String myHouses = '/houses/my-houses';
   static const String joinHouse = '/houses/join';
   static String houseDetails(String id) => '/houses/$id';
@@ -26,6 +25,7 @@ class ApiEndpoints {
   static String choreTemplate(String id) => '/chores/$id';
   static String completeChore(String id) => '/occurrences/$id/complete';
   static String skipChore(String id) => '/occurrences/$id/skip';
+  static String houseSeasons(String houseId) => '/houses/$houseId/seasons';
   static const String seasons = '/seasons';
   static String seasonRankings(String houseId, String seasonId) =>
       '/houses/$houseId/seasons/$seasonId/rankings';
@@ -49,7 +49,8 @@ class ApiEndpoints {
       '/houses/$houseId/bounties/$bountyId';
   static String acceptBounty(String houseId, String bountyId) =>
       '/houses/$houseId/bounties/$bountyId/accept';
-  static String payments(String houseId) => '/houses/$houseId/bounties/payments';
+  static String payments(String houseId) =>
+      '/houses/$houseId/bounties/payments';
   static String paymentDetails(String houseId, String paymentId) =>
       '/houses/$houseId/bounties/payments/$paymentId';
   static String settlePayment(String houseId, String paymentId) =>

@@ -1,10 +1,10 @@
+import '../../features/house/presentation/screens/availability_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/chores/presentation/screens/chores_screen.dart';
 import '../../features/leaderboard/presentation/screens/leaderboard_screen.dart';
-import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/bounty/presentation/screens/bounty_board_screen.dart';
 import '../../features/bounty/presentation/screens/create_bounty_screen.dart';
@@ -45,14 +45,22 @@ import '../../features/house/presentation/screens/join_house_screen.dart';
 import '../../features/house/presentation/screens/member_management_screen.dart';
 import '../../features/house/presentation/screens/my_houses_screen.dart';
 import '../../features/house/presentation/screens/qr_invite_screen.dart';
+import '../../features/house/presentation/screens/house_settings_screen.dart';
+import '../../features/house/presentation/screens/join_house_screen.dart';
+import '../../features/house/presentation/screens/member_management_screen.dart';
 import '../../features/house/presentation/screens/qr_join_screen.dart';
+import '../../features/house/presentation/screens/create_season_screen.dart';
+import '../../features/house/presentation/screens/review_schedule_screen.dart';
+import '../../features/house/presentation/screens/bonus_chores_screen.dart';
+import '../../features/house/presentation/screens/create_season_screen.dart';
+import '../../features/house/presentation/screens/review_schedule_screen.dart';
+import '../../features/house/presentation/screens/bonus_chores_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
 
   return GoRouter(
     initialLocation: '/home',
-    initialLocation: '/',
     redirect: (context, state) async {
       if (AppConstants.uiPreview) return null;
       final token = await secureStorage.getAccessToken();
@@ -102,6 +110,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) =>
+                        EditProfileScreen(profile: state.extra as UserProfile),
+                  ),
+                ],
               ),
             ],
           ),
@@ -111,7 +126,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         builder: (context, state) => AppConstants.uiPreview
             ? const UiPreviewScreen()
-            : const PlaceholderScreen(title: 'Splash / Home'),
+            : const Scaffold(
+                body: Center(
+                  child: Text('Splash / Home'),
+                ),
+              ),
       ),
       GoRoute(
         path: '/notifications',
@@ -161,15 +180,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const PlaceholderScreen(title: 'Login'),
-            : const SizedBox.shrink(),
+        builder: (context, state) => const LoginScreen(),
       ),
-
-      // ── Auth ────────────────────────────────────────────────────────────
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const PlaceholderScreen(title: 'Register'),
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/houses/:houseId/chores',
@@ -216,26 +231,31 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
       ),
       GoRoute(
+        path: '/houses/:houseId/seasons/new',
+        builder: (context, state) => CreateSeasonScreen(houseId: state.pathParameters['houseId']!),
+      ),
+      GoRoute(
+        path: '/houses/:houseId/seasons/:seasonId/availability',
+        builder: (context, state) => AvailabilityScreen(
+          houseId: state.pathParameters['houseId']!,
+          seasonId: state.pathParameters['seasonId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/houses/:houseId/seasons/:seasonId/review',
+        builder: (context, state) => ReviewScheduleScreen(
+          houseId: state.pathParameters['houseId']!,
+          seasonId: state.pathParameters['seasonId']!,
+        ),
+      ),
+      GoRoute(
         path: '/houses/:houseId/achievements',
         builder: (context, state) =>
             AchievementsScreen(houseId: state.pathParameters['houseId']!),
-        builder: (context, state) => const RegisterScreen(),
       ),
 
-      // ── Profile ─────────────────────────────────────────────────────────
-      GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
-        routes: [
-          GoRoute(
-            path: 'edit',
-            builder: (context, state) =>
-                EditProfileScreen(profile: state.extra as UserProfile),
-          ),
-        ],
-      ),
 
-      // ── Houses ──────────────────────────────────────────────────────────
+
       GoRoute(
         path: '/houses',
         builder: (context, state) => const MyHousesScreen(),
@@ -279,7 +299,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                     QrInviteScreen(house: state.extra as House),
               ),
 
-              // ── Chores ────────────────────────────────────────────────
               GoRoute(
                 path: 'chores',
                 builder: (context, state) =>
@@ -300,13 +319,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'chores/:occurrenceId',
-                builder: (context, state) => ChoreDetailScreen(
+                builder: (context, state) => chore_feature.ChoreDetailScreen(
                   houseId: state.pathParameters['houseId']!,
                   occurrenceId: state.pathParameters['occurrenceId']!,
                 ),
               ),
 
-              // ── Gamification ──────────────────────────────────────────
               GoRoute(
                 path: 'karma',
                 builder: (context, state) =>
@@ -314,7 +332,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'karma/history',
-                builder: (context, state) => KarmaHistoryScreen(
+                builder: (context, state) => gamification_history.KarmaHistoryScreen(
                   houseId: state.pathParameters['houseId']!,
                 ),
               ),
@@ -326,7 +344,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: 'seasons/:seasonId/leaderboard',
-                builder: (context, state) => LeaderboardScreen(
+                builder: (context, state) => gamification_leaderboard.LeaderboardScreen(
                   houseId: state.pathParameters['houseId']!,
                   seasonId: state.pathParameters['seasonId']!,
                 ),
@@ -353,3 +371,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+
+
+
+

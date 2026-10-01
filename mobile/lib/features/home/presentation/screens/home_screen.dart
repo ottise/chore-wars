@@ -40,6 +40,16 @@ class HomeScreen extends ConsumerWidget {
             Text('House: ${data.houseName}', style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 20),
             _KarmaCard(data: data),
+            if (data.rank == null) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => context.push('/houses/${data.houseId}/seasons/new'),
+                  icon: const Icon(Icons.add_task_rounded),
+                  label: const Text('Start new season'),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             _SectionHeader(
               title: "Today's chores",

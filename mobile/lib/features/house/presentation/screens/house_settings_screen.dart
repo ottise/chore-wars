@@ -7,6 +7,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class HouseSettingsScreen extends ConsumerStatefulWidget {
   const HouseSettingsScreen({required this.houseId, super.key});
@@ -73,7 +75,7 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
       refreshHouseState(ref);
       if (mounted) context.go('/houses');
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _leavingHouse = false);
     }
@@ -149,6 +151,7 @@ class _SettingsBody extends StatelessWidget {
           ),
           const Divider(),
         ],
+        
         _SectionHeader('Danger zone'),
         ListTile(
           leading: leavingHouse

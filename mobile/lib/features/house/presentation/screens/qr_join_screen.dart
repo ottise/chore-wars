@@ -5,6 +5,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/widgets/app_states.dart';
 import '../providers/house_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 /// Camera-based QR scanner that reads the invite code and calls joinHouse.
 class QrJoinScreen extends ConsumerStatefulWidget {
@@ -81,7 +83,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen> {
       }
     } catch (error) {
       if (mounted) {
-        showAppMessage(context, error.toString(), error: true);
+        showAppMessage(context, apiErrorMessage(error), error: true);
         await _controller.start();
         setState(() => _processing = false);
       }

@@ -27,13 +27,24 @@ public class SeasonService : ISeasonService
         _allocationService = allocationService;
     }
 
+    public async Task<SeasonResponse?> GetActiveSeasonAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException("Only house members can view seasons.");
+
+        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (activeSeason == null) return null;
+        return _mapper.Map<SeasonResponse>(activeSeason);
+    }
+
     public async Task<SeasonResponse> CreateSeasonAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null || member.Role != HouseRole.OWNER)
-            throw new ForbiddenException("Only the house owner can create a season.");
+        if (member == null)
+            throw new ForbiddenException("Only house members can create a season.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
+        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
         if (activeSeason != null)
             throw new ConflictException("There is already an active season in this house.");
 
@@ -224,7 +235,7 @@ public class SeasonService : ISeasonService
         if (member == null || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only the house owner can clone a season.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(originalSeason.HouseId, cancellationToken);
+        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(originalSeason.HouseId, cancellationToken);
         if (activeSeason != null)
             throw new ConflictException("There is already an active season in this house.");
 
@@ -302,8 +313,11 @@ public class SeasonService : ISeasonService
         // 1. Generate all occurrences for the season
         await _generationService.GenerateOccurrencesAsync(seasonId, userId);
 
-        // 2. Allocate chores
-        await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
+        // 2. Allocate chores if automatic
+        if (season.AllocationMethod == AllocationMethod.AUTOMATIC)
+        {
+            await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
+        }
 
         // 3. Update Season status to REVIEWING
         season.Status = SeasonStatus.REVIEWING;
@@ -417,4 +431,19 @@ public class SeasonService : ISeasonService
             throw;
         }
     }
+
+    public async Task<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>> GetOccurrencesAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException("Only house members can view occurrences.");
+
+        var occurrences = await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken);
+        return _mapper.Map<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>>(occurrences);
+    }
 }
+

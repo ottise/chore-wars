@@ -39,6 +39,14 @@ public class ChoreSeasonRepository : IChoreSeasonRepository
             .FirstOrDefaultAsync(s => s.HouseId == houseId && s.Status == SeasonStatus.ACTIVE, cancellationToken);
     }
 
+    public async Task<ChoreSeason?> GetCurrentSeasonByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Seasons
+            .Where(s => s.HouseId == houseId && s.Status != SeasonStatus.COMPLETED && s.Status != SeasonStatus.CANCELLED)
+            .OrderByDescending(s => s.StartDate)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<ChoreSeason>> GetActiveSeasonsAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         return await _context.Seasons

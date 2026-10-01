@@ -7,6 +7,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/gamification_models.dart';
 import '../providers/gamification_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class SeasonRewardScreen extends ConsumerStatefulWidget {
   const SeasonRewardScreen({
@@ -81,7 +83,7 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
       ref.invalidate(seasonRewardsProvider(key));
       if (mounted) showAppMessage(context, 'Reward claimed');
     } catch (error) {
-      if (mounted) showAppMessage(context, error.toString(), error: true);
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     } finally {
       if (mounted) setState(() => _busyId = null);
     }

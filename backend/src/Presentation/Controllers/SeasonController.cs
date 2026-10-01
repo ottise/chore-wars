@@ -25,6 +25,14 @@ public class SeasonController : ControllerBase
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+    [HttpGet("current")]
+    public async Task<IActionResult> GetCurrentSeason(Guid houseId, CancellationToken cancellationToken)
+    {
+        var activeSeason = await _seasonService.GetActiveSeasonAsync(houseId, CurrentUserId, cancellationToken);
+        if (activeSeason == null) return NotFound();
+        return Ok(activeSeason);
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateSeason(Guid houseId, [FromBody] CreateSeasonRequest request, CancellationToken cancellationToken)
     {
@@ -100,5 +108,12 @@ public class SeasonController : ControllerBase
     {
         var warnings = await _choreAllocationService.GetFairnessWarningsAsync(seasonId, cancellationToken);
         return Ok(warnings);
+    }
+
+    [HttpGet("{seasonId}/occurrences")]
+    public async Task<IActionResult> GetOccurrences(Guid seasonId, CancellationToken cancellationToken)
+    {
+        var occurrences = await _seasonService.GetOccurrencesAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok(occurrences);
     }
 }

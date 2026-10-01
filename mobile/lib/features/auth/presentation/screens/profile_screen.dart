@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -125,7 +127,7 @@ class ProfileScreen extends ConsumerWidget {
       await ref.read(authStateProvider.notifier).logout();
       if (context.mounted) context.go('/login');
     } catch (error) {
-      if (context.mounted) showAppMessage(context, error.toString(), error: true);
+      if (context.mounted) showAppMessage(context, apiErrorMessage(error), error: true);
     }
   }
 }
