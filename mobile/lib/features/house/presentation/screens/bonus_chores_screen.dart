@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/theme/app_theme.dart';
 
 class BonusChoresScreen extends ConsumerStatefulWidget {
   const BonusChoresScreen({
@@ -30,7 +28,7 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   Future<void> _fetchBonusChores() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
+      final res = await dio.get('/api/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
       if (mounted) {
         setState(() {
           // Filter for unassigned BONUS chores (Type == 1 means BONUS in our enum)
@@ -48,7 +46,7 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   Future<void> _claimChore(String occurrenceId) async {
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/occurrences/$occurrenceId/claim');
+      await dio.post('/api/occurrences/$occurrenceId/claim');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bonus chore claimed successfully!')));
         _fetchBonusChores();

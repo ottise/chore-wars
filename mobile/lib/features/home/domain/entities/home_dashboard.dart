@@ -20,6 +20,8 @@ class HomeDashboard {
   final String houseName;
   final int karma;
   final int? rank;
+  final String? seasonId;
+  final int? seasonStatus;
   final List<DashboardChore> chores;
   final List<Bounty> bounties;
 
@@ -29,6 +31,8 @@ class HomeDashboard {
     required this.houseName,
     required this.karma,
     required this.rank,
+    this.seasonId,
+    this.seasonStatus,
     required this.chores,
     required this.bounties,
   });

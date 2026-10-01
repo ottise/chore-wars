@@ -23,12 +23,22 @@ class HomeDashboardRepository {
     final chores = responses[3].data is List ? responses[3].data as List : const [];
     final bounties = responses[4].data is List ? responses[4].data as List : const [];
 
+    Map<String, dynamic>? season;
+    try {
+      final seasonRes = await dio.get('/houses/$houseId/seasons/current');
+      season = _asMapNullable(seasonRes.data);
+    } catch (_) {
+      season = null;
+    }
+
     return HomeDashboard(
       userDisplayName: profile['displayName'] as String? ?? '',
       houseId: house['id']?.toString() ?? houseId,
       houseName: house['name'] as String? ?? '',
       karma: (karma['karma'] as num?)?.toInt() ?? 0,
       rank: (karma['rank'] as num?)?.toInt(),
+      seasonId: season?['id']?.toString(),
+      seasonStatus: (season?['status'] as num?)?.toInt(),
       chores: chores.whereType<Map<String, dynamic>>().map(_choreFromJson).toList(),
       bounties: bounties
           .whereType<Map<String, dynamic>>()
@@ -45,6 +55,10 @@ class HomeDashboardRepository {
       dueDate: DateTime.parse(json['dueDate'] as String).toLocal(),
       status: json['status']?.toString() ?? '',
     );
+  }
+
+  static Map<String, dynamic>? _asMapNullable(Object? value) {
+    return value is Map<String, dynamic> ? value : null;
   }
 
   static Map<String, dynamic> _asMap(Object? value) {

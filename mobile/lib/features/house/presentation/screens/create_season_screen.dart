@@ -41,7 +41,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   Future<void> _fetchPastSeasons() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/houses/${widget.houseId}/seasons');
+      final res = await dio.get('/api/houses/${widget.houseId}/seasons');
       if (mounted) {
         setState(() {
           _pastSeasons = res.data as List<dynamic>;
@@ -171,9 +171,9 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
       };
 
       if (_selectedCloneSeasonId != null) {
-        await dio.post('/houses/${widget.houseId}/seasons/$_selectedCloneSeasonId/reuse', data: payload);
+        await dio.post('/api/houses/${widget.houseId}/seasons/$_selectedCloneSeasonId/reuse', data: payload);
       } else {
-        await dio.post('/houses/${widget.houseId}/seasons', data: payload);
+        await dio.post('/api/houses/${widget.houseId}/seasons', data: payload);
       }
       
       refreshHouseState(ref, houseId: widget.houseId);

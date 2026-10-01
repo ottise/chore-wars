@@ -50,6 +50,21 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ],
+            if (data.seasonStatus == 1) ...[
+              const SizedBox(height: 16),
+              Card(
+                color: Theme.of(context).colorScheme.tertiaryContainer,
+                child: ListTile(
+                  leading: const Icon(Icons.rate_review_rounded),
+                  title: const Text('Schedule awaiting your confirmation'),
+                  subtitle: const Text('Tap to review and confirm the generated schedule'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(
+                    '/houses/${data.houseId}/seasons/${data.seasonId}/review',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             _SectionHeader(
               title: "Today's chores",

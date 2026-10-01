@@ -4,10 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/utils/api_error_message.dart';
-import '../../../../core/widgets/app_states.dart';
-import '../providers/house_providers.dart';
 
 class AvailabilityScreen extends ConsumerStatefulWidget {
   const AvailabilityScreen({

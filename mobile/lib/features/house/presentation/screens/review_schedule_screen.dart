@@ -32,7 +32,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   Future<void> _fetchOccurrences() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
+      final res = await dio.get('/api/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
       if (mounted) {
         setState(() {
           _occurrences = res.data;
@@ -52,7 +52,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     try {
       final dio = ref.read(dioProvider);
       final action = confirm ? 'confirm' : 'reject';
-      await dio.post('/houses/${widget.houseId}/seasons/${widget.seasonId}/$action');
+      await dio.post('/api/houses/${widget.houseId}/seasons/${widget.seasonId}/$action');
       if (mounted) {
         refreshHouseState(ref, houseId: widget.houseId);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(confirm ? 'Schedule confirmed!' : 'Schedule rejected!')));
@@ -71,7 +71,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     try {
       final dio = ref.read(dioProvider);
       await dio.put(
-        '/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences/$occurrenceId/assign',
+        '/api/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences/$occurrenceId/assign',
         data: {'assigneeId': memberId},
       );
       await _fetchOccurrences(); // Refresh
@@ -95,8 +95,8 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
             itemBuilder: (ctx, i) {
               final m = members[i];
               return ListTile(
-                leading: CircleAvatar(child: Text(m.user.displayName[0])),
-                title: Text(m.user.displayName),
+                leading: CircleAvatar(child: Text(m.displayName.isNotEmpty ? m.displayName[0].toUpperCase() : '?')),
+                title: Text(m.displayName),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _assignOccurrence(occurrence['id'], m.userId);
