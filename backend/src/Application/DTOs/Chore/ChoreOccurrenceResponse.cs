@@ -15,4 +15,6 @@ public class ChoreOccurrenceResponse
     public string Description { get; set; } = string.Empty;
     public int KarmaPoints { get; set; }
     public ChoreType Type { get; set; }
+    public ChoreEffort Difficulty { get; set; }
+    public int EstimatedMinutes { get; set; }
 }

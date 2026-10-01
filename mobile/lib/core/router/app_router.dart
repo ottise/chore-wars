@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -33,6 +33,7 @@ import '../../features/house/domain/entities/house_models.dart';
 import '../../features/house/presentation/screens/availability_screen.dart';
 import '../../features/house/presentation/screens/bonus_chores_screen.dart';
 import '../../features/house/presentation/screens/create_house_screen.dart';
+import '../../features/house/presentation/screens/member_settings_screen.dart';
 import '../../features/house/presentation/screens/create_season_screen.dart';
 import '../../features/house/presentation/screens/house_detail_screen.dart';
 import '../../features/house/presentation/screens/house_onboarding_screen.dart';
@@ -293,6 +294,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'seasons/:seasonId/availability',
                 builder: (context, state) => AvailabilityScreen(
+                  houseId: state.pathParameters['houseId']!,
+                  seasonId: state.pathParameters['seasonId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'seasons/:seasonId/member-settings',
+                builder: (context, state) => MemberSettingsScreen(
                   houseId: state.pathParameters['houseId']!,
                   seasonId: state.pathParameters['seasonId']!,
                 ),

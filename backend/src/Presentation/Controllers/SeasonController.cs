@@ -54,6 +54,13 @@ public class SeasonController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("{seasonId}/availability")]
+    public async Task<IActionResult> GetAvailability(Guid seasonId, CancellationToken cancellationToken)
+    {
+        var response = await _seasonService.GetAvailabilityAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost("{seasonId}/availability")]
     public async Task<IActionResult> SetAvailability(Guid seasonId, [FromBody] MemberAvailabilityRequest request, CancellationToken cancellationToken)
     {
@@ -97,9 +104,9 @@ public class SeasonController : ControllerBase
     }
 
     [HttpPut("{seasonId}/occurrences/{occurrenceId}/assign")]
-    public async Task<IActionResult> ManualAllocate(Guid seasonId, Guid occurrenceId, [FromBody] Guid assigneeId, CancellationToken cancellationToken)
+    public async Task<IActionResult> ManualAllocate(Guid seasonId, Guid occurrenceId, [FromBody] ChoreWars.Application.DTOs.Chore.AssigneeRequest request, CancellationToken cancellationToken)
     {
-        await _choreAllocationService.ManualAllocateAsync(seasonId, occurrenceId, assigneeId, CurrentUserId, cancellationToken);
+        await _choreAllocationService.ManualAllocateAsync(seasonId, occurrenceId, request.AssigneeId, CurrentUserId, cancellationToken);
         return Ok();
     }
 
@@ -115,5 +122,12 @@ public class SeasonController : ControllerBase
     {
         var occurrences = await _seasonService.GetOccurrencesAsync(seasonId, CurrentUserId, cancellationToken);
         return Ok(occurrences);
+    }
+
+    [HttpGet("{seasonId}/workload-summary")]
+    public async Task<IActionResult> GetWorkloadSummary(Guid seasonId, CancellationToken cancellationToken)
+    {
+        var summary = await _choreAllocationService.GetWorkloadSummaryAsync(seasonId, cancellationToken);
+        return Ok(summary);
     }
 }

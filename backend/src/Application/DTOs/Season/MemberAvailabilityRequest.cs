@@ -5,5 +5,5 @@ namespace ChoreWars.Application.DTOs.Season;
 
 public class MemberAvailabilityRequest
 {
-    public Dictionary<DayOfWeek, bool> Availabilities { get; set; } = new();
+    public Dictionary<int, bool> Availabilities { get; set; } = new();
 }

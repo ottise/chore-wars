@@ -94,7 +94,7 @@ class HouseMember {
 
 enum PreferenceType {
   neutral(0),
-  liked(1),
+  preferred(1),
   disliked(2);
 
   const PreferenceType(this.apiValue);
@@ -105,7 +105,7 @@ enum PreferenceType {
       return values[value];
     }
     return switch (value?.toString().toUpperCase()) {
-      'LIKED' => liked,
+      'PREFERRED' => preferred,
       'DISLIKED' => disliked,
       _ => neutral,
     };

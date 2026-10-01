@@ -227,9 +227,9 @@ class _QuickActions extends StatelessWidget {
           ),
         if (activeSeason?.value != null)
           _ActionChip(
-            icon: Icons.event_available_rounded,
-            label: 'Availability',
-            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/availability'),
+            icon: Icons.tune_rounded,
+            label: 'My Settings',
+            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/member-settings'),
           ),
         if (activeSeason?.value != null)
           _ActionChip(

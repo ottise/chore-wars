@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ChoreWars.Application.DTOs.Season;
 
 namespace ChoreWars.Application.Interfaces.Services;
 
@@ -9,4 +12,5 @@ public interface IChoreAllocationService
     Task AllocateAllActiveSeasonsAsync(CancellationToken cancellationToken = default);
     Task ManualAllocateAsync(Guid seasonId, Guid occurrenceId, Guid assigneeId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<string>> GetFairnessWarningsAsync(Guid seasonId, CancellationToken cancellationToken = default);
+    Task<WorkloadSummaryResponse> GetWorkloadSummaryAsync(Guid seasonId, CancellationToken cancellationToken = default);
 }

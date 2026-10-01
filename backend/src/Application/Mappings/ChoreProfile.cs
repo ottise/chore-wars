@@ -20,6 +20,8 @@ public class ChoreProfile : Profile
             .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Chore.Description))
             .ForMember(dest => dest.KarmaPoints, opt => opt.MapFrom(src =>
                 src.SnapshotKarma > 0 ? src.SnapshotKarma : src.Chore.KarmaPoints))
-            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Chore.Type));
+            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Chore.Type))
+            .ForMember(dest => dest.Difficulty, opt => opt.MapFrom(src => src.Chore.Difficulty))
+            .ForMember(dest => dest.EstimatedMinutes, opt => opt.MapFrom(src => src.Chore.EstimatedMinutes));
     }
 }

@@ -134,6 +134,27 @@ public class SeasonService : ISeasonService
         }
     }
 
+    public async Task<MemberAvailabilityRequest> GetAvailabilityAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException("You must be an active member of the house.");
+
+        var existingAvailabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
+        
+        var request = new MemberAvailabilityRequest();
+        foreach (var existing in existingAvailabilities)
+        {
+            request.Availabilities[(int)existing.DayOfWeek] = existing.IsAvailable;
+        }
+
+        return request;
+    }
+
     public async Task SetAvailabilityAsync(Guid seasonId, MemberAvailabilityRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
@@ -160,7 +181,7 @@ public class SeasonService : ISeasonService
                     Id = Guid.NewGuid(),
                     SeasonId = seasonId,
                     UserId = userId,
-                    DayOfWeek = kvp.Key,
+                    DayOfWeek = (DayOfWeek)kvp.Key,
                     IsAvailable = kvp.Value
                 };
                 await _unitOfWork.MemberAvailabilities.AddAsync(availability, cancellationToken);

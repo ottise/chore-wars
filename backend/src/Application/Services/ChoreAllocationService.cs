@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ChoreWars.Application.DTOs.Season;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
+using ChoreWars.Domain.Common.Constants;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Enums;
 using ChoreWars.Domain.Exceptions;
@@ -142,7 +144,7 @@ public class ChoreAllocationService : IChoreAllocationService
                     int prefModifier = 0;
                     if (pref != null)
                     {
-                        if (pref.Type == PreferenceType.LIKED) prefModifier = -30; // Reduce perceived workload
+                        if (pref.Type == PreferenceType.PREFERRED) prefModifier = -30;
                         if (pref.Type == PreferenceType.DISLIKED) prefModifier = 30; // Increase perceived workload
                     }
                     
@@ -243,6 +245,12 @@ public class ChoreAllocationService : IChoreAllocationService
 
     public async Task<IEnumerable<string>> GetFairnessWarningsAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
+        var summary = await GetWorkloadSummaryAsync(seasonId, cancellationToken);
+        return summary.Warnings;
+    }
+
+    public async Task<WorkloadSummaryResponse> GetWorkloadSummaryAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
@@ -251,44 +259,53 @@ public class ChoreAllocationService : IChoreAllocationService
             .Where(m => m.Status == HouseMemberStatus.ACTIVE)
             .ToList();
 
-        if (activeMembers.Count < 2)
-            return Enumerable.Empty<string>();
+        var allOccurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken))
+            .Where(o => o.AssignedUserId.HasValue)
+            .ToList();
 
-        var occurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList(); // Wait, I need ALL occurrences, not unassigned.
-        // Let's create GetBySeasonIdAsync on ChoreOccurrences. For now, I can get chores then occurrences.
-        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(seasonId, cancellationToken);
-        var choreIds = chores.Select(c => c.Id).ToHashSet();
-        
-        // This could be slow if there are many chores, but it's okay for now.
-        // Actually, we can just use the DB context directly or add GetBySeasonIdAsync.
-        // Since I'm using _unitOfWork, let's just get occurrences by ChoreId.
-        var allOccurrences = new List<ChoreOccurrence>();
-        foreach(var chore in chores)
+        var response = new WorkloadSummaryResponse();
+
+        foreach (var member in activeMembers)
         {
-            var occs = await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(chore.Id, cancellationToken);
-            allOccurrences.AddRange(occs);
+            var memberOccs = allOccurrences
+                .Where(o => o.AssignedUserId == member.UserId)
+                .ToList();
+
+            response.Members.Add(new MemberWorkload
+            {
+                UserId = member.UserId,
+                DisplayName = member.User.DisplayName,
+                TotalChores = memberOccs.Count,
+                TotalEstimatedMinutes = memberOccs.Sum(o => o.Chore.EstimatedMinutes),
+                EasyCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.EASY),
+                MediumCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.MEDIUM),
+                HardCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.HARD),
+            });
         }
 
-        var assignedKarmaMap = activeMembers.ToDictionary(m => m.UserId, m => 0);
-        foreach (var occ in allOccurrences.Where(o => o.AssignedUserId.HasValue))
+        if (response.Members.Count >= 2)
         {
-            if (assignedKarmaMap.ContainsKey(occ.AssignedUserId.Value))
+            var maxMinutes = response.Members.Max(m => m.TotalEstimatedMinutes);
+            var minMinutes = response.Members.Min(m => m.TotalEstimatedMinutes);
+            var minuteGap = maxMinutes - minMinutes;
+
+            if (minuteGap > AIAllocationConstants.FairnessThresholdMinutes)
             {
-                assignedKarmaMap[occ.AssignedUserId.Value] += occ.SnapshotKarma;
+                response.Warnings.Add(
+                    $"Workload gap: {minuteGap} minutes between highest and lowest. Consider reviewing.");
+            }
+
+            var maxChores = response.Members.Max(m => m.TotalChores);
+            var minChores = response.Members.Min(m => m.TotalChores);
+            var choreGap = maxChores - minChores;
+
+            if (choreGap > AIAllocationConstants.FairnessThresholdChores)
+            {
+                response.Warnings.Add(
+                    $"Chore count gap: {choreGap} chores. Consider rebalancing.");
             }
         }
 
-        var maxKarma = assignedKarmaMap.Values.Max();
-        var minKarma = assignedKarmaMap.Values.Min();
-
-        var warnings = new List<string>();
-        if (maxKarma - minKarma > 20)
-        {
-            var maxUser = assignedKarmaMap.First(kvp => kvp.Value == maxKarma).Key;
-            var minUser = assignedKarmaMap.First(kvp => kvp.Value == minKarma).Key;
-            warnings.Add($"Significant karma assignment gap: {maxKarma - minKarma} between max and min. Review schedule fairness.");
-        }
-
-        return warnings;
+        return response;
     }
 }
