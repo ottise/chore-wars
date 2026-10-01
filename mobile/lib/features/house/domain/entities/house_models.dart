@@ -91,3 +91,63 @@ class HouseMember {
   bool get isOwner => role == HouseRole.owner;
   bool get isActive => status == HouseMemberStatus.active;
 }
+
+enum PreferenceType {
+  neutral(0),
+  liked(1),
+  disliked(2);
+
+  const PreferenceType(this.apiValue);
+  final int apiValue;
+
+  static PreferenceType fromJson(Object? value) {
+    if (value is int && value >= 0 && value < values.length) {
+      return values[value];
+    }
+    return switch (value?.toString().toUpperCase()) {
+      'LIKED' => liked,
+      'DISLIKED' => disliked,
+      _ => neutral,
+    };
+  }
+}
+
+class MemberPreference {
+  const MemberPreference({
+    required this.choreId,
+    required this.choreName,
+    required this.type,
+  });
+
+  final String choreId;
+  final String choreName;
+  final PreferenceType type;
+
+  factory MemberPreference.fromJson(Map<String, dynamic> json) =>
+      MemberPreference(
+        choreId: json['choreId'].toString(),
+        choreName: json['choreName']?.toString() ?? '',
+        type: PreferenceType.fromJson(json['type']),
+      );
+}
+
+class MemberConstraint {
+  const MemberConstraint({
+    required this.maxChoresPerWeek,
+    required this.maxEffortMinutesPerDay,
+  });
+
+  final int maxChoresPerWeek;
+  final int maxEffortMinutesPerDay;
+
+  factory MemberConstraint.fromJson(Map<String, dynamic> json) =>
+      MemberConstraint(
+        maxChoresPerWeek: json['maxChoresPerWeek'] as int? ?? 10,
+        maxEffortMinutesPerDay: json['maxEffortMinutesPerDay'] as int? ?? 120,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'maxChoresPerWeek': maxChoresPerWeek,
+    'maxEffortMinutesPerDay': maxEffortMinutesPerDay,
+  };
+}

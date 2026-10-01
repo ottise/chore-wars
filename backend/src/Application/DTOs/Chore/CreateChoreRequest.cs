@@ -11,4 +11,6 @@ public class CreateChoreRequest
     public FrequencyType FrequencyType { get; set; }
     public int? FrequencyValue { get; set; }
     public System.DayOfWeek[]? FrequencyDays { get; set; }
+    public ChoreEffort Difficulty { get; set; } = ChoreEffort.MEDIUM;
+    public int EstimatedMinutes { get; set; } = 30;
 }

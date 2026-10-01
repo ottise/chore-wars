@@ -32,6 +32,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IHouseMemberRepository, HouseMemberRepository>();
         services.AddScoped<IChoreSeasonRepository, ChoreSeasonRepository>();
         services.AddScoped<IMemberAvailabilityRepository, MemberAvailabilityRepository>();
+        services.AddScoped<IMemberPreferenceRepository, MemberPreferenceRepository>();
+        services.AddScoped<IMemberConstraintRepository, MemberConstraintRepository>();
         services.AddScoped<ISeasonRankingRepository, SeasonRankingRepository>();
         services.AddScoped<IChoreRepository, ChoreRepository>();
         services.AddScoped<IChoreFrequencyDayRepository, ChoreFrequencyDayRepository>();

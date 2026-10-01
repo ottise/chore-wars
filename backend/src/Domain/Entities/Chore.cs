@@ -15,6 +15,8 @@ public class Chore
     public ChoreType Type { get; set; }
     public FrequencyType FrequencyType { get; set; }
     public int? FrequencyValue { get; set; }
+    public ChoreEffort Difficulty { get; set; } = ChoreEffort.MEDIUM;
+    public int EstimatedMinutes { get; set; } = 30;
 
     public House House { get; set; } = null!;
     public ChoreSeason Season { get; set; } = null!;

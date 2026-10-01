@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/widgets/app_states.dart';
+
 import '../../../../core/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
@@ -22,6 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -86,6 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
+                    errorText: _errorMessage,
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Enter your password';
@@ -121,6 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    setState(() => _errorMessage = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     try {
@@ -130,7 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (mounted) context.go('/houses');
     } catch (error) {
-      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (mounted) setState(() => _errorMessage = apiErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<HouseMember> HouseMembers { get; set; } = null!;
     public DbSet<ChoreSeason> Seasons { get; set; } = null!;
     public DbSet<MemberAvailability> MemberAvailabilities { get; set; } = null!;
+    public DbSet<MemberPreference> MemberPreferences { get; set; } = null!;
+    public DbSet<MemberConstraint> MemberConstraints { get; set; } = null!;
     public DbSet<SeasonRanking> SeasonRankings { get; set; } = null!;
     public DbSet<Chore> Chores { get; set; } = null!;
     public DbSet<ChoreFrequencyDay> ChoreFrequencyDays { get; set; } = null!;

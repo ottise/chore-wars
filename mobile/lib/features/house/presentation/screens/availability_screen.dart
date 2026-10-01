@@ -51,11 +51,12 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       
       final Map<String, bool> payload = {};
       _availability.forEach((key, value) {
-        payload[key.toString()] = value;
+        final dayName = _days.firstWhere((d) => d.$1 == key).$2;
+        payload[dayName] = value;
       });
 
       await dio.post(
-        '/api/houses/${widget.houseId}/seasons/${widget.seasonId}/availability',
+        '/houses/${widget.houseId}/seasons/${widget.seasonId}/availability',
         data: {'availabilities': payload},
       );
 

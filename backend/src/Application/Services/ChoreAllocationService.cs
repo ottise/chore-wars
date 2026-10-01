@@ -25,7 +25,7 @@ public class ChoreAllocationService : IChoreAllocationService
 
     public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation($"Starting allocation for season {seasonId}");
+        _logger.LogInformation($"Starting Workload-based allocation for season {seasonId}");
 
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
@@ -48,39 +48,120 @@ public class ChoreAllocationService : IChoreAllocationService
         if (!members.Any())
             throw new ConflictException("No active members in the household to assign chores to.");
 
-        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken); // Wait, we don't have GetBySeasonIdAsync yet, let's just get it per member or use a new method. I'll need to create GetBySeasonIdAsync.
+        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken);
 
-        // Initialize assigned karma tracker for this allocation session to balance workload
-        var assignedKarma = members.ToDictionary(m => m.UserId, m => 0);
+        // Fetch constraints and preferences
+        var constraints = new Dictionary<Guid, MemberConstraint>();
+        var preferences = new Dictionary<Guid, List<MemberPreference>>();
+        foreach (var m in members)
+        {
+            var c = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(m.UserId, season.HouseId, cancellationToken);
+            constraints[m.UserId] = c ?? new MemberConstraint { 
+                MaxChoresPerWeek = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxChoresPerWeek, 
+                MaxEffortMinutesPerDay = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxEffortMinutesPerDay 
+            };
+
+            var p = await _unitOfWork.MemberPreferences.GetByUserIdAsync(m.UserId, cancellationToken);
+            preferences[m.UserId] = p.ToList();
+        }
+
+        // Initialize state tracking
+        var assignedWorkload = members.ToDictionary(m => m.UserId, m => 0); // Total minutes assigned in this session
+        var choresPerWeek = members.ToDictionary(m => m.UserId, m => new Dictionary<int, int>()); // WeekOfYear -> Count
+        var minutesPerDay = members.ToDictionary(m => m.UserId, m => new Dictionary<DateTime, int>()); // Date -> Minutes
+
+        // Helper to get ISO week
+        int GetIso8601WeekOfYear(DateTime time)
+        {
+            var cal = System.Globalization.DateTimeFormatInfo.CurrentInfo.Calendar;
+            return cal.GetWeekOfYear(time, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+        }
+
+        // Sort occurrences by Difficulty (Hardest first) and then EstimatedMinutes (Longest first)
+        unassignedOccurrences = unassignedOccurrences
+            .OrderByDescending(o => o.Chore.Difficulty)
+            .ThenByDescending(o => o.Chore.EstimatedMinutes)
+            .ToList();
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             foreach (var occurrence in unassignedOccurrences)
             {
-                var dayOfWeek = occurrence.DueDate.DayOfWeek;
+                var dueDate = occurrence.DueDate.Date;
+                var dayOfWeek = dueDate.DayOfWeek;
+                var weekOfYear = GetIso8601WeekOfYear(dueDate);
+                var estMinutes = occurrence.Chore.EstimatedMinutes;
 
-                // Find eligible members (available on this day)
-                // If a user has explicitly set IsAvailable = false for this DayOfWeek, they are not eligible.
-                // Otherwise, they are eligible.
-                var eligibleMembers = members.Where(m => 
+                // 1. Filter Valid Candidates (Hard Constraints)
+                var validCandidates = members.Where(m => 
                 {
-                    var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
-                    return availability == null || availability.IsAvailable;
+                    var userId = m.UserId;
+                    
+                    // Availability Check
+                    var availability = availabilities.FirstOrDefault(a => a.UserId == userId && a.DayOfWeek == dayOfWeek);
+                    if (availability != null && !availability.IsAvailable) return false;
+
+                    // Constraints Check
+                    var c = constraints[userId];
+                    
+                    var currentChoresThisWeek = choresPerWeek[userId].TryGetValue(weekOfYear, out var cw) ? cw : 0;
+                    if (currentChoresThisWeek >= c.MaxChoresPerWeek) return false;
+
+                    var currentMinutesThisDay = minutesPerDay[userId].TryGetValue(dueDate, out var md) ? md : 0;
+                    if (currentMinutesThisDay + estMinutes > c.MaxEffortMinutesPerDay) return false;
+
+                    return true;
                 }).ToList();
 
-                // If no one is available, fallback to all members
-                if (!eligibleMembers.Any())
-                    eligibleMembers = members;
+                // If no one is valid under constraints, we must fallback to all available members ignoring constraints to ensure chore gets done
+                if (!validCandidates.Any())
+                {
+                    _logger.LogWarning($"No valid candidates for occurrence {occurrence.Id} respecting constraints. Falling back.");
+                    validCandidates = members.Where(m => 
+                    {
+                        var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
+                        return availability == null || availability.IsAvailable;
+                    }).ToList();
 
-                // Sort by least assigned karma in this session, then by least overall KarmaBalance to distribute fairly
-                var assignee = eligibleMembers
-                    .OrderBy(m => assignedKarma[m.UserId])
-                    .ThenBy(m => m.KarmaBalance)
-                    .First();
+                    if (!validCandidates.Any())
+                        validCandidates = members; // Absolute fallback
+                }
 
+                // 2. Score Valid Candidates (Fairness + Preference)
+                // Lower score is better (we want to pick the person with lowest workload / best preference)
+                var candidateScores = validCandidates.Select(m => 
+                {
+                    var userId = m.UserId;
+                    
+                    // Workload factor
+                    var workload = assignedWorkload[userId];
+
+                    // Preference factor
+                    var pref = preferences[userId].FirstOrDefault(p => p.ChoreId == occurrence.ChoreId);
+                    int prefModifier = 0;
+                    if (pref != null)
+                    {
+                        if (pref.Type == PreferenceType.LIKED) prefModifier = -30; // Reduce perceived workload
+                        if (pref.Type == PreferenceType.DISLIKED) prefModifier = 30; // Increase perceived workload
+                    }
+                    
+                    return new { Member = m, Score = workload + prefModifier };
+                }).OrderBy(x => x.Score).ToList();
+
+                var assignee = candidateScores.First().Member;
+
+                // 3. Assign
                 occurrence.AssignedUserId = assignee.UserId;
-                assignedKarma[assignee.UserId] += occurrence.SnapshotKarma;
+                
+                // Update tracking
+                assignedWorkload[assignee.UserId] += estMinutes;
+                
+                if (!choresPerWeek[assignee.UserId].ContainsKey(weekOfYear)) choresPerWeek[assignee.UserId][weekOfYear] = 0;
+                choresPerWeek[assignee.UserId][weekOfYear]++;
+
+                if (!minutesPerDay[assignee.UserId].ContainsKey(dueDate)) minutesPerDay[assignee.UserId][dueDate] = 0;
+                minutesPerDay[assignee.UserId][dueDate] += estMinutes;
 
                 _unitOfWork.ChoreOccurrences.Update(occurrence);
             }

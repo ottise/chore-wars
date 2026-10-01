@@ -17,6 +17,8 @@ public class UnitOfWork : IUnitOfWork
     public IHouseMemberRepository HouseMembers { get; }
     public IChoreSeasonRepository Seasons { get; }
     public IMemberAvailabilityRepository MemberAvailabilities { get; }
+    public IMemberPreferenceRepository MemberPreferences { get; }
+    public IMemberConstraintRepository MemberConstraints { get; }
     public ISeasonRankingRepository SeasonRankings { get; }
     public IChoreRepository Chores { get; }
     public IChoreFrequencyDayRepository ChoreFrequencyDays { get; }
@@ -39,6 +41,8 @@ public class UnitOfWork : IUnitOfWork
         IHouseMemberRepository houseMembers,
         IChoreSeasonRepository seasons,
         IMemberAvailabilityRepository memberAvailabilities,
+        IMemberPreferenceRepository memberPreferences,
+        IMemberConstraintRepository memberConstraints,
         ISeasonRankingRepository seasonRankings,
         IChoreRepository chores,
         IChoreFrequencyDayRepository choreFrequencyDays,
@@ -60,6 +64,8 @@ public class UnitOfWork : IUnitOfWork
         HouseMembers = houseMembers;
         Seasons = seasons;
         MemberAvailabilities = memberAvailabilities;
+        MemberPreferences = memberPreferences;
+        MemberConstraints = memberConstraints;
         SeasonRankings = seasonRankings;
         Chores = chores;
         ChoreFrequencyDays = choreFrequencyDays;

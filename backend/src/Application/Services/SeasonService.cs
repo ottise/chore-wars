@@ -304,8 +304,8 @@ public class SeasonService : ISeasonService
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null || member.Role != HouseRole.OWNER)
-            throw new ForbiddenException("Only the house owner can generate a schedule.");
+        if (member == null)
+            throw new ForbiddenException("Only active house members can generate a schedule.");
 
         if (season.Status != SeasonStatus.DRAFT)
             throw new ConflictException("Season must be in DRAFT state to generate schedule.");

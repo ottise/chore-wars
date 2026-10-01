@@ -12,6 +12,8 @@ public interface IUnitOfWork : IDisposable
     IHouseMemberRepository HouseMembers { get; }
     IChoreSeasonRepository Seasons { get; }
     IMemberAvailabilityRepository MemberAvailabilities { get; }
+    IMemberPreferenceRepository MemberPreferences { get; }
+    IMemberConstraintRepository MemberConstraints { get; }
     ISeasonRankingRepository SeasonRankings { get; }
     IChoreRepository Chores { get; }
     IChoreFrequencyDayRepository ChoreFrequencyDays { get; }

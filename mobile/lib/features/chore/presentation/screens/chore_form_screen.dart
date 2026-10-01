@@ -73,6 +73,8 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late ChoreType _type;
   late ChoreFrequency _frequency;
   late Set<int> _days;
+  late ChoreEffort _difficulty;
+  late final TextEditingController _estimatedMinutes;
   bool _saving = false;
   String? _apiError;
 
@@ -91,6 +93,8 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _type = chore?.type ?? ChoreType.normal;
     _frequency = chore?.frequency ?? ChoreFrequency.daily;
     _days = {...?chore?.frequencyDays};
+    _difficulty = chore?.difficulty ?? ChoreEffort.medium;
+    _estimatedMinutes = TextEditingController(text: (chore?.estimatedMinutes ?? 30).toString());
   }
 
   @override
@@ -99,6 +103,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _description.dispose();
     _karma.dispose();
     _frequencyValue.dispose();
+    _estimatedMinutes.dispose();
     super.dispose();
   }
 
@@ -176,6 +181,44 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
                   ? 'Karma must be greater than 0'
                   : null;
             },
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<ChoreEffort>(
+                  initialValue: _difficulty,
+                  decoration: const InputDecoration(labelText: 'Difficulty'),
+                  items: [
+                    for (final effort in ChoreEffort.values)
+                      DropdownMenuItem(
+                        value: effort,
+                        child: Text(effort.label),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _difficulty = value!),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextFormField(
+                  controller: _estimatedMinutes,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Duration',
+                    suffixText: 'min',
+                  ),
+                  validator: (value) {
+                    final parsed = int.tryParse(value ?? '');
+                    return parsed == null || parsed <= 0
+                        ? 'Invalid'
+                        : null;
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           DropdownButtonFormField<ChoreFrequency>(
@@ -287,6 +330,8 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         ? int.tryParse(_frequencyValue.text)
         : null,
     frequencyDays: _days.toList()..sort(),
+    difficulty: _difficulty,
+    estimatedMinutes: int.tryParse(_estimatedMinutes.text) ?? 30,
   );
 
   Future<void> _save() async {

@@ -78,4 +78,32 @@ public class HouseController : ControllerBase
         await _houseService.TransferOwnershipAsync(houseId, newOwnerId, CurrentUserId, cancellationToken);
         return Ok();
     }
+
+    [HttpGet("{houseId}/preferences")]
+    public async Task<IActionResult> GetPreferences(Guid houseId, CancellationToken cancellationToken)
+    {
+        var prefs = await _houseService.GetMemberPreferencesAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(prefs);
+    }
+
+    [HttpPost("{houseId}/preferences")]
+    public async Task<IActionResult> SetPreferences(Guid houseId, [FromBody] SetMemberPreferencesRequest request, CancellationToken cancellationToken)
+    {
+        await _houseService.SetMemberPreferencesAsync(houseId, request, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpGet("{houseId}/constraints")]
+    public async Task<IActionResult> GetConstraints(Guid houseId, CancellationToken cancellationToken)
+    {
+        var constraint = await _houseService.GetMemberConstraintAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(constraint);
+    }
+
+    [HttpPost("{houseId}/constraints")]
+    public async Task<IActionResult> SetConstraints(Guid houseId, [FromBody] SetMemberConstraintRequest request, CancellationToken cancellationToken)
+    {
+        await _houseService.SetMemberConstraintAsync(houseId, request, CurrentUserId, cancellationToken);
+        return Ok();
+    }
 }

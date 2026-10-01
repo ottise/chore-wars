@@ -16,4 +16,10 @@ public interface IHouseService
     Task<HouseResponse> GetHouseAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<HouseResponse>> GetUserHousesAsync(Guid userId, CancellationToken cancellationToken = default);
     Task TransferOwnershipAsync(Guid houseId, Guid newOwnerId, Guid currentUserId, CancellationToken cancellationToken = default);
+
+    Task SetMemberPreferencesAsync(Guid houseId, SetMemberPreferencesRequest request, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<MemberPreferenceResponse>> GetMemberPreferencesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+
+    Task SetMemberConstraintAsync(Guid houseId, SetMemberConstraintRequest request, Guid userId, CancellationToken cancellationToken = default);
+    Task<MemberConstraintResponse> GetMemberConstraintAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
 }

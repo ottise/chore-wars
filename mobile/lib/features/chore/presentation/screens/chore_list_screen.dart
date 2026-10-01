@@ -40,7 +40,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> with SingleTi
     setState(() => _generating = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/houses/${widget.houseId}/seasons/$seasonId/generate-schedule');
+      await dio.post('/houses/${widget.houseId}/seasons/$seasonId/generate-schedule');
       if (mounted) {
         refreshHouseState(ref, houseId: widget.houseId);
         ref.invalidate(choreTemplatesProvider(widget.houseId));
@@ -408,7 +408,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
   Future<void> _fetch() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/api/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
+      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
       if (mounted) setState(() { _occurrences = res.data as List; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);

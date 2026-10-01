@@ -128,11 +128,8 @@ public class ChoreGenerationService : IChoreGenerationService
                     Id = Guid.NewGuid(),
                     ChoreId = chore.Id,
                     DueDate = currentDate.AddHours(23).AddMinutes(59), // End of day
-                    Status = ChoreOccurrenceStatus.ASSIGNED, // Or UNASSIGNED if we support that, but BR says ASSIGNED during allocation. Actually before allocation it's just pending. We'll set to ASSIGNED but AssignedUserId is empty Guid? Wait, AssignedUserId is not nullable.
-                    // The schema requires AssignedUserId. For pre-allocation, how is it handled?
-                    // Maybe we assign it to a System Guid or we must make AssignedUserId nullable in a future migration.
-                    // For now, I will use Guid.Empty.
-                    AssignedUserId = Guid.Empty, 
+                    Status = ChoreOccurrenceStatus.ASSIGNED,
+                    AssignedUserId = null, 
                     SnapshotKarma = chore.KarmaPoints,
                     IsForcedReassigned = false,
                     PenaltyCount = 0

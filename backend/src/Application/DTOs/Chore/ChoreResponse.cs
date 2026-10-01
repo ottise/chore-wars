@@ -13,4 +13,6 @@ public class ChoreResponse
     public FrequencyType FrequencyType { get; set; }
     public int? FrequencyValue { get; set; }
     public DayOfWeek[] FrequencyDays { get; set; } = Array.Empty<DayOfWeek>();
+    public ChoreEffort Difficulty { get; set; }
+    public int EstimatedMinutes { get; set; }
 }

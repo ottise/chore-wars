@@ -73,6 +73,28 @@ enum ChoreStatus {
   };
 }
 
+enum ChoreEffort {
+  easy(0, 'Easy'),
+  medium(1, 'Medium'),
+  hard(2, 'Hard');
+
+  const ChoreEffort(this.apiValue, this.label);
+  final int apiValue;
+  final String label;
+
+  static ChoreEffort fromJson(Object? value) {
+    if (value is int && value >= 0 && value < values.length) {
+      return values[value];
+    }
+    final normalized = value.toString().toUpperCase();
+    return switch (normalized) {
+      'EASY' => easy,
+      'HARD' => hard,
+      _ => medium,
+    };
+  }
+}
+
 class ChoreTemplate {
   const ChoreTemplate({
     required this.id,
@@ -83,6 +105,8 @@ class ChoreTemplate {
     required this.frequency,
     this.frequencyValue,
     this.frequencyDays = const [],
+    this.difficulty = ChoreEffort.medium,
+    this.estimatedMinutes = 30,
   });
 
   final String id;
@@ -93,6 +117,8 @@ class ChoreTemplate {
   final ChoreFrequency frequency;
   final int? frequencyValue;
   final List<int> frequencyDays;
+  final ChoreEffort difficulty;
+  final int estimatedMinutes;
 
   factory ChoreTemplate.fromJson(Map<String, dynamic> json) => ChoreTemplate(
     id: json['id'].toString(),
@@ -105,6 +131,8 @@ class ChoreTemplate {
     frequencyDays: (json['frequencyDays'] as List<dynamic>? ?? const [])
         .map((day) => (day as num).toInt())
         .toList(),
+    difficulty: ChoreEffort.fromJson(json['difficulty']),
+    estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 30,
   );
 
   Map<String, dynamic> toRequestJson() => {
@@ -117,6 +145,8 @@ class ChoreTemplate {
     'frequencyDays': frequency == ChoreFrequency.specificDays
         ? frequencyDays
         : null,
+    'difficulty': difficulty.apiValue,
+    'estimatedMinutes': estimatedMinutes,
   };
 }
 

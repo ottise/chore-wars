@@ -105,7 +105,7 @@ class _HouseBody extends ConsumerWidget {
             onTap: () async {
               try {
                 final dio = ref.read(dioProvider);
-                await dio.post('/api/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule');
+                await dio.post('/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule');
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Schedule generated!')));
                   refreshHouseState(ref, houseId: houseId);

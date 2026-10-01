@@ -51,7 +51,9 @@ public class ChoreService : IChoreService
             KarmaPoints = request.KarmaPoints,
             Type = request.Type,
             FrequencyType = request.FrequencyType,
-            FrequencyValue = request.FrequencyValue
+            FrequencyValue = request.FrequencyValue,
+            Difficulty = request.Difficulty,
+            EstimatedMinutes = request.EstimatedMinutes
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

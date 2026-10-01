@@ -255,4 +255,138 @@ public class HouseService : IHouseService
             throw;
         }
     }
+
+    public async Task SetMemberPreferencesAsync(Guid houseId, SetMemberPreferencesRequest request, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException();
+
+        var existingPrefs = await _unitOfWork.MemberPreferences.GetByUserIdAsync(userId, cancellationToken);
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Simple approach: remove all and recreate
+            foreach (var pref in existingPrefs)
+            {
+                var chore = await _unitOfWork.Chores.GetByIdAsync(pref.ChoreId, cancellationToken);
+                if (chore != null && chore.HouseId == houseId)
+                {
+                    _unitOfWork.MemberPreferences.Delete(pref);
+                }
+            }
+
+            foreach (var prefDto in request.Preferences)
+            {
+                var chore = await _unitOfWork.Chores.GetByIdAsync(prefDto.ChoreId, cancellationToken);
+                if (chore == null || chore.HouseId != houseId) continue;
+
+                var pref = new MemberPreference
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    ChoreId = prefDto.ChoreId,
+                    Type = prefDto.Type
+                };
+                await _unitOfWork.MemberPreferences.AddAsync(pref, cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<MemberPreferenceResponse>> GetMemberPreferencesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException();
+
+        var prefs = await _unitOfWork.MemberPreferences.GetByUserIdAsync(userId, cancellationToken);
+        var response = new List<MemberPreferenceResponse>();
+
+        foreach (var pref in prefs)
+        {
+            var chore = await _unitOfWork.Chores.GetByIdAsync(pref.ChoreId, cancellationToken);
+            if (chore != null && chore.HouseId == houseId)
+            {
+                response.Add(new MemberPreferenceResponse
+                {
+                    ChoreId = pref.ChoreId,
+                    ChoreName = chore.Name,
+                    Type = pref.Type
+                });
+            }
+        }
+        return response;
+    }
+
+    public async Task SetMemberConstraintAsync(Guid houseId, SetMemberConstraintRequest request, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException();
+
+        var existing = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(userId, houseId, cancellationToken);
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (existing != null)
+            {
+                existing.MaxChoresPerWeek = request.MaxChoresPerWeek;
+                existing.MaxEffortMinutesPerDay = request.MaxEffortMinutesPerDay;
+                _unitOfWork.MemberConstraints.Update(existing);
+            }
+            else
+            {
+                var constraint = new MemberConstraint
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    HouseId = houseId,
+                    MaxChoresPerWeek = request.MaxChoresPerWeek,
+                    MaxEffortMinutesPerDay = request.MaxEffortMinutesPerDay
+                };
+                await _unitOfWork.MemberConstraints.AddAsync(constraint, cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<MemberConstraintResponse> GetMemberConstraintAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException();
+
+        var constraint = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(userId, houseId, cancellationToken);
+        if (constraint == null)
+        {
+            return new MemberConstraintResponse
+            {
+                MaxChoresPerWeek = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxChoresPerWeek,
+                MaxEffortMinutesPerDay = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxEffortMinutesPerDay
+            };
+        }
+
+        return new MemberConstraintResponse
+        {
+            MaxChoresPerWeek = constraint.MaxChoresPerWeek,
+            MaxEffortMinutesPerDay = constraint.MaxEffortMinutesPerDay
+        };
+    }
 }

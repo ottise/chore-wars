@@ -25,6 +25,10 @@ public class ChoreConfiguration : IEntityTypeConfiguration<Chore>
             .IsRequired()
             .HasConversion<string>();
 
+        builder.Property(x => x.Difficulty)
+            .IsRequired()
+            .HasConversion<string>();
+
         builder.HasOne(x => x.House)
             .WithMany(x => x.Chores)
             .HasForeignKey(x => x.HouseId)

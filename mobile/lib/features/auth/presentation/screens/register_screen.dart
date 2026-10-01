@@ -24,6 +24,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -130,6 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
+                    errorText: _errorMessage,
                   ),
                   validator: (v) {
                     if (v != _passwordCtrl.text) return 'Passwords do not match';
@@ -165,6 +167,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    setState(() => _errorMessage = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     try {
@@ -178,7 +181,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         context.go('/login');
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (mounted) setState(() => _errorMessage = apiErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
