@@ -271,30 +271,73 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                     ),
                   ),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _occurrences.length,
-                    itemBuilder: (context, index) {
-                      final occ = _occurrences[index];
-                      final isUnassigned = occ['assignedUserId'] == null;
-                      final date = DateTime.parse(occ['dueDate']).toLocal();
-                      final dateStr = '${date.day}/${date.month}/${date.year}';
-                      
-                      final difficulty = occ['difficulty'];
-                      final estMinutes = occ['estimatedMinutes'] ?? 0;
-                      
-                      return ListTile(
-                        title: Text(occ['choreName']),
-                        subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
-                        trailing: isUnassigned
-                            ? (isManual
-                                ? ElevatedButton(
-                                    onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
-                                    child: const Text('Assign'),
-                                  )
-                                : const Text('Unassigned', style: TextStyle(color: AppTheme.red)))
-                            : Chip(label: Text(occ['assignedUserDisplayName'] ?? 'Unknown')),
+                  child: Builder(
+                    builder: (context) {
+                      final startDateStr = activeSeasonAsync.value?['startDate'];
+                      final startDate = startDateStr != null ? DateTime.parse(startDateStr).toLocal() : null;
+
+                      final List<dynamic> listItems = [];
+                      if (startDate != null && _occurrences.isNotEmpty) {
+                        final sorted = List<Map<String, dynamic>>.from(_occurrences)
+                          ..sort((a, b) => DateTime.parse(a['dueDate']).compareTo(DateTime.parse(b['dueDate'])));
+                        
+                        final firstDay = startDate.subtract(Duration(days: startDate.weekday - 1));
+                        int currentWeek = -1;
+                        
+                        for (var occ in sorted) {
+                          final date = DateTime.parse(occ['dueDate']).toLocal();
+                          final diff = date.difference(firstDay).inDays;
+                          final week = (diff / 7).floor() + 1;
+                          
+                          if (week != currentWeek) {
+                            currentWeek = week;
+                            listItems.add('Week $week');
+                          }
+                          listItems.add(occ);
+                        }
+                      }
+
+                      return ListView.builder(
+                        itemCount: listItems.length,
+                        itemBuilder: (context, index) {
+                          final item = listItems[index];
+                          
+                          if (item is String) {
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                              child: Text(
+                                item,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          }
+
+                          final occ = item as Map<String, dynamic>;
+                          final isUnassigned = occ['assignedUserId'] == null;
+                          final date = DateTime.parse(occ['dueDate']).toLocal();
+                          final dateStr = '${date.day}/${date.month}/${date.year}';
+                          
+                          final difficulty = occ['difficulty'];
+                          final estMinutes = occ['estimatedMinutes'] ?? 0;
+                          
+                          return ListTile(
+                            title: Text(occ['choreName']),
+                            subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
+                            trailing: isUnassigned
+                                ? (isManual
+                                    ? ElevatedButton(
+                                        onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
+                                        child: const Text('Assign'),
+                                      )
+                                    : const Text('Unassigned', style: TextStyle(color: AppTheme.red)))
+                                : Chip(label: Text(occ['assignedUserDisplayName'] ?? 'Unknown')),
+                          );
+                        },
                       );
-                    },
+                    }
                   ),
                 ),
                 Padding(

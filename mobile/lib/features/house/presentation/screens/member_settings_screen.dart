@@ -126,7 +126,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
         dio.post(ApiEndpoints.houseConstraints(widget.houseId), 
                  data: constraintsPayload),
         dio.post(ApiEndpoints.housePreferences(widget.houseId), 
-                 data: prefsPayload),
+                 data: {'preferences': prefsPayload}),
       ]);
 
       if (mounted) {

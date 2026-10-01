@@ -33,8 +33,7 @@ public class ChoreAllocationService : IChoreAllocationService
         if (season == null)
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
-        if (season.AllocationMethod != AllocationMethod.AUTOMATIC)
-            throw new ConflictException("Season allocation method is not set to AUTOMATIC.");
+        // Removed check for AUTOMATIC to allow forced allocation when generating schedule
 
         var unassignedOccurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList();
         if (!unassignedOccurrences.Any())

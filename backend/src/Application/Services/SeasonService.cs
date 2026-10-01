@@ -334,11 +334,8 @@ public class SeasonService : ISeasonService
         // 1. Generate all occurrences for the season
         await _generationService.GenerateOccurrencesAsync(seasonId, userId);
 
-        // 2. Allocate chores if automatic
-        if (season.AllocationMethod == AllocationMethod.AUTOMATIC)
-        {
-            await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
-        }
+        // 2. Always allocate chores when generating schedule
+        await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
 
         // 3. Update Season status to REVIEWING
         season.Status = SeasonStatus.REVIEWING;

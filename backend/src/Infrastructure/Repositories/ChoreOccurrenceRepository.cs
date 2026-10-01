@@ -49,6 +49,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
     {
         return await _context.ChoreOccurrences
             .Include(o => o.Chore)
+            .Include(o => o.AssignedUser)
             .Where(o => o.Chore.SeasonId == seasonId)
             .ToListAsync(cancellationToken);
     }
