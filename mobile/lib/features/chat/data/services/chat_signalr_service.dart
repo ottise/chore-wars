@@ -34,8 +34,8 @@ class ChatSignalRService {
       }
     });
 
-    _connection!.onreconnected((connectionId) async {
-      await _connection!.invoke("JoinRoom", args: [roomId]);
+    _connection!.onreconnected(({connectionId}) {
+      _connection!.invoke("JoinRoom", args: [roomId]);
     });
 
     await _connection!.start();

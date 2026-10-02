@@ -44,6 +44,7 @@ import '../../features/house/presentation/screens/my_houses_screen.dart';
 import '../../features/house/presentation/screens/qr_invite_screen.dart';
 import '../../features/house/presentation/screens/qr_join_screen.dart';
 import '../../features/house/presentation/screens/review_schedule_screen.dart';
+import '../../features/chat/presentation/screens/chat_room_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
@@ -248,6 +249,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'karma',
                 builder: (context, state) =>
                     KarmaScreen(houseId: state.pathParameters['houseId']!),
+              ),
+              GoRoute(
+                path: 'chat',
+                builder: (context, state) =>
+                    ChatRoomScreen(houseId: state.pathParameters['houseId']!),
               ),
               GoRoute(
                 path: 'karma/history',

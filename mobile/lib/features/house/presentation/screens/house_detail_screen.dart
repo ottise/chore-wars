@@ -219,6 +219,11 @@ class _QuickActions extends StatelessWidget {
           label: 'Karma',
           onTap: () => context.push('/houses/$houseId/karma'),
         ),
+        _ActionChip(
+          icon: Icons.chat_bubble_outline_rounded,
+          label: 'Chat',
+          onTap: () => context.push('/houses/$houseId/chat'),
+        ),
         if (house.myRole == HouseRole.owner)
           _ActionChip(
             icon: Icons.qr_code_rounded,

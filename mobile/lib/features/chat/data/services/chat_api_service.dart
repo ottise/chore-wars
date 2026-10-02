@@ -13,7 +13,7 @@ class ChatApiService {
     return ChatRoomModel.fromJson(response.data);
   }
 
-  Future<{List<ChatMessageModel> items, int totalCount}> getMessages(String roomId, {int page = 1, int pageSize = 30}) async {
+  Future<({List<ChatMessageModel> items, int totalCount})> getMessages(String roomId, {int page = 1, int pageSize = 30}) async {
     final response = await _dio.get(
       ApiEndpoints.chatMessages(roomId),
       queryParameters: {'page': page, 'pageSize': pageSize},
