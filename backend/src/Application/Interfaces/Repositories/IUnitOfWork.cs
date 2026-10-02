@@ -27,6 +27,7 @@ public interface IUnitOfWork : IDisposable
     IChoreBountyRepository ChoreBounties { get; }
     IPaymentObligationRepository PaymentObligations { get; }
     INotificationRepository Notifications { get; }
+    IChatRepository Chats { get; }
 
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);

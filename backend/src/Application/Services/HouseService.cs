@@ -49,11 +49,20 @@ public class HouseService : IHouseService
             JoinedAt = DateTime.UtcNow
         };
 
+        var room = new ChatRoom
+        {
+            Id = Guid.NewGuid(),
+            HouseId = house.Id,
+            Name = $"{request.Name} Chat",
+            CreatedAt = DateTime.UtcNow
+        };
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             await _unitOfWork.Houses.AddAsync(house, cancellationToken);
             await _unitOfWork.HouseMembers.AddAsync(member, cancellationToken);
+            await _unitOfWork.Chats.AddRoomAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }

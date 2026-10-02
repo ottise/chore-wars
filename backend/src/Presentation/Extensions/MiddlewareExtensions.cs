@@ -16,6 +16,7 @@ public static class MiddlewareExtensions
     {
         app.MapControllers();
         app.MapHub<NotificationHub>("/hubs/notification");
+        app.MapHub<ChatHub>("/api/chat-hub");
         
         return app;
     }

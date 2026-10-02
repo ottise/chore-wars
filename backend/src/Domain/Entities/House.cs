@@ -14,4 +14,5 @@ public class House
     public ICollection<HouseMember> Members { get; set; } = new List<HouseMember>();
     public ICollection<ChoreSeason> Seasons { get; set; } = new List<ChoreSeason>();
     public ICollection<Chore> Chores { get; set; } = new List<Chore>();
+    public ChatRoom? ChatRoom { get; set; }
 }

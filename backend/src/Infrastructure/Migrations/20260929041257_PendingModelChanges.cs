@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,20 +10,14 @@ namespace Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "ReminderSent",
-                table: "ChoreOccurrences",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+            // Intentionally left blank. 
+            // ReminderSent was already added in 20260920065915_AddNotificationTargets.
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "ReminderSent",
-                table: "ChoreOccurrences");
+            // Intentionally left blank.
         }
     }
 }

@@ -30,6 +30,8 @@ public class AppDbContext : DbContext
     public DbSet<ChoreBounty> ChoreBounties { get; set; } = null!;
     public DbSet<PaymentObligation> PaymentObligations { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<ChatRoom> ChatRooms { get; set; } = null!;
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

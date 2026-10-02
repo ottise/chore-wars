@@ -59,4 +59,9 @@ class ApiEndpoints {
   static String houseConstraints(String houseId) => '/houses/$houseId/constraints';
   static String seasonAvailability(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/availability';
   static String seasonWorkloadSummary(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/workload-summary';
+
+  // Chat
+  static String houseChat(String houseId) => '/houses/$houseId/chat';
+  static String chatMessages(String roomId) => '/chat/rooms/$roomId/messages';
+  static const String chatHubUrl = '/api/chat-hub';
 }

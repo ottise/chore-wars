@@ -1,16 +1,19 @@
-using System.IO;
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 
 namespace ChoreWars.Infrastructure.Data;
 
 public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
+    private const string DockerLocalFallback = "Host=localhost;Port=5435;Database=chorewars;Username=postgres;Password=postgres";
+
     public AppDbContext CreateDbContext(string[] args)
     {
         var builder = new DbContextOptionsBuilder<AppDbContext>();
-        var connectionString = "Host=localhost;Port=5435;Database=chorewars;Username=postgres;Password=postgres";
+
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? DockerLocalFallback;
 
         builder.UseNpgsql(connectionString);
 
