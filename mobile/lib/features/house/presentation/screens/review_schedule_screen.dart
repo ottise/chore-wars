@@ -120,13 +120,16 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
             itemCount: members.length,
             itemBuilder: (ctx, i) {
               final m = members[i];
-              return ListTile(
-                leading: CircleAvatar(child: Text(m.displayName.isNotEmpty ? m.displayName[0].toUpperCase() : '?')),
-                title: Text(m.displayName),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _assignOccurrence(occurrence['id'], m.userId);
-                },
+              return Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  leading: CircleAvatar(child: Text(m.displayName.isNotEmpty ? m.displayName[0].toUpperCase() : '?')),
+                  title: Text(m.displayName),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _assignOccurrence(occurrence['id'], m.userId);
+                  },
+                ),
               );
             },
           ),
@@ -323,17 +326,20 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                           final difficulty = occ['difficulty'];
                           final estMinutes = occ['estimatedMinutes'] ?? 0;
                           
-                          return ListTile(
-                            title: Text(occ['choreName']),
-                            subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
-                            trailing: isUnassigned
-                                ? (isManual
-                                    ? ElevatedButton(
-                                        onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
-                                        child: const Text('Assign'),
-                                      )
-                                    : const Text('Unassigned', style: TextStyle(color: AppTheme.red)))
-                                : Chip(label: Text(occ['assignedUserDisplayName'] ?? 'Unknown')),
+                          return Material(
+                            type: MaterialType.transparency,
+                            child: ListTile(
+                              title: Text(occ['choreName']),
+                              subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
+                              trailing: isUnassigned
+                                  ? (isManual
+                                      ? ElevatedButton(
+                                          onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
+                                          child: const Text('Assign'),
+                                        )
+                                      : const Text('Unassigned', style: TextStyle(color: AppTheme.red)))
+                                  : Chip(label: Text(occ['assignedUserDisplayName'] ?? 'Unknown')),
+                            ),
                           );
                         },
                       );

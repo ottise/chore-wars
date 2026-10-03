@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chore_wars/core/network/api_client.dart';
 import 'package:chore_wars/core/constants/app_constants.dart';
@@ -26,28 +28,46 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   );
 });
 
-class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessageModel>>> {
+class ChatMessagesNotifier extends ChangeNotifier {
   final ChatRepository _repo;
   final String _roomId;
+  
+  List<ChatMessageModel> _messages = [];
+  List<ChatMessageModel> get messages => _messages;
+
+  bool _isLoading = true;
+  bool get isLoading => _isLoading;
+
+  bool _hasError = false;
+  bool get hasError => _hasError;
+
   int _page = 1;
   bool _hasMore = true;
 
-  ChatMessagesNotifier(this._repo, this._roomId) : super(const AsyncLoading()) {
+  ChatMessagesNotifier(this._repo, this._roomId) {
     _init();
   }
 
   Future<void> _init() async {
+    _isLoading = true;
+    _hasError = false;
+    notifyListeners();
+
     try {
       final response = await _repo.getMessages(_roomId, page: 1);
       _hasMore = response.items.length == 30;
-      state = AsyncData(response.items);
+      _messages = response.items;
+      _isLoading = false;
+      notifyListeners();
 
       await _repo.connectToHub(_roomId, (message) {
-        final currentList = state.valueOrNull ?? [];
-        state = AsyncData([message, ...currentList]);
+        _messages = [message, ..._messages];
+        notifyListeners();
       });
-    } catch (e, st) {
-      state = AsyncError(e, st);
+    } catch (e) {
+      _isLoading = false;
+      _hasError = true;
+      notifyListeners();
     }
   }
 
@@ -58,15 +78,15 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessageMode
   }
 
   Future<void> loadMore() async {
-    if (state.isLoading || !_hasMore) return;
-
-    final currentList = state.valueOrNull ?? [];
+    if (_isLoading || !_hasMore) return;
+    
     _page++;
-
+    
     try {
       final response = await _repo.getMessages(_roomId, page: _page);
       _hasMore = response.items.length == 30;
-      state = AsyncData([...currentList, ...response.items]);
+      _messages = [..._messages, ...response.items];
+      notifyListeners();
     } catch (e) {
       _page--;
       print('Error loading more messages: $e');
@@ -78,9 +98,13 @@ class ChatMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessageMode
   }
 }
 
-final chatMessagesProvider = StateNotifierProvider.family<ChatMessagesNotifier, AsyncValue<List<ChatMessageModel>>, String>(
+final chatMessagesProvider = Provider.family<ChatMessagesNotifier, String>(
   (ref, roomId) {
     final repo = ref.watch(chatRepositoryProvider);
-    return ChatMessagesNotifier(repo, roomId);
+    final notifier = ChatMessagesNotifier(repo, roomId);
+    ref.onDispose(() {
+      notifier.dispose();
+    });
+    return notifier;
   },
 );

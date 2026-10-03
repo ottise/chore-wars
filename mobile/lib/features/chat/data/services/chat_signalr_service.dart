@@ -1,16 +1,16 @@
 import 'package:signalr_netcore/signalr_client.dart';
-import 'package:chore_wars/core/network/dio_client.dart';
+import 'package:chore_wars/core/network/api_client.dart';
 import 'package:chore_wars/core/network/api_endpoints.dart';
 import 'package:chore_wars/features/chat/data/models/chat_message_model.dart';
 
 class ChatSignalRService {
   HubConnection? _connection;
   final String _baseUrl;
-  final String Function() _getToken;
+  final Future<String> Function() _getToken;
 
   ChatSignalRService({
     required String baseUrl,
-    required String Function() getToken,
+    required Future<String> Function() getToken,
   })  : _baseUrl = baseUrl,
         _getToken = getToken;
 

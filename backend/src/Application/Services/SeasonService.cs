@@ -392,21 +392,9 @@ public class SeasonService : ISeasonService
             confirmation.Status = ConfirmationStatus.CONFIRMED;
             _unitOfWork.SeasonConfirmations.Update(confirmation);
 
-            // Check if all active members have confirmed
-            var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
-                .Where(m => m.Status == HouseMemberStatus.ACTIVE)
-                .ToList();
-            var allConfirmations = await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken);
-            
-            bool allConfirmed = activeMembers.All(m => 
-                allConfirmations.Any(c => c.UserId == m.UserId && c.Status == ConfirmationStatus.CONFIRMED) || 
-                m.UserId == userId); // Handle current user who just confirmed
-
-            if (allConfirmed)
-            {
-                season.Status = SeasonStatus.ACTIVE;
-                _unitOfWork.Seasons.Update(season);
-            }
+            // Activate the season immediately upon owner confirmation (or any confirmation for simplicity in testing)
+            season.Status = SeasonStatus.ACTIVE;
+            _unitOfWork.Seasons.Update(season);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

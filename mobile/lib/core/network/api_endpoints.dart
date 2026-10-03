@@ -63,5 +63,5 @@ class ApiEndpoints {
   // Chat
   static String houseChat(String houseId) => '/houses/$houseId/chat';
   static String chatMessages(String roomId) => '/chat/rooms/$roomId/messages';
-  static const String chatHubUrl = '/api/chat-hub';
+  static const String chatHubUrl = '/chat-hub';
 }

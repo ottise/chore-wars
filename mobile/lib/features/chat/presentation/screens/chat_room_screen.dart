@@ -28,7 +28,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
         if (_roomId != null) {
-          ref.read(chatMessagesProvider(_roomId!).notifier).loadMore();
+          ref.read(chatMessagesProvider(_roomId!)).loadMore();
         }
       }
     });
@@ -75,38 +75,47 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       );
     }
 
-    final chatState = ref.watch(chatMessagesProvider(_roomId!));
+    final chatNotifier = ref.watch(chatMessagesProvider(_roomId!));
     final currentUser = ref.watch(userProfileProvider).asData?.value;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('House Chat'),
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
           Expanded(
-            child: chatState.when(
-              data: (messages) {
-                if (messages.isEmpty) {
+            child: ListenableBuilder(
+              listenable: chatNotifier,
+              builder: (context, _) {
+                if (chatNotifier.isLoading && chatNotifier.messages.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (chatNotifier.hasError && chatNotifier.messages.isEmpty) {
+                  return const Center(child: Text('Error loading messages'));
+                }
+
+                if (chatNotifier.messages.isEmpty) {
                   return const Center(child: Text('No messages yet. Say hi!'));
                 }
                 
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
-                  itemCount: messages.length,
+                  itemCount: chatNotifier.messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index];
+                    final message = chatNotifier.messages[index];
                     final isMe = message.senderId == currentUser?.id;
                     
                     bool showDateSeparator = false;
-                    if (index == messages.length - 1) {
+                    if (index == chatNotifier.messages.length - 1) {
                       showDateSeparator = true;
                     } else {
-                      final prevMessage = messages[index + 1];
+                      final prevMessage = chatNotifier.messages[index + 1];
                       if (message.createdAt.toLocal().day != prevMessage.createdAt.toLocal().day) {
                         showDateSeparator = true;
                       }
@@ -122,13 +131,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   },
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, st) => Center(child: Text('Error: $e')),
             ),
           ),
           MessageInput(
             onSendMessage: (content) {
-              ref.read(chatMessagesProvider(_roomId!).notifier).sendMessage(content);
+              ref.read(chatMessagesProvider(_roomId!)).sendMessage(content);
             },
           ),
         ],
