@@ -209,7 +209,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   var settingsContent = settingsFile.readAsStringSync();
   if (!settingsContent.contains("context.push('/houses/\$houseId/seasons/new')")) {
     settingsContent = settingsContent.replaceFirst(
-      "          ListTile(\\n            leading: const Icon(Icons.exit_to_app_rounded, color: AppTheme.red),",
+      '          ListTile(\\n            leading: const Icon(Icons.exit_to_app_rounded, color: AppTheme.red),',
       "          ListTile(\\n            leading: const Icon(Icons.add_task_rounded),\\n            title: const Text('Start new season'),\\n            subtitle: const Text('Create a new season for chores and karma'),\\n            onTap: () => context.push('/houses/\$houseId/seasons/new'),\\n          ),\\n          const Divider(),\\n          ListTile(\\n            leading: const Icon(Icons.exit_to_app_rounded, color: AppTheme.red),"
     );
     settingsFile.writeAsStringSync(settingsContent);

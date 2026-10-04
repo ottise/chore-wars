@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:chore_wars/core/theme/app_theme.dart';
 import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
 import 'package:chore_wars/features/chat/providers/chat_providers.dart';
 import 'package:chore_wars/features/chat/presentation/widgets/message_bubble.dart';

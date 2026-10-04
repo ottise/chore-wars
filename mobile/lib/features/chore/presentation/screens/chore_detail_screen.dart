@@ -10,7 +10,6 @@ import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class ChoreDetailScreen extends ConsumerStatefulWidget {
   const ChoreDetailScreen({
     required this.houseId,
@@ -45,6 +44,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           busy: _mutating,
           onComplete: () => _complete(item),
           onSkip: () => _skip(item),
+          onCreateBounty: _canCreateBounty(item.occurrence)
+              ? () => context.push(
+                  '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
+                  '&occurrenceId=${Uri.encodeComponent(item.occurrence.id)}'
+                  '&choreName=${Uri.encodeComponent(item.occurrence.choreName)}'
+                  '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(item.occurrence.dueDate))}',
+                )
+              : null,
           onEdit: item.template == null
               ? null
               : () => context.push(
@@ -71,6 +78,13 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
+  }
+
+  bool _canCreateBounty(ChoreOccurrence occurrence) {
+    return occurrence.assignedUserId != null &&
+        (occurrence.status == ChoreStatus.assigned ||
+            occurrence.status == ChoreStatus.overdue ||
+            occurrence.status == ChoreStatus.criticalOverdue);
   }
 
   Future<void> _skip(ChoreDetail detail) async {
@@ -121,6 +135,7 @@ class _DetailBody extends StatelessWidget {
     required this.busy,
     required this.onComplete,
     required this.onSkip,
+    required this.onCreateBounty,
     required this.onEdit,
   });
 
@@ -128,6 +143,7 @@ class _DetailBody extends StatelessWidget {
   final bool busy;
   final VoidCallback onComplete;
   final VoidCallback onSkip;
+  final VoidCallback? onCreateBounty;
   final VoidCallback? onEdit;
 
   @override
@@ -235,6 +251,14 @@ class _DetailBody extends StatelessWidget {
             onPressed: busy ? null : onSkip,
             icon: const Icon(Icons.skip_next_rounded),
             label: const Text('Skip chore'),
+          ),
+        ],
+        if (onCreateBounty != null) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: busy ? null : onCreateBounty,
+            icon: const Icon(Icons.volunteer_activism_outlined),
+            label: const Text('Create Bounty'),
           ),
         ],
         if (onEdit != null) ...[

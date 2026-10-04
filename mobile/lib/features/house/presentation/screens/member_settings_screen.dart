@@ -44,7 +44,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
 
   // Preferences
   List<ChoreTemplate> _chores = [];
-  Map<String, PreferenceType> _preferences = {};
+  final Map<String, PreferenceType> _preferences = {};
 
   @override
   void initState() {

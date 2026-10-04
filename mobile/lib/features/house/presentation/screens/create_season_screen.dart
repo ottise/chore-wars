@@ -73,7 +73,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
             children: [
               if (!_loadingSeasons && _pastSeasons.isNotEmpty) ...[
                 DropdownButtonFormField<String?>(
-                  value: _selectedCloneSeasonId,
+                  initialValue: _selectedCloneSeasonId,
                   decoration: const InputDecoration(labelText: 'Clone from past season (Optional)'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('None (Start fresh)')),
@@ -93,7 +93,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: _allocationMethod,
+                initialValue: _allocationMethod,
                 decoration: const InputDecoration(labelText: 'Allocation Method'),
                 items: const [
                   DropdownMenuItem(value: 1, child: Text('Automatic (AI Generation)')),
