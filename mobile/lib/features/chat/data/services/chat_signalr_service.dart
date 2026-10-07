@@ -9,10 +9,9 @@ class ChatSignalRService {
   final Future<String> Function() _getToken;
 
   ChatSignalRService({
-    required String baseUrl,
+    required this._baseUrl,
     required Future<String> Function() getToken,
-  })  : _baseUrl = baseUrl,
-        _getToken = getToken;
+  })  : _getToken = getToken;
 
   Future<void> connect(String roomId, void Function(ChatMessageModel) onMessage) async {
     final hubUrl = '$_baseUrl${ApiEndpoints.chatHubUrl}';
@@ -27,7 +26,7 @@ class ChatSignalRService {
         .withAutomaticReconnect()
         .build();
 
-    _connection!.on("MessageReceived", (arguments) {
+    _connection!.on('MessageReceived', (arguments) {
       if (arguments != null && arguments.isNotEmpty) {
         final messageMap = arguments[0] as Map<String, dynamic>;
         onMessage(ChatMessageModel.fromJson(messageMap));
@@ -35,22 +34,22 @@ class ChatSignalRService {
     });
 
     _connection!.onreconnected(({connectionId}) {
-      _connection!.invoke("JoinRoom", args: [roomId]);
+      _connection!.invoke('JoinRoom', args: [roomId]);
     });
 
     await _connection!.start();
-    await _connection!.invoke("JoinRoom", args: [roomId]);
+    await _connection!.invoke('JoinRoom', args: [roomId]);
   }
 
   Future<void> sendMessage(String roomId, String content) async {
     if (_connection?.state == HubConnectionState.Connected) {
-      await _connection!.invoke("SendMessage", args: [roomId, content]);
+      await _connection!.invoke('SendMessage', args: [roomId, content]);
     }
   }
 
   Future<void> disconnect(String roomId) async {
     if (_connection?.state == HubConnectionState.Connected) {
-      await _connection!.invoke("LeaveRoom", args: [roomId]);
+      await _connection!.invoke('LeaveRoom', args: [roomId]);
       await _connection!.stop();
     }
   }

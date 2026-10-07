@@ -203,7 +203,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 8,
-                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                             color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
@@ -215,16 +215,16 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                 ],
               ),
             );
-          }).toList(),
+          }),
           if (_warnings.isNotEmpty) ...[
             const SizedBox(height: 8),
             ..._warnings.map((w) => Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.orange.withOpacity(0.1),
+                color: AppTheme.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.orange.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [

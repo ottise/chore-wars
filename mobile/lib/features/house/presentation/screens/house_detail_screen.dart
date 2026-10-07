@@ -1,10 +1,13 @@
 import '../../../../core/network/api_client.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
+import '../../../home/presentation/providers/home_dashboard_provider.dart';
 import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
 
@@ -27,16 +30,16 @@ class HouseDetailScreen extends ConsumerWidget {
           data: (h) => Text(h.name),
         ),
         actions: [
-          house.whenData(
-            (h) => IconButton(
-              tooltip: 'Settings',
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => context.push(
-                '/houses/$houseId/settings',
-                extra: h,
-              ),
-            ),
-          ).value ??
+          house
+                  .whenData(
+                    (h) => IconButton(
+                      tooltip: 'Settings',
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: () =>
+                          context.push('/houses/$houseId/settings', extra: h),
+                    ),
+                  )
+                  .value ??
               const SizedBox.shrink(),
           const SizedBox(width: 4),
         ],
@@ -84,11 +87,17 @@ class _HouseBody extends ConsumerWidget {
       children: [
         _HeaderCard(house: house),
         const SizedBox(height: 20),
-        _QuickActions(house: house, houseId: houseId, activeSeason: activeSeason),
+        _QuickActions(
+          house: house,
+          houseId: houseId,
+          activeSeason: activeSeason,
+        ),
         const SizedBox(height: 24),
         if (activeSeason.value == null)
           ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             tileColor: Theme.of(context).colorScheme.primaryContainer,
             leading: const Icon(Icons.add_task_rounded),
             title: const Text('Start new season'),
@@ -97,34 +106,49 @@ class _HouseBody extends ConsumerWidget {
           )
         else if (activeSeason.value!['status'] == 0)
           ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             tileColor: Theme.of(context).colorScheme.secondaryContainer,
             leading: const Icon(Icons.auto_awesome_rounded),
             title: const Text('Generate Schedule'),
-            subtitle: const Text('AI will allocate chores based on availability'),
+            subtitle: const Text(
+              'AI will allocate chores based on availability',
+            ),
             onTap: () async {
               try {
                 final dio = ref.read(dioProvider);
-                await dio.post('/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule');
+                await dio.post(
+                  '/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule',
+                );
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Schedule generated!')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Schedule generated!')),
+                  );
                   refreshHouseState(ref, houseId: houseId);
+                  ref.invalidate(homeDashboardProvider(houseId));
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
                 }
               }
             },
           )
         else if (activeSeason.value!['status'] == 1)
           ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             tileColor: Theme.of(context).colorScheme.tertiaryContainer,
             leading: const Icon(Icons.rate_review_rounded),
             title: const Text('Review Schedule'),
             subtitle: const Text('Review and confirm the generated schedule'),
-            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason.value!['id']}/review'),
+            onTap: () => context.push(
+              '/houses/$houseId/seasons/${activeSeason.value!['id']}/review',
+            ),
           ),
         const SizedBox(height: 24),
         Text('Members', style: Theme.of(context).textTheme.titleMedium),
@@ -165,9 +189,8 @@ class _HeaderCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               house.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-              ),
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(color: Colors.white),
             ),
             const SizedBox(height: 8),
             Container(
@@ -193,7 +216,11 @@ class _HeaderCard extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.house, required this.houseId, this.activeSeason});
+  const _QuickActions({
+    required this.house,
+    required this.houseId,
+    this.activeSeason,
+  });
   final House house;
   final String houseId;
   final AsyncValue<Map<String, dynamic>?>? activeSeason;
@@ -224,23 +251,40 @@ class _QuickActions extends StatelessWidget {
           label: 'Chat',
           onTap: () => context.push('/houses/$houseId/chat'),
         ),
+        _ActionChip(
+          icon: Icons.volunteer_activism_outlined,
+          label: 'Bounties',
+          onTap: () =>
+              context.push('/bounties?houseId=${Uri.encodeComponent(houseId)}'),
+        ),
+        _ActionChip(
+          icon: Icons.payments_outlined,
+          label: 'Payments',
+          onTap: () =>
+              context.push('/payments?houseId=${Uri.encodeComponent(houseId)}'),
+        ),
         if (house.myRole == HouseRole.owner)
           _ActionChip(
             icon: Icons.qr_code_rounded,
             label: 'Invite QR',
-            onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
+            onTap: () =>
+                context.push('/houses/$houseId/qr-invite', extra: house),
           ),
         if (activeSeason?.value != null)
           _ActionChip(
             icon: Icons.tune_rounded,
             label: 'My Settings',
-            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/member-settings'),
+            onTap: () => context.push(
+              '/houses/$houseId/seasons/${activeSeason!.value!['id']}/member-settings',
+            ),
           ),
         if (activeSeason?.value != null)
           _ActionChip(
             icon: Icons.star_rounded,
             label: 'Bonus Chores',
-            onTap: () => context.push('/houses/$houseId/seasons/${activeSeason!.value!['id']}/bonus-chores'),
+            onTap: () => context.push(
+              '/houses/$houseId/seasons/${activeSeason!.value!['id']}/bonus-chores',
+            ),
           ),
       ],
     );
@@ -333,12 +377,3 @@ class _MemberTile extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-

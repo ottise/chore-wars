@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../home/presentation/providers/home_dashboard_provider.dart';
 import '../../data/datasources/chore_remote_data_source.dart';
 import '../../data/repositories/chore_repository_impl.dart';
 import '../../data/repositories/mock_chore_repository.dart';
@@ -45,6 +46,7 @@ final choreDetailProvider = FutureProvider.family<ChoreDetail, ChoreDetailKey>((
 void refreshChoreState(WidgetRef ref, String houseId, {String? occurrenceId}) {
   ref.invalidate(choreTemplatesProvider(houseId));
   ref.invalidate(myChoresProvider(houseId));
+  ref.invalidate(homeDashboardProvider(houseId));
   if (occurrenceId != null) {
     ref.invalidate(
       choreDetailProvider((houseId: houseId, occurrenceId: occurrenceId)),

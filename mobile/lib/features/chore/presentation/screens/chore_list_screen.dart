@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../house/domain/entities/house_models.dart';
 import '../../../house/presentation/providers/house_providers.dart';
@@ -20,7 +21,8 @@ class ChoreListScreen extends ConsumerStatefulWidget {
   ConsumerState<ChoreListScreen> createState() => _ChoreListScreenState();
 }
 
-class _ChoreListScreenState extends ConsumerState<ChoreListScreen> with SingleTickerProviderStateMixin {
+class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _generating = false;
 
@@ -39,20 +41,25 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> with SingleTi
   Future<void> _generateSchedule(String seasonId) async {
     setState(() => _generating = true);
     try {
+      ref.invalidate(choreTemplatesProvider(widget.houseId));
+      await ref.read(choreTemplatesProvider(widget.houseId).future);
       final dio = ref.read(dioProvider);
-      await dio.post('/houses/${widget.houseId}/seasons/$seasonId/generate-schedule');
+      await dio.post(
+        '/houses/${widget.houseId}/seasons/$seasonId/generate-schedule',
+      );
       if (mounted) {
         refreshHouseState(ref, houseId: widget.houseId);
-        ref.invalidate(choreTemplatesProvider(widget.houseId));
-        ref.invalidate(myChoresProvider(widget.houseId));
+        refreshChoreState(ref, widget.houseId);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Schedule generated! All members must now confirm.')),
+          const SnackBar(
+            content: Text('Schedule generated! All members must now confirm.'),
+          ),
         );
         _tabController.animateTo(_Tab.team.index);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        showAppMessage(context, apiErrorMessage(e), error: true);
       }
     } finally {
       if (mounted) setState(() => _generating = false);
@@ -83,7 +90,8 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> with SingleTi
       ),
       floatingActionButton: _tabController.index == _Tab.routines.index
           ? FloatingActionButton.extended(
-              onPressed: () => context.push('/houses/${widget.houseId}/chores/new'),
+              onPressed: () =>
+                  context.push('/houses/${widget.houseId}/chores/new'),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Add chore'),
             )
@@ -98,7 +106,9 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen> with SingleTi
             hasGenerated: hasGenerated,
             templates: templates,
             generating: _generating,
-            onGenerate: seasonId != null ? () => _generateSchedule(seasonId) : null,
+            onGenerate: seasonId != null
+                ? () => _generateSchedule(seasonId)
+                : null,
             tabController: _tabController,
           ),
           _MyChoresTab(houseId: widget.houseId, seasonId: seasonId),
@@ -139,24 +149,40 @@ class _RoutinesTab extends ConsumerWidget {
 
     return templates.when(
       loading: () => const LoadingView(),
-      error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(choreTemplatesProvider(houseId))),
+      error: (e, _) => ErrorView(
+        error: e,
+        onRetry: () => ref.invalidate(choreTemplatesProvider(houseId)),
+      ),
       data: (items) => Column(
         children: [
           // Availability Banner
           if (isDraft && seasonId != null)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              decoration: BoxDecoration(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Material(
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: Icon(Icons.calendar_today_rounded, color: Theme.of(context).colorScheme.secondary),
-                title: const Text('Set your availability', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text("Tell us when you're free so we can assign chores fairly"),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/houses/$houseId/seasons/$seasonId/availability'),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.calendar_today_rounded,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  title: const Text(
+                    'Set your availability',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    "Tell us when you're free so we can assign chores fairly",
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(
+                    '/houses/$houseId/seasons/$seasonId/availability',
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           // Chore list
@@ -168,10 +194,16 @@ class _RoutinesTab extends ConsumerWidget {
                     message: 'Add the chores your household does regularly.',
                   )
                 : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, hasGenerated ? 24 : 104),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      12,
+                      16,
+                      hasGenerated ? 24 : 104,
+                    ),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) => _RoutineTile(chore: items[i], houseId: houseId),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) =>
+                        _RoutineTile(chore: items[i], houseId: houseId),
                   ),
           ),
           // Generate button
@@ -184,7 +216,9 @@ class _RoutinesTab extends ConsumerWidget {
                 onPressed: () => tabController.animateTo(_Tab.team.index),
                 icon: const Icon(Icons.calendar_view_month_rounded),
                 label: const Text('View Team Schedule'),
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
               ),
             ),
         ],
@@ -211,17 +245,25 @@ class _RoutineTile extends StatelessWidget {
             ? Theme.of(context).colorScheme.tertiaryContainer
             : Theme.of(context).colorScheme.primaryContainer,
         child: Icon(
-          chore.type == ChoreType.bonus ? Icons.auto_awesome_rounded : Icons.repeat_rounded,
+          chore.type == ChoreType.bonus
+              ? Icons.auto_awesome_rounded
+              : Icons.repeat_rounded,
           color: chore.type == ChoreType.bonus
               ? Theme.of(context).colorScheme.tertiary
               : Theme.of(context).colorScheme.primary,
           size: 20,
         ),
       ),
-      title: Text(chore.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(
+        chore.name,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: Text(
         '${chore.frequency.label}  Â·  ${chore.karmaPoints} Karma',
-        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
       trailing: IconButton(
         icon: const Icon(Icons.edit_outlined, size: 20),
@@ -245,7 +287,9 @@ class _GenerateButton extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,12 +311,21 @@ class _GenerateButton extends StatelessWidget {
           FilledButton.icon(
             onPressed: generating ? null : onGenerate,
             icon: generating
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Icon(Icons.auto_awesome_rounded),
             label: Text(generating ? 'Generatingâ€¦' : 'Generate Schedule'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ],
@@ -303,7 +356,10 @@ class _MyChoresTab extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(myChoresProvider(houseId)),
       child: myChores.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(myChoresProvider(houseId))),
+        error: (e, _) => ErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(myChoresProvider(houseId)),
+        ),
         data: (items) {
           if (items.isEmpty) {
             return const EmptyView(
@@ -331,7 +387,9 @@ class _MyChoresTab extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  ...entry.value.map((chore) => _OccurrenceTile(chore: chore, houseId: houseId)),
+                  ...entry.value.map(
+                    (chore) => _OccurrenceTile(chore: chore, houseId: houseId),
+                  ),
                   const SizedBox(height: 8),
                 ],
               );
@@ -374,7 +432,10 @@ class _TeamScheduleTab extends ConsumerWidget {
 
     return members.when(
       loading: () => const LoadingView(),
-      error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(houseMembersProvider(houseId))),
+      error: (e, _) => ErrorView(
+        error: e,
+        onRetry: () => ref.invalidate(houseMembersProvider(houseId)),
+      ),
       data: (memberList) => _TeamScheduleBody(
         houseId: houseId,
         seasonId: seasonId!,
@@ -385,7 +446,11 @@ class _TeamScheduleTab extends ConsumerWidget {
 }
 
 class _TeamScheduleBody extends ConsumerStatefulWidget {
-  const _TeamScheduleBody({required this.houseId, required this.seasonId, required this.members});
+  const _TeamScheduleBody({
+    required this.houseId,
+    required this.seasonId,
+    required this.members,
+  });
   final String houseId;
   final String seasonId;
   final List<HouseMember> members;
@@ -408,8 +473,15 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
   Future<void> _fetch() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
-      if (mounted) setState(() { _occurrences = res.data as List; _loading = false; });
+      final res = await dio.get(
+        '/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences',
+      );
+      if (mounted) {
+        setState(() {
+          _occurrences = res.data as List;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -421,7 +493,9 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
 
     final filtered = _filterMemberId == null
         ? _occurrences
-        : _occurrences.where((o) => o['assignedUserId'] == _filterMemberId).toList();
+        : _occurrences
+              .where((o) => o['assignedUserId'] == _filterMemberId)
+              .toList();
 
     final grouped = <String, List<dynamic>>{};
     for (final o in filtered) {
@@ -433,7 +507,12 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
     }
 
     return RefreshIndicator(
-      onRefresh: () async { setState(() { _loading = true; }); await _fetch(); },
+      onRefresh: () async {
+        setState(() {
+          _loading = true;
+        });
+        await _fetch();
+      },
       child: Column(
         children: [
           // Member filter chips
@@ -448,18 +527,26 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                   selected: _filterMemberId == null,
                   onSelected: (_) => setState(() => _filterMemberId = null),
                 ),
-                ...widget.members.map((m) => Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: FilterChip(
-                    avatar: CircleAvatar(
-                      radius: 10,
-                      child: Text(m.displayName.isNotEmpty ? m.displayName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 10)),
+                ...widget.members.map(
+                  (m) => Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: FilterChip(
+                      avatar: CircleAvatar(
+                        radius: 10,
+                        child: Text(
+                          m.displayName.isNotEmpty
+                              ? m.displayName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
+                      label: Text(m.displayName),
+                      selected: _filterMemberId == m.userId,
+                      onSelected: (_) =>
+                          setState(() => _filterMemberId = m.userId),
                     ),
-                    label: Text(m.displayName),
-                    selected: _filterMemberId == m.userId,
-                    onSelected: (_) => setState(() => _filterMemberId = m.userId),
                   ),
-                )),
+                ),
               ],
             ),
           ),
@@ -483,16 +570,21 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Text(
                               entry.key,
-                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                             ),
                           ),
-                          ...entry.value.map((o) => _TeamOccurrenceTile(
-                            occurrence: o,
-                            members: widget.members,
-                          )),
+                          ...entry.value.map(
+                            (o) => _TeamOccurrenceTile(
+                              occurrence: o,
+                              members: widget.members,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                         ],
                       );
@@ -514,7 +606,10 @@ class _TeamOccurrenceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final assignedId = occurrence['assignedUserId'] as String?;
     final assignee = assignedId != null
-        ? members.firstWhere((m) => m.userId == assignedId, orElse: () => members.first)
+        ? members.firstWhere(
+            (m) => m.userId == assignedId,
+            orElse: () => members.first,
+          )
         : null;
     final isUnassigned = assignedId == null;
 
@@ -528,11 +623,18 @@ class _TeamOccurrenceTile extends StatelessWidget {
               ? Theme.of(context).colorScheme.errorContainer
               : Theme.of(context).colorScheme.primaryContainer,
           child: Text(
-            isUnassigned ? '?' : (assignee!.displayName.isNotEmpty ? assignee.displayName[0].toUpperCase() : '?'),
+            isUnassigned
+                ? '?'
+                : (assignee!.displayName.isNotEmpty
+                      ? assignee.displayName[0].toUpperCase()
+                      : '?'),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
-        title: Text(occurrence['choreName'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w500)),
+        title: Text(
+          occurrence['choreName'] as String? ?? '',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         subtitle: Text(
           isUnassigned ? 'Unassigned' : assignee!.displayName,
           style: TextStyle(
@@ -543,8 +645,10 @@ class _TeamOccurrenceTile extends StatelessWidget {
           ),
         ),
         trailing: Chip(
-          label: Text('${occurrence['snapshotKarma'] ?? occurrence['karmaPoints'] ?? 0} pts',
-            style: const TextStyle(fontSize: 11)),
+          label: Text(
+            '${occurrence['snapshotKarma'] ?? occurrence['karmaPoints'] ?? 0} pts',
+            style: const TextStyle(fontSize: 11),
+          ),
           padding: EdgeInsets.zero,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -562,7 +666,9 @@ class _OccurrenceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOverdue = chore.status == ChoreStatus.overdue || chore.status == ChoreStatus.criticalOverdue;
+    final isOverdue =
+        chore.status == ChoreStatus.overdue ||
+        chore.status == ChoreStatus.criticalOverdue;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -571,12 +677,19 @@ class _OccurrenceTile extends StatelessWidget {
               ? Theme.of(context).colorScheme.errorContainer
               : Theme.of(context).colorScheme.primaryContainer,
           child: Icon(
-            isOverdue ? Icons.warning_amber_rounded : Icons.cleaning_services_outlined,
+            isOverdue
+                ? Icons.warning_amber_rounded
+                : Icons.cleaning_services_outlined,
             size: 20,
-            color: isOverdue ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
+            color: isOverdue
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
           ),
         ),
-        title: Text(chore.choreName, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(
+          chore.choreName,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: Text(
           'Due ${DateFormat('HH:mm').format(chore.dueDate)}  ·  ${chore.karmaPoints} Karma',
           style: TextStyle(
@@ -590,4 +703,3 @@ class _OccurrenceTile extends StatelessWidget {
     );
   }
 }
-
