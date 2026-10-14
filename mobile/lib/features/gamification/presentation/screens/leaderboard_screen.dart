@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/gamification_models.dart';
 import '../providers/gamification_providers.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({
@@ -20,7 +21,13 @@ class LeaderboardScreen extends ConsumerWidget {
     final key = (houseId: houseId, seasonId: seasonId);
     final rankings = ref.watch(leaderboardProvider(key));
     return Scaffold(
-      appBar: AppBar(title: const Text('Leaderboard')),
+      appBar: AppBar(
+        title: const Text('Leaderboard'),
+        actions: const [
+          NotificationBell(),
+          SizedBox(width: 8),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(leaderboardProvider(key));

@@ -82,88 +82,93 @@ class _HouseBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      children: [
-        _HeaderCard(house: house),
-        const SizedBox(height: 20),
-        _QuickActions(
-          house: house,
-          houseId: houseId,
-          activeSeason: activeSeason,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            _HeaderCard(house: house),
+            const SizedBox(height: 20),
+            _QuickActions(
+              house: house,
+              houseId: houseId,
+              activeSeason: activeSeason,
+            ),
+            const SizedBox(height: 24),
+            if (activeSeason.value == null)
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                tileColor: Theme.of(context).colorScheme.primaryContainer,
+                leading: const Icon(Icons.add_task_rounded),
+                title: const Text('Start new season'),
+                subtitle: const Text('Create a season to assign chores'),
+                onTap: () => context.push('/houses/$houseId/seasons/new'),
+              )
+            else if (activeSeason.value!['status'] == 0)
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                tileColor: Theme.of(context).colorScheme.secondaryContainer,
+                leading: const Icon(Icons.auto_awesome_rounded),
+                title: const Text('Generate Schedule'),
+                subtitle: const Text(
+                  'AI will allocate chores based on availability',
+                ),
+                onTap: () async {
+                  try {
+                    final dio = ref.read(dioProvider);
+                    await dio.post(
+                      '/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule',
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Schedule generated!')),
+                      );
+                      refreshHouseState(ref, houseId: houseId);
+                      ref.invalidate(homeDashboardProvider(houseId));
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+                    }
+                  }
+                },
+              )
+            else if (activeSeason.value!['status'] == 1)
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                tileColor: Theme.of(context).colorScheme.tertiaryContainer,
+                leading: const Icon(Icons.rate_review_rounded),
+                title: const Text('Review Schedule'),
+                subtitle: const Text('Review and confirm the generated schedule'),
+                onTap: () => context.push(
+                  '/houses/$houseId/seasons/${activeSeason.value!['id']}/review',
+                ),
+              ),
+            const SizedBox(height: 24),
+            Text('Members', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            members.when(
+              loading: () => const LoadingView(),
+              error: (e, _) => Text(e.toString()),
+              data: (list) => Column(
+                children: list
+                    .where((m) => m.isActive)
+                    .map((m) => _MemberTile(member: m))
+                    .toList(),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 24),
-        if (activeSeason.value == null)
-          ListTile(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            tileColor: Theme.of(context).colorScheme.primaryContainer,
-            leading: const Icon(Icons.add_task_rounded),
-            title: const Text('Start new season'),
-            subtitle: const Text('Create a season to assign chores'),
-            onTap: () => context.push('/houses/$houseId/seasons/new'),
-          )
-        else if (activeSeason.value!['status'] == 0)
-          ListTile(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            tileColor: Theme.of(context).colorScheme.secondaryContainer,
-            leading: const Icon(Icons.auto_awesome_rounded),
-            title: const Text('Generate Schedule'),
-            subtitle: const Text(
-              'AI will allocate chores based on availability',
-            ),
-            onTap: () async {
-              try {
-                final dio = ref.read(dioProvider);
-                await dio.post(
-                  '/houses/$houseId/seasons/${activeSeason.value!['id']}/generate-schedule',
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Schedule generated!')),
-                  );
-                  refreshHouseState(ref, houseId: houseId);
-                  ref.invalidate(homeDashboardProvider(houseId));
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
-                }
-              }
-            },
-          )
-        else if (activeSeason.value!['status'] == 1)
-          ListTile(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            tileColor: Theme.of(context).colorScheme.tertiaryContainer,
-            leading: const Icon(Icons.rate_review_rounded),
-            title: const Text('Review Schedule'),
-            subtitle: const Text('Review and confirm the generated schedule'),
-            onTap: () => context.push(
-              '/houses/$houseId/seasons/${activeSeason.value!['id']}/review',
-            ),
-          ),
-        const SizedBox(height: 24),
-        Text('Members', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        members.when(
-          loading: () => const LoadingView(),
-          error: (e, _) => Text(e.toString()),
-          data: (list) => Column(
-            children: list
-                .where((m) => m.isActive)
-                .map((m) => _MemberTile(member: m))
-                .toList(),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -258,18 +263,11 @@ class _QuickActions extends StatelessWidget {
               context.push('/bounties?houseId=${Uri.encodeComponent(houseId)}'),
         ),
         _ActionChip(
-          icon: Icons.payments_outlined,
-          label: 'Payments',
+          icon: Icons.qr_code_rounded,
+          label: 'Invite QR',
           onTap: () =>
-              context.push('/payments?houseId=${Uri.encodeComponent(houseId)}'),
+              context.push('/houses/$houseId/qr-invite', extra: house),
         ),
-        if (house.myRole == HouseRole.owner)
-          _ActionChip(
-            icon: Icons.qr_code_rounded,
-            label: 'Invite QR',
-            onTap: () =>
-                context.push('/houses/$houseId/qr-invite', extra: house),
-          ),
         if (activeSeason?.value != null)
           _ActionChip(
             icon: Icons.tune_rounded,

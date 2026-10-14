@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 
 class ProfileScreen extends ConsumerWidget {
@@ -25,8 +28,9 @@ class ProfileScreen extends ConsumerWidget {
               icon: const Icon(Icons.edit_outlined),
               label: const Text('Edit'),
             ),
-          ).value ??
-              const SizedBox.shrink(),
+          ).value ?? const SizedBox.shrink(),
+          const NotificationBell(),
+          const SizedBox(width: 8),
         ],
       ),
       body: profileAsync.when(
@@ -35,70 +39,78 @@ class ProfileScreen extends ConsumerWidget {
           error: error,
           onRetry: () => ref.invalidate(userProfileProvider),
         ),
-        data: (profile) => ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const SizedBox(height: 16),
-            Center(
-              child: CircleAvatar(
-                radius: 48,
-                backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
-                child: Text(
-                  profile.displayName.isNotEmpty
-                      ? profile.displayName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.purple,
-                  ),
+        data: (profile) {
+          final hasAvatarUrl = profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty;
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const SizedBox(height: 16),
+              Center(
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
+                  backgroundImage: hasAvatarUrl
+                      ? CachedNetworkImageProvider('${AppConstants.apiBaseUrl}${profile.avatarUrl}')
+                      : null,
+                  child: !hasAvatarUrl
+                      ? Text(
+                          profile.displayName.isNotEmpty
+                              ? profile.displayName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.purple,
+                          ),
+                        )
+                      : null,
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: Text(
-                profile.displayName,
-                style: Theme.of(context).textTheme.headlineSmall,
+              const SizedBox(height: 20),
+              Center(
+                child: Text(
+                  profile.displayName,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
-            ),
-            Center(
-              child: Text(
-                profile.email,
-                style: Theme.of(context).textTheme.bodyMedium,
+              Center(
+                child: Text(
+                  profile.email,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
-            ),
-            const SizedBox(height: 40),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: const Text('Display name'),
-              subtitle: Text(profile.displayName),
-              contentPadding: EdgeInsets.zero,
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.email_outlined),
-              title: const Text('Email'),
-              subtitle: Text(profile.email),
-              contentPadding: EdgeInsets.zero,
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () => _confirmLogout(context, ref),
-              icon: const Icon(Icons.logout_rounded, color: AppTheme.red),
-              label: const Text(
-                'Sign out',
-                style: TextStyle(color: AppTheme.red),
+              const SizedBox(height: 40),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.person_outline_rounded),
+                title: const Text('Display name'),
+                subtitle: Text(profile.displayName),
+                contentPadding: EdgeInsets.zero,
               ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppTheme.red),
-                minimumSize: const Size.fromHeight(50),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.email_outlined),
+                title: const Text('Email'),
+                subtitle: Text(profile.email),
+                contentPadding: EdgeInsets.zero,
               ),
-            ),
-          ],
-        ),
+              const Divider(height: 1),
+              const SizedBox(height: 32),
+              OutlinedButton.icon(
+                onPressed: () => _confirmLogout(context, ref),
+                icon: const Icon(Icons.logout_rounded, color: AppTheme.red),
+                label: const Text(
+                  'Sign out',
+                  style: TextStyle(color: AppTheme.red),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppTheme.red),
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

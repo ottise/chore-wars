@@ -11,4 +11,5 @@ abstract interface class AuthRepository {
   Future<void> logout();
   Future<UserProfile> getProfile();
   Future<UserProfile> updateProfile({required String displayName});
+  Future<UserProfile> uploadAvatar(String filePath);
 }

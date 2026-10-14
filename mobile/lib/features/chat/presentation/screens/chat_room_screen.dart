@@ -136,6 +136,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             onSendMessage: (content) {
               ref.read(chatMessagesProvider(_roomId!)).sendMessage(content);
             },
+            onSendImage: (bytes, filename) async {
+              await ref.read(chatMessagesProvider(_roomId!)).sendImage(bytes, filename);
+            },
           ),
         ],
       ),

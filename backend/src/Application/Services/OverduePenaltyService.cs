@@ -46,6 +46,8 @@ public class OverduePenaltyService : IOverduePenaltyService
 
         foreach (var occurrence in occurrences)
         {
+            if (occurrence.AssignedUserId == null) continue;
+
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -79,7 +81,7 @@ public class OverduePenaltyService : IOverduePenaltyService
                         occurrence.PenaltyCount++;
                         await _karmaService.AddKarmaTransactionAsync(
                             occurrence.Chore.HouseId,
-                            occurrence.Chore.SeasonId,
+                            occurrence.SeasonId,
                             occurrence.AssignedUserId.Value,
                             -PenaltyConstants.SinglePenalty,
                             KarmaTransactionType.PENALTY,

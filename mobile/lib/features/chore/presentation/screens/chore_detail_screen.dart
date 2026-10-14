@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -9,6 +12,7 @@ import '../../../gamification/presentation/providers/gamification_providers.dart
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 
 class ChoreDetailScreen extends ConsumerStatefulWidget {
   const ChoreDetailScreen({
@@ -42,7 +46,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
         data: (item) => _DetailBody(
           detail: item,
           busy: _mutating,
-          onComplete: () => _complete(item),
+          onComplete: () => _showCompleteDialog(item),
           onSkip: () => _skip(item),
           onCreateBounty: _canCreateBounty(item.occurrence)
               ? () => context.push(
@@ -63,12 +67,232 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     );
   }
 
-  Future<void> _complete(ChoreDetail detail) async {
+  Future<void> _showCompleteDialog(ChoreDetail detail) async {
+    Uint8List? selectedImageBytes;
+    final picker = ImagePicker();
+
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> pick(ImageSource source) async {
+              try {
+                final photo = await picker.pickImage(
+                  source: source,
+                  maxWidth: 1024,
+                  maxHeight: 1024,
+                  imageQuality: 85,
+                );
+                if (photo != null) {
+                  final bytes = await photo.readAsBytes();
+                  setModalState(() {
+                    selectedImageBytes = bytes;
+                  });
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  showAppMessage(context, 'Không thể chọn ảnh: $e', error: true);
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.green.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.task_alt_rounded,
+                          color: AppTheme.green,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hoàn thành việc nhà',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '+${detail.karmaPoints} Karma Points',
+                              style: const TextStyle(
+                                color: Color(0xFF8A6100),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Ảnh minh chứng (tùy chọn)',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (selectedImageBytes != null) ...[
+                    Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            selectedImageBytes!,
+                            height: 190,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black54,
+                            radius: 18,
+                            child: IconButton(
+                              icon: const Icon(Icons.close, size: 18, color: Colors.white),
+                              onPressed: () => setModalState(() => selectedImageBytes = null),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => pick(ImageSource.camera),
+                          icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                          label: const Text('Chụp lại'),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton.icon(
+                          onPressed: () => pick(ImageSource.gallery),
+                          icon: const Icon(Icons.photo_library_rounded, size: 18),
+                          label: const Text('Chọn ảnh khác'),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.add_a_photo_outlined,
+                            size: 38,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Chụp ảnh kết quả để mọi người cùng thấy',
+                            style: TextStyle(fontSize: 13, color: AppTheme.muted),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => pick(ImageSource.camera),
+                                  icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                                  label: const Text('Chụp ảnh'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => pick(ImageSource.gallery),
+                                  icon: const Icon(Icons.photo_library_rounded, size: 18),
+                                  label: const Text('Thư viện'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      String? proofUrl;
+                      if (selectedImageBytes != null) {
+                        proofUrl = 'data:image/jpeg;base64,${base64Encode(selectedImageBytes!)}';
+                      }
+                      Navigator.pop(context, proofUrl ?? '');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.green,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: const Icon(Icons.check_circle_rounded),
+                    label: const Text(
+                      'Xác nhận hoàn thành',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      final proof = result.isEmpty ? null : result;
+      await _complete(detail, proofImageUrl: proof);
+    }
+  }
+
+  Future<void> _complete(ChoreDetail detail, {String? proofImageUrl}) async {
     setState(() => _mutating = true);
     try {
       await ref
           .read(choreRepositoryProvider)
-          .completeChore(widget.occurrenceId);
+          .completeChore(widget.occurrenceId, proofImageUrl: proofImageUrl);
       _refreshAffectedState();
       if (mounted) {
         showAppMessage(context, '+${detail.karmaPoints} Karma earned');
@@ -81,10 +305,15 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
   }
 
   bool _canCreateBounty(ChoreOccurrence occurrence) {
-    return occurrence.assignedUserId != null &&
-        (occurrence.status == ChoreStatus.assigned ||
-            occurrence.status == ChoreStatus.overdue ||
-            occurrence.status == ChoreStatus.criticalOverdue);
+    if (occurrence.status == ChoreStatus.completed ||
+        occurrence.status == ChoreStatus.skipped) {
+      return false;
+    }
+    final authState = ref.read(authStateProvider);
+    final userId = authState is AuthAuthenticated ? authState.user.userId : null;
+    if (occurrence.assignedUserId == null) return false;
+    if (userId == null) return true;
+    return occurrence.assignedUserId!.toLowerCase() == userId.toLowerCase();
   }
 
   Future<void> _skip(ChoreDetail detail) async {
@@ -145,6 +374,71 @@ class _DetailBody extends StatelessWidget {
   final VoidCallback onSkip;
   final VoidCallback? onCreateBounty;
   final VoidCallback? onEdit;
+
+  Widget _buildProofWidget(BuildContext context, String proof) {
+    Widget imageWidget;
+    if (proof.startsWith('data:image')) {
+      final raw = proof.contains(',') ? proof.split(',')[1] : proof;
+      imageWidget = Image.memory(
+        base64Decode(raw),
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else {
+      imageWidget = Image.network(
+        proof,
+        height: 200,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 120,
+          color: Colors.grey.shade200,
+          child: const Center(child: Icon(Icons.broken_image_outlined, size: 36)),
+        ),
+      );
+    }
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_rounded, color: AppTheme.green, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Minh chứng hoàn thành',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => Dialog(
+                  insetPadding: const EdgeInsets.all(12),
+                  child: InteractiveViewer(
+                    child: proof.startsWith('data:image')
+                        ? Image.memory(base64Decode(proof.contains(',') ? proof.split(',')[1] : proof))
+                        : Image.network(proof),
+                  ),
+                ),
+              );
+            },
+            child: imageWidget,
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +516,15 @@ class _DetailBody extends StatelessWidget {
                   value: '+${detail.karmaPoints}',
                   valueColor: const Color(0xFF8A6100),
                 ),
+                if (chore.penaltyCount > 0) ...[
+                  const Divider(height: 28),
+                  _InfoRow(
+                    icon: Icons.trending_down_rounded,
+                    label: 'Overdue Penalty',
+                    value: '-${chore.penaltyCount * 5}',
+                    valueColor: AppTheme.red,
+                  ),
+                ],
                 const Divider(height: 28),
                 _InfoRow(
                   icon: Icons.flag_outlined,
@@ -233,6 +536,10 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ),
+        if (chore.proofImageUrl != null && chore.proofImageUrl!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildProofWidget(context, chore.proofImageUrl!),
+        ],
         if (actionable) ...[
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -255,10 +562,14 @@ class _DetailBody extends StatelessWidget {
         ],
         if (onCreateBounty != null) ...[
           const SizedBox(height: 10),
-          OutlinedButton.icon(
+          ElevatedButton.icon(
             onPressed: busy ? null : onCreateBounty,
-            icon: const Icon(Icons.volunteer_activism_outlined),
-            label: const Text('Create Bounty'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF08C00),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.volunteer_activism_rounded),
+            label: const Text('Tạo Bounty (Thuê người làm thay)', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
         if (onEdit != null) ...[

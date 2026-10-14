@@ -141,7 +141,7 @@ class _SettingsBody extends StatelessWidget {
           onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
         ),
         const Divider(),
-        if (house.myRole == HouseRole.owner) ...[
+        ...[
           _SectionHeader('Members'),
           ListTile(
             leading: const Icon(Icons.manage_accounts_outlined),

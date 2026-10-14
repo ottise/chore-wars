@@ -32,18 +32,12 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titleForIndex(navigationShell.currentIndex)),
-        actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => context.push('/notifications'),
-            icon: const Icon(Icons.notifications_none),
-          ),
-          const SizedBox(width: 8),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: navigationShell,
+        ),
       ),
-      body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         destinations: _tabs,
@@ -53,18 +47,5 @@ class AppShell extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _titleForIndex(int index) {
-    switch (index) {
-      case 1:
-        return 'Chores';
-      case 2:
-        return 'Leaderboard';
-      case 3:
-        return 'Profile';
-      default:
-        return 'Chore Wars';
-    }
   }
 }

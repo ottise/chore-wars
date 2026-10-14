@@ -148,7 +148,7 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("SeasonId")
+                    b.Property<Guid?>("SeasonId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Type")
@@ -249,6 +249,9 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("ReminderSent")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("SnapshotKarma")
                         .HasColumnType("integer");
 
@@ -261,6 +264,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("AssignedUserId");
 
                     b.HasIndex("ChoreId");
+
+                    b.HasIndex("SeasonId");
 
                     b.ToTable("ChoreOccurrences");
                 });
@@ -879,8 +884,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("ChoreWars.Domain.Entities.ChoreSeason", "Season")
                         .WithMany("Chores")
                         .HasForeignKey("SeasonId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("House");
 
@@ -930,9 +934,17 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ChoreWars.Domain.Entities.ChoreSeason", "Season")
+                        .WithMany("Occurrences")
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("AssignedUser");
 
                     b.Navigation("Chore");
+
+                    b.Navigation("Season");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChoreSeason", b =>
@@ -1243,6 +1255,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("Confirmations");
 
                     b.Navigation("MemberAvailabilities");
+
+                    b.Navigation("Occurrences");
 
                     b.Navigation("Rankings");
                 });

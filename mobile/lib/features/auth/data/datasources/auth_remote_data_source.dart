@@ -57,4 +57,15 @@ class AuthRemoteDataSource {
     );
     return UserProfile.fromJson(response.data!);
   }
+
+  Future<UserProfile> uploadAvatar(String filePath) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/user/avatar',
+      data: formData,
+    );
+    return UserProfile.fromJson(response.data!);
+  }
 }

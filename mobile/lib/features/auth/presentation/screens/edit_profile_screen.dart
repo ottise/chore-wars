@@ -1,13 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/domain/entities/auth_models.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
-
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({required this.profile, super.key});
@@ -22,6 +26,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _displayNameCtrl;
   bool _isLoading = false;
+  File? _selectedImage;
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -35,8 +41,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _selectedImage = File(picked.path));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasAvatarUrl = widget.profile.avatarUrl != null && widget.profile.avatarUrl!.isNotEmpty;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit profile'),
@@ -48,8 +63,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
+                    backgroundImage: _selectedImage != null
+                        ? FileImage(_selectedImage!) as ImageProvider
+                        : (hasAvatarUrl
+                            ? CachedNetworkImageProvider('${AppConstants.apiBaseUrl}${widget.profile.avatarUrl}')
+                            : null),
+                    child: (_selectedImage == null && !hasAvatarUrl)
+                        ? const Icon(Icons.camera_alt, size: 40, color: AppTheme.purple)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _pickImage,
+                  child: const Text('Change Avatar'),
+                ),
+                const SizedBox(height: 24),
                 TextFormField(
                   controller: _displayNameCtrl,
                   textInputAction: TextInputAction.done,
@@ -88,13 +124,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final newName = _displayNameCtrl.text.trim();
-    if (newName == widget.profile.displayName) {
+    if (newName == widget.profile.displayName && _selectedImage == null) {
       context.pop();
       return;
     }
     setState(() => _isLoading = true);
     try {
-      await ref.read(authRepositoryProvider).updateProfile(displayName: newName);
+      if (_selectedImage != null) {
+        await ref.read(authRepositoryProvider).uploadAvatar(_selectedImage!.path);
+      }
+      if (newName != widget.profile.displayName) {
+        await ref.read(authRepositoryProvider).updateProfile(displayName: newName);
+      }
       ref.invalidate(userProfileProvider);
       if (mounted) {
         showAppMessage(context, 'Profile updated.');

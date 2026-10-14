@@ -28,6 +28,8 @@ app.UseSwaggerDocumentation(app.Environment);
 
 app.UseCustomMiddleware();
 
+app.UseStaticFiles();
+
 // app.UseHttpsRedirection();
 
 app.UseCors();

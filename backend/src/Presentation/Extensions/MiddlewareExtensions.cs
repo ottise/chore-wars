@@ -15,8 +15,9 @@ public static class MiddlewareExtensions
     public static WebApplication MapPresentationEndpoints(this WebApplication app)
     {
         app.MapControllers();
-        app.MapHub<NotificationHub>("/hubs/notification");
+        app.MapHub<NotificationHub>("/hubs/notifications");
         app.MapHub<ChatHub>("/api/chat-hub");
+        app.MapHub<ChatHub>("/hubs/chat");
         
         return app;
     }

@@ -218,7 +218,9 @@ public class HouseService : IHouseService
         if (house == null)
             throw new NotFoundException(nameof(House), houseId);
 
-        return _mapper.Map<HouseResponse>(house);
+        var response = _mapper.Map<HouseResponse>(house);
+        response.CurrentUserRole = member.Role.ToString();
+        return response;
     }
 
     public async Task<IEnumerable<HouseResponse>> GetUserHousesAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -234,7 +236,16 @@ public class HouseService : IHouseService
                 houses.Add(house);
         }
 
-        return _mapper.Map<IEnumerable<HouseResponse>>(houses);
+        var responseList = new List<HouseResponse>();
+        foreach (var house in houses)
+        {
+            var response = _mapper.Map<HouseResponse>(house);
+            var member = members.First(m => m.HouseId == house.Id);
+            response.CurrentUserRole = member.Role.ToString();
+            responseList.Add(response);
+        }
+
+        return responseList;
     }
 
     public async Task TransferOwnershipAsync(Guid houseId, Guid newOwnerId, Guid currentUserId, CancellationToken cancellationToken = default)

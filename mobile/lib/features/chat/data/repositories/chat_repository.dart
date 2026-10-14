@@ -25,6 +25,9 @@ class ChatRepository {
   Future<void> sendMessage(String roomId, String content) =>
       _signalRService.sendMessage(roomId, content);
 
+  Future<String> uploadImage(List<int> bytes, String filename) =>
+      _apiService.uploadImage(bytes, filename);
+
   Future<void> disconnectHub(String roomId) =>
       _signalRService.disconnect(roomId);
 }

@@ -51,6 +51,30 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen> {
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
+            errorBuilder: (context, error, child) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.videocam_off_rounded, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Unable to access camera (${error.errorCode.name})',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => context.pushReplacement('/houses/join'),
+                        child: const Text('Enter invite code manually'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           _ScanOverlay(),
           if (_processing)

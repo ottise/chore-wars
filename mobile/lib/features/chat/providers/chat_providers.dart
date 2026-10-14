@@ -89,12 +89,17 @@ class ChatMessagesNotifier extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _page--;
-      print('Error loading more messages: $e');
+      debugPrint('Error loading more messages: $e');
     }
   }
 
   Future<void> sendMessage(String content) async {
     await _repo.sendMessage(_roomId, content);
+  }
+
+  Future<void> sendImage(List<int> bytes, String filename) async {
+    final imageUrl = await _repo.uploadImage(bytes, filename);
+    await _repo.sendMessage(_roomId, '[IMAGE]$imageUrl');
   }
 }
 

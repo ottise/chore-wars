@@ -44,6 +44,33 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     (0, 'Sunday'),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/availability');
+      final data = res.data['availabilities'] as Map<String, dynamic>? ?? {};
+      setState(() {
+        data.forEach((key, value) {
+          final dayInt = int.tryParse(key);
+          if (dayInt != null && _availability.containsKey(dayInt)) {
+            _availability[dayInt] = value as bool;
+          }
+        });
+      });
+    } catch (e) {
+      debugPrint('Failed to load availability: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _save() async {
     setState(() => _isLoading = true);
     try {
@@ -51,8 +78,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       
       final Map<String, bool> payload = {};
       _availability.forEach((key, value) {
-        final dayName = _days.firstWhere((d) => d.$1 == key).$2;
-        payload[dayName] = value;
+        payload[key.toString()] = value;
       });
 
       await dio.post(

@@ -56,9 +56,14 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
                   textInputAction: TextInputAction.done,
                   textCapitalization: TextCapitalization.characters,
                   onFieldSubmitted: (_) => _submit(),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Invite code',
-                    prefixIcon: Icon(Icons.key_rounded),
+                    prefixIcon: const Icon(Icons.key_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: 'Scan QR code',
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                      onPressed: () => context.push('/houses/qr-join'),
+                    ),
                     hintText: 'e.g. AB12CD',
                   ),
                   validator: (v) {
@@ -73,6 +78,14 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
                   text: 'Join house',
                   isLoading: _isLoading,
                   onPressed: _submit,
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/houses/qr-join'),
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    label: const Text('Or scan QR code'),
+                  ),
                 ),
               ],
             ),

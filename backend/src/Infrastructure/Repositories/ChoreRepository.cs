@@ -27,6 +27,7 @@ public class ChoreRepository : IChoreRepository
     public async Task<IEnumerable<Chore>> GetByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
         return await _context.Chores
+            .Include(c => c.FrequencyDays)
             .Where(c => c.HouseId == houseId)
             .ToListAsync(cancellationToken);
     }

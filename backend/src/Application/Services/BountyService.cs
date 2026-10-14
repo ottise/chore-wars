@@ -120,8 +120,23 @@ public class BountyService : IBountyService
     {
         await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
 
-        var bounties = await _unitOfWork.ChoreBounties.GetActiveBountiesByHouseIdAsync(houseId, cancellationToken);
-        return _mapper.Map<IEnumerable<BountyResponse>>(bounties);
+        var bounties = await _unitOfWork.ChoreBounties.GetBountiesByHouseIdAsync(houseId, cancellationToken);
+        var responses = _mapper.Map<IEnumerable<BountyResponse>>(bounties).ToList();
+
+        var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
+        var compensationByOccurrence = payments
+            .Where(p => p.Reason == PaymentObligationReason.FORCED_REASSIGNMENT && p.OccurrenceId.HasValue)
+            .ToDictionary(p => p.OccurrenceId!.Value, p => p.Amount);
+
+        foreach (var r in responses)
+        {
+            if (compensationByOccurrence.TryGetValue(r.ChoreOccurrenceId, out var comp))
+            {
+                r.ForcedCompensationAmount = comp;
+            }
+        }
+
+        return responses;
     }
 
     public async Task<BountyResponse> GetBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default)
@@ -176,7 +191,8 @@ public class BountyService : IBountyService
             Reason = payment.Reason,
             Status = payment.Status,
             CreatedAt = payment.CreatedAt,
-            PaidAt = payment.PaidAt
+            PaidAt = payment.PaidAt,
+            ChoreName = payment.Occurrence?.Chore?.Name
         };
     }
 
@@ -186,13 +202,14 @@ public class BountyService : IBountyService
         if (payment == null)
             throw new NotFoundException(nameof(PaymentObligation), paymentId);
 
-        if (payment.DebtorUserId != userId)
-            throw new ForbiddenException("Only the payer can settle the payment.");
+        if (payment.DebtorUserId != userId && payment.CreditorUserId != userId)
+            throw new ForbiddenException("Only the debtor or creditor can settle this payment obligation.");
 
         if (payment.Status != PaymentObligationStatus.PENDING)
             throw new ConflictException("Payment is not pending.");
 
         payment.Status = PaymentObligationStatus.PAID;
+        payment.PaidAt = DateTime.UtcNow;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try

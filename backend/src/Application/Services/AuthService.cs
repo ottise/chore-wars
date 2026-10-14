@@ -193,4 +193,28 @@ public class AuthService : IAuthService
 
         return _mapper.Map<UserProfileResponse>(user);
     }
+
+    public async Task<UserProfileResponse> UpdateAvatarUrlAsync(Guid userId, string avatarUrl, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+            throw new NotFoundException(nameof(User), userId);
+
+        user.AvatarUrl = avatarUrl;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+
+        return _mapper.Map<UserProfileResponse>(user);
+    }
 }

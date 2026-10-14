@@ -31,9 +31,9 @@ public class ChoreController : ControllerBase
     }
 
     [HttpPost("occurrences/{occurrenceId}/complete")]
-    public async Task<IActionResult> CompleteChore(Guid occurrenceId, CancellationToken cancellationToken)
+    public async Task<IActionResult> CompleteChore(Guid occurrenceId, [FromBody] CompleteChoreRequest? request, CancellationToken cancellationToken)
     {
-        await _choreService.CompleteChoreAsync(occurrenceId, CurrentUserId, cancellationToken);
+        await _choreService.CompleteChoreAsync(occurrenceId, request, CurrentUserId, cancellationToken);
         return Ok();
     }
 

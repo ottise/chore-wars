@@ -8,7 +8,6 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 import '../../features/bounty/presentation/screens/bounty_board_screen.dart';
 import '../../features/bounty/presentation/screens/create_bounty_screen.dart';
 import '../../features/bounty/presentation/screens/bounty_detail_screen.dart';
-import '../../features/payment/presentation/screens/payment_obligations_screen.dart';
 import '../../features/chores/presentation/screens/chore_detail_screen.dart' as chores;
 import '../../features/gamification/presentation/screens/karma_history_screen.dart' as gamification_history;
 import '../widgets/app_shell.dart';
@@ -50,7 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
 
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/houses',
     redirect: (context, state) async {
       if (AppConstants.uiPreview) return null;
       final token = await secureStorage.getAccessToken();
@@ -60,7 +59,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/register';
 
       if (!isLoggedIn && !isAuthRoute) return '/login';
-      if (isLoggedIn && isAuthRoute) return '/houses';
+      if (isLoggedIn &&
+          (isAuthRoute ||
+              state.matchedLocation == '/' ||
+              state.matchedLocation == '/home')) {
+        return '/houses';
+      }
       return null;
     },
     routes: [
@@ -73,9 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (context, state) => HomeScreen(
-                  houseId: state.uri.queryParameters['houseId'],
-                ),
+                builder: (context, state) => const HomeScreen(),
               ),
             ],
           ),
@@ -146,8 +148,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/payments',
-        builder: (context, state) => PaymentObligationsScreen(
-          houseId: state.uri.queryParameters['houseId'],
+        redirect: (context, state) {
+          final houseId = state.uri.queryParameters['houseId'];
+          return houseId != null ? '/bounties?houseId=${Uri.encodeComponent(houseId)}' : '/houses';
+        },
+      ),
+      GoRoute(
+        path: '/bounties',
+        builder: (context, state) => BountyBoardScreen(
+          houseId: state.uri.queryParameters['houseId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/bounties/create',
+        builder: (context, state) => CreateBountyScreen(
+          houseId: state.uri.queryParameters['houseId']!,
+          occurrenceId: state.uri.queryParameters['occurrenceId']!,
+          choreName: state.uri.queryParameters['choreName']!,
+          deadline: state.uri.queryParameters['deadline']!,
+        ),
+      ),
+      GoRoute(
+        path: '/bounties/:bountyId',
+        builder: (context, state) => BountyDetailScreen(
+          houseId: state.uri.queryParameters['houseId']!,
+          bountyId: state.pathParameters['bountyId']!,
         ),
       ),
       GoRoute(

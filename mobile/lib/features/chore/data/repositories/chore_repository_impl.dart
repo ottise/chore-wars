@@ -10,8 +10,8 @@ class ChoreRepositoryImpl implements ChoreRepository {
   Future<ChoreTemplate> createChore(String houseId, ChoreTemplate chore) =>
       _remote.createChore(houseId, chore);
   @override
-  Future<void> completeChore(String occurrenceId) =>
-      _remote.completeChore(occurrenceId);
+  Future<void> completeChore(String occurrenceId, {String? proofImageUrl}) =>
+      _remote.completeChore(occurrenceId, proofImageUrl: proofImageUrl);
   @override
   Future<void> deleteChore(String choreId) => _remote.deleteChore(choreId);
   @override

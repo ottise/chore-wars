@@ -61,7 +61,10 @@ class House {
         createdAt: DateTime.parse(
           json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
         ).toLocal(),
-        myRole: role ?? HouseRole.member,
+        myRole: role ??
+            (json['currentUserRole'] != null
+                ? HouseRole.fromJson(json['currentUserRole'])
+                : HouseRole.member),
       );
 }
 

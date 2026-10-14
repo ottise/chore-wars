@@ -36,4 +36,33 @@ public class ChatController : ControllerBase
         var result = await _chatService.GetMessagesAsync(roomId, CurrentUserId, page, pageSize, cancellationToken);
         return Ok(result);
     }
+
+    [HttpPost("api/chat/upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadImage([FromForm] Microsoft.AspNetCore.Http.IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "No file uploaded." });
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+        var ext = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrEmpty(ext) || !System.Array.Exists(allowedExtensions, e => e == ext))
+            ext = ".jpg";
+
+        var uploadFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+        if (!System.IO.Directory.Exists(uploadFolder))
+            System.IO.Directory.CreateDirectory(uploadFolder);
+
+        var fileName = $"{Guid.NewGuid():N}{ext}";
+        var filePath = System.IO.Path.Combine(uploadFolder, fileName);
+
+        using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var relativeUrl = $"/uploads/{fileName}";
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        return Ok(new { url = $"{baseUrl}{relativeUrl}", relativeUrl });
+    }
 }

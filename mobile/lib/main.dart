@@ -31,6 +31,7 @@ class ChoreWarsApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Chore Wars',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // we can use local_storage for this later

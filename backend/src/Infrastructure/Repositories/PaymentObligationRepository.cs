@@ -24,6 +24,8 @@ public class PaymentObligationRepository : IPaymentObligationRepository
         return await _context.PaymentObligations
             .Include(p => p.DebtorUser)
             .Include(p => p.CreditorUser)
+            .Include(p => p.Occurrence)
+                .ThenInclude(o => o!.Chore)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
@@ -32,6 +34,8 @@ public class PaymentObligationRepository : IPaymentObligationRepository
         return await _context.PaymentObligations
             .Include(p => p.DebtorUser)
             .Include(p => p.CreditorUser)
+            .Include(p => p.Occurrence)
+                .ThenInclude(o => o!.Chore)
             .Where(p => p.HouseId == houseId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);

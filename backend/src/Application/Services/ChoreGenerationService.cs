@@ -44,7 +44,7 @@ public class ChoreGenerationService : IChoreGenerationService
         if (hasOccurrences)
             throw new ConflictException("Occurrences have already been generated for this season.");
 
-        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(seasonId, cancellationToken);
+        var chores = await _unitOfWork.Chores.GetByHouseIdAsync(season.HouseId, cancellationToken);
         if (!chores.Any())
             throw new ConflictException("No chore templates found for this season.");
 
@@ -52,7 +52,7 @@ public class ChoreGenerationService : IChoreGenerationService
 
         foreach (var chore in chores)
         {
-            var occurrences = GenerateForChore(chore, season.StartDate, season.EndDate);
+            var occurrences = GenerateForChore(chore, season.Id, season.StartDate, season.EndDate);
             occurrencesToCreate.AddRange(occurrences);
         }
 
@@ -79,7 +79,7 @@ public class ChoreGenerationService : IChoreGenerationService
         }
     }
 
-    private IEnumerable<ChoreOccurrence> GenerateForChore(Chore chore, DateTime startDate, DateTime endDate)
+    private IEnumerable<ChoreOccurrence> GenerateForChore(Chore chore, Guid seasonId, DateTime startDate, DateTime endDate)
     {
         var occurrences = new List<ChoreOccurrence>();
         var currentDate = startDate.Date;
@@ -127,6 +127,7 @@ public class ChoreGenerationService : IChoreGenerationService
                 {
                     Id = Guid.NewGuid(),
                     ChoreId = chore.Id,
+                    SeasonId = seasonId,
                     DueDate = currentDate.AddHours(23).AddMinutes(59), // End of day
                     Status = ChoreOccurrenceStatus.ASSIGNED,
                     AssignedUserId = null, 

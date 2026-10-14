@@ -7,30 +7,61 @@ import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../domain/entities/home_dashboard.dart';
 import '../providers/home_dashboard_provider.dart';
+import '../../../house/presentation/providers/current_house_provider.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 class HomeScreen extends ConsumerWidget {
-  final String? houseId;
-
-  const HomeScreen({super.key, this.houseId});
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (houseId == null || houseId!.isEmpty) {
-      return const EmptyState(
-        message: 'Join a house to see your dashboard.',
-        icon: Icons.home_work_outlined,
+    final houseId = ref.watch(currentHouseProvider);
+    if (houseId == null || houseId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Chore Wars'),
+          actions: const [
+            NotificationBell(),
+            SizedBox(width: 8),
+          ],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const EmptyState(
+                message: 'Join a house to see your dashboard.',
+                icon: Icons.home_work_outlined,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => context.push('/houses'),
+                icon: const Icon(Icons.other_houses_outlined),
+                label: const Text('View My Houses'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
-    final dashboard = ref.watch(homeDashboardProvider(houseId!));
-    return dashboard.when(
-      loading: () => const LoadingWidget(),
+    final dashboard = ref.watch(homeDashboardProvider(houseId));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Chore Wars'),
+        actions: const [
+          NotificationBell(),
+          SizedBox(width: 8),
+        ],
+      ),
+      body: dashboard.when(
+        loading: () => const LoadingWidget(),
       error: (error, stackTrace) => ErrorState(
         error: error,
-        onRetry: () => ref.invalidate(homeDashboardProvider(houseId!)),
+        onRetry: () => ref.invalidate(homeDashboardProvider(houseId)),
       ),
       data: (data) => RefreshIndicator(
-        onRefresh: () => ref.refresh(homeDashboardProvider(houseId!).future),
+        onRefresh: () => ref.refresh(homeDashboardProvider(houseId).future),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -72,7 +103,10 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             if (data.chores.isEmpty)
-              const SizedBox(height: 120, child: EmptyState(message: 'No chores today 🎉', icon: Icons.check_circle_outline))
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: EmptyState(message: 'No chores today 🎉', icon: Icons.check_circle_outline),
+              )
             else
               ...data.chores.take(3).map((chore) => _ChoreTile(chore: chore)),
             const SizedBox(height: 24),
@@ -82,7 +116,10 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             if (data.bounties.isEmpty)
-              const SizedBox(height: 100, child: EmptyState(message: 'No active bounties.', icon: Icons.volunteer_activism_outlined))
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: EmptyState(message: 'No active bounties.', icon: Icons.volunteer_activism_outlined),
+              )
             else
               ...data.bounties.take(3).map(
                     (bounty) => _BountyTile(
@@ -93,6 +130,7 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 

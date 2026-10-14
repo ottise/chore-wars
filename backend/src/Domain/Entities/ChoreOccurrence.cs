@@ -7,6 +7,7 @@ public class ChoreOccurrence
 {
     public Guid Id { get; set; }
     public Guid ChoreId { get; set; }
+    public Guid SeasonId { get; set; }
     public Guid? AssignedUserId { get; set; }
     public DateTime DueDate { get; set; }
     public ChoreOccurrenceStatus Status { get; set; }
@@ -18,5 +19,6 @@ public class ChoreOccurrence
     public bool ReminderSent { get; set; }
 
     public Chore Chore { get; set; } = null!;
+    public ChoreSeason Season { get; set; } = null!;
     public User? AssignedUser { get; set; }
 }

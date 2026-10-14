@@ -27,4 +27,12 @@ class ChatApiService {
     
     return (items: items, totalCount: totalCount);
   }
+
+  Future<String> uploadImage(List<int> bytes, String filename) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+    final response = await _dio.post(ApiEndpoints.chatUpload, data: formData);
+    return (response.data['relativeUrl'] ?? response.data['url']) as String;
+  }
 }

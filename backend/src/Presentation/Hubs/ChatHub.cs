@@ -19,8 +19,18 @@ public class ChatHub : Hub
         _chatService = chatService;
     }
 
-    private Guid CurrentUserId =>
-        Guid.Parse(Context.User!.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+    private Guid CurrentUserId
+    {
+        get
+        {
+            var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier) ?? Context.User?.FindFirst("sub");
+            if (claim == null || !Guid.TryParse(claim.Value, out var userId))
+            {
+                throw new UnauthorizedAccessException("User is not authenticated.");
+            }
+            return userId;
+        }
+    }
 
     public async Task JoinRoom(Guid roomId)
     {

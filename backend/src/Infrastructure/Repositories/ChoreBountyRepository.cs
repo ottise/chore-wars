@@ -42,9 +42,24 @@ public class ChoreBountyRepository : IChoreBountyRepository
         return await _context.ChoreBounties
             .Include(b => b.ChoreOccurrence)
             .ThenInclude(o => o.Chore)
+            .Include(b => b.ChoreOccurrence)
+            .ThenInclude(o => o.AssignedUser)
             .Include(b => b.PostedByUser)
             .Where(b => b.ChoreOccurrence.Chore.HouseId == houseId && b.Status == BountyStatus.OPEN)
             .OrderBy(b => b.ExpiresAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<ChoreBounty>> GetBountiesByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
+    {
+        return await _context.ChoreBounties
+            .Include(b => b.ChoreOccurrence)
+            .ThenInclude(o => o.Chore)
+            .Include(b => b.ChoreOccurrence)
+            .ThenInclude(o => o.AssignedUser)
+            .Include(b => b.PostedByUser)
+            .Where(b => b.ChoreOccurrence.Chore.HouseId == houseId)
+            .OrderByDescending(b => b.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 

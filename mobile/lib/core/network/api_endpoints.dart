@@ -63,5 +63,12 @@ class ApiEndpoints {
   // Chat
   static String houseChat(String houseId) => '/houses/$houseId/chat';
   static String chatMessages(String roomId) => '/chat/rooms/$roomId/messages';
+  static const String chatUpload = '/chat/upload';
   static const String chatHubUrl = '/chat-hub';
+
+  // Notifications
+  static const String notifications = '/notifications';
+  static String readNotification(String id) => '/notifications/$id/read';
+  static const String readAllNotifications = '/notifications/read-all';
+  static const String notificationsHubUrl = '/notifications'; // SignalR endpoint (/hubs/notifications on backend)
 }

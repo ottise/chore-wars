@@ -1,42 +1,37 @@
 import '../../domain/entities/bounty.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'bounty_model.freezed.dart';
-part 'bounty_model.g.dart';
-
-@Freezed(fromJson: true, toJson: true)
-abstract class BountyModel with _$BountyModel {
-  const BountyModel._();
-
-  const factory BountyModel({
-    required String id,
-    required String choreOccurrenceId,
-    required String choreName,
-    required String postedByUserId,
-    required String postedByDisplayName,
-    required double amount,
-    @JsonKey(fromJson: bountyStatusFromJson) required BountyStatus status,
-    required DateTime expiresAt,
-    String? newAssigneeDisplayName,
-    double? forcedCompensationAmount,
-  }) = _BountyModel;
+class BountyModel extends Bounty {
+  const BountyModel({
+    required super.id,
+    required super.choreOccurrenceId,
+    required super.choreName,
+    required super.postedByUserId,
+    required super.postedByDisplayName,
+    super.assignedUserId,
+    required super.amount,
+    required super.status,
+    required super.expiresAt,
+    super.newAssigneeDisplayName,
+    super.forcedCompensationAmount,
+  });
 
   factory BountyModel.fromJson(Map<String, dynamic> json) {
-    return _$BountyModelFromJson(json);
+    return BountyModel(
+      id: json['id']?.toString() ?? '',
+      choreOccurrenceId: json['choreOccurrenceId']?.toString() ?? '',
+      choreName: json['choreName'] as String? ?? 'Chore',
+      postedByUserId: json['postedByUserId']?.toString() ?? '',
+      postedByDisplayName: json['postedByDisplayName'] as String? ?? '',
+      assignedUserId: json['assignedUserId']?.toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      status: bountyStatusFromJson(json['status']),
+      expiresAt: DateTime.tryParse(json['expiresAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      newAssigneeDisplayName: json['newAssigneeDisplayName'] as String?,
+      forcedCompensationAmount: (json['forcedCompensationAmount'] as num?)?.toDouble(),
+    );
   }
 
-  Bounty toEntity() => Bounty(
-        id: id,
-        choreOccurrenceId: choreOccurrenceId,
-        choreName: choreName,
-        postedByUserId: postedByUserId,
-        postedByDisplayName: postedByDisplayName,
-        amount: amount,
-        status: status,
-        expiresAt: expiresAt.toLocal(),
-        newAssigneeDisplayName: newAssigneeDisplayName,
-        forcedCompensationAmount: forcedCompensationAmount,
-      );
+  Bounty toEntity() => this;
 }
 
 BountyStatus bountyStatusFromJson(Object? value) {

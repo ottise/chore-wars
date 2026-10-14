@@ -17,4 +17,5 @@ public class ChoreOccurrenceResponse
     public ChoreType Type { get; set; }
     public ChoreEffort Difficulty { get; set; }
     public int EstimatedMinutes { get; set; }
+    public string? ProofImageUrl { get; set; }
 }

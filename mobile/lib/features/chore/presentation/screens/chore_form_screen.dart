@@ -142,10 +142,13 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _description,
-            maxLines: 3,
+            minLines: 3,
+            maxLines: null,
+            keyboardType: TextInputType.multiline,
             decoration: const InputDecoration(
               labelText: 'Description',
               hintText: 'Add a clear finish line for this task',
+              alignLabelWithHint: true,
             ),
           ),
           const SizedBox(height: 24),

@@ -29,15 +29,22 @@ public class SeasonController : ControllerBase
     public async Task<IActionResult> GetCurrentSeason(Guid houseId, CancellationToken cancellationToken)
     {
         var activeSeason = await _seasonService.GetActiveSeasonAsync(houseId, CurrentUserId, cancellationToken);
-        if (activeSeason == null) return NotFound();
+        if (activeSeason == null) return Ok((SeasonResponse?)null);
         return Ok(activeSeason);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetSeasons(Guid houseId, CancellationToken cancellationToken)
+    {
+        var seasons = await _seasonService.GetSeasonsByHouseAsync(houseId, CurrentUserId, cancellationToken);
+        return Ok(seasons);
     }
 
     [HttpPost]
     public async Task<IActionResult> CreateSeason(Guid houseId, [FromBody] CreateSeasonRequest request, CancellationToken cancellationToken)
     {
         var response = await _seasonService.CreateSeasonAsync(houseId, request, CurrentUserId, cancellationToken);
-        return Ok(response);
+        return CreatedAtAction(nameof(GetCurrentSeason), new { houseId }, response);
     }
 
     [HttpPost("{seasonId}/start")]

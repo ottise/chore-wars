@@ -115,7 +115,15 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
                         );
-                        if (d != null) setState(() => _startDate = d);
+                        if (d != null) {
+                          setState(() {
+                            _startDate = d;
+                            final maxEnd = DateTime(d.year, d.month + 1, d.day);
+                            if (_endDate.isBefore(d) || _endDate.isAfter(maxEnd)) {
+                              _endDate = maxEnd;
+                            }
+                          });
+                        }
                       },
                     ),
                   ),
@@ -127,17 +135,29 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                       icon: const Icon(Icons.calendar_today),
                       label: Text(DateFormat('MMM d, yyyy').format(_endDate)),
                       onPressed: () async {
+                        final minEnd = _startDate.add(const Duration(days: 1));
+                        final maxEnd = DateTime(_startDate.year, _startDate.month + 1, _startDate.day);
+                        final initial = _endDate.isBefore(minEnd)
+                            ? minEnd
+                            : (_endDate.isAfter(maxEnd) ? maxEnd : _endDate);
                         final d = await showDatePicker(
                           context: context,
-                          initialDate: _endDate,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
+                          initialDate: initial,
+                          firstDate: minEnd,
+                          lastDate: maxEnd,
                         );
                         if (d != null) setState(() => _endDate = d);
                       },
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Mỗi mùa giải kéo dài tối đa 1 tháng (tối đa đến ${DateFormat('dd/MM/yyyy').format(DateTime(_startDate.year, _startDate.month + 1, _startDate.day))})',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
               ),
               if (_apiError != null) ...[
                 const SizedBox(height: 24),
@@ -157,6 +177,17 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final maxEnd = DateTime(_startDate.year, _startDate.month + 1, _startDate.day);
+    if (!_endDate.isAfter(_startDate)) {
+      setState(() => _apiError = 'Ngày kết thúc phải sau ngày bắt đầu.');
+      return;
+    }
+    if (_endDate.isAfter(maxEnd) && _endDate.difference(_startDate).inDays > 31) {
+      setState(() => _apiError = 'Một mùa giải chỉ được kéo dài tối đa 1 tháng.');
+      return;
+    }
+
     setState(() {
       _saving = true;
       _apiError = null;

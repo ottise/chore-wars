@@ -6,6 +6,7 @@ class Bounty {
   final String choreName;
   final String postedByUserId;
   final String postedByDisplayName;
+  final String? assignedUserId;
   final double amount;
   final BountyStatus status;
   final DateTime expiresAt;
@@ -18,6 +19,7 @@ class Bounty {
     required this.choreName,
     required this.postedByUserId,
     required this.postedByDisplayName,
+    this.assignedUserId,
     required this.amount,
     required this.status,
     required this.expiresAt,

@@ -7,6 +7,6 @@ abstract interface class ChoreRepository {
   Future<ChoreTemplate> createChore(String houseId, ChoreTemplate chore);
   Future<ChoreTemplate> updateChore(ChoreTemplate chore);
   Future<void> deleteChore(String choreId);
-  Future<void> completeChore(String occurrenceId);
+  Future<void> completeChore(String occurrenceId, {String? proofImageUrl});
   Future<void> skipChore(String occurrenceId);
 }

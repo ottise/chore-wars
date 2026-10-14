@@ -38,6 +38,7 @@
 - **Bounty expired:** Forced reassignment at 120%
 - **No CompleteBounty()** — CompleteChore() detects bounty and creates PaymentObligation
 - **Reward:** Season ranking reward, Rank #1 gets Chore Pass (skip + reassignment), no karma shop
+- **Season:** Max duration 1 month (<= 31 days)
 - **JWT:** Use ASP.NET Core built-in AddAuthentication().AddJwtBearer(), no custom JwtMiddleware
 
 ## Implementation Order

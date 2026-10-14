@@ -16,7 +16,7 @@ class HouseOnboardingScreen extends StatelessWidget {
         leading: BackButton(onPressed: () => context.pop()),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

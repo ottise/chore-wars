@@ -24,21 +24,25 @@ class UserProfile {
     required this.id,
     required this.email,
     required this.displayName,
+    this.avatarUrl,
   });
 
   final String id;
   final String email;
   final String displayName;
+  final String? avatarUrl;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     id: json['id'].toString(),
     email: json['email']?.toString() ?? '',
     displayName: json['displayName']?.toString() ?? '',
+    avatarUrl: json['avatarUrl']?.toString(),
   );
 
-  UserProfile copyWith({String? displayName}) => UserProfile(
+  UserProfile copyWith({String? displayName, String? avatarUrl}) => UserProfile(
     id: id,
     email: email,
     displayName: displayName ?? this.displayName,
+    avatarUrl: avatarUrl ?? this.avatarUrl,
   );
 }

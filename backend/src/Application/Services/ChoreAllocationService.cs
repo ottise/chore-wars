@@ -89,6 +89,11 @@ public class ChoreAllocationService : IChoreAllocationService
         {
             foreach (var occurrence in unassignedOccurrences)
             {
+                if (occurrence.Chore.Type == ChoreType.BONUS)
+                {
+                    continue; // Bonus chores remain unassigned for members to claim
+                }
+
                 var dueDate = occurrence.DueDate.Date;
                 var dayOfWeek = dueDate.DayOfWeek;
                 var weekOfYear = GetIso8601WeekOfYear(dueDate);
@@ -206,8 +211,8 @@ public class ChoreAllocationService : IChoreAllocationService
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null || member.Role != HouseRole.OWNER)
-            throw new ForbiddenException("Only the house owner can manually allocate chores.");
+        if (member == null)
+            throw new ForbiddenException("Only house members can manually allocate chores.");
 
         var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
         if (occurrence == null)

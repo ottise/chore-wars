@@ -121,7 +121,7 @@ class MockChoreRepository implements ChoreRepository {
   }
 
   @override
-  Future<void> completeChore(String occurrenceId) =>
+  Future<void> completeChore(String occurrenceId, {String? proofImageUrl}) =>
       _setStatus(occurrenceId, ChoreStatus.completed);
 
   @override

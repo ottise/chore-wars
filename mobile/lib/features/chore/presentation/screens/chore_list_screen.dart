@@ -10,6 +10,7 @@ import '../../../house/domain/entities/house_models.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
+import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 enum _Tab { routines, mine, team }
 
@@ -79,6 +80,10 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chores'),
+        actions: const [
+          NotificationBell(),
+          SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -187,24 +192,32 @@ class _RoutinesTab extends ConsumerWidget {
             ),
           // Chore list
           Expanded(
-            child: items.isEmpty
-                ? const EmptyView(
-                    icon: Icons.playlist_add_rounded,
-                    title: 'No routines yet',
-                    message: 'Add the chores your household does regularly.',
-                  )
-                : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      hasGenerated ? 24 : 104,
+            child: RefreshIndicator(
+              onRefresh: () async => ref.invalidate(choreTemplatesProvider(houseId)),
+              child: items.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 100),
+                        EmptyView(
+                          icon: Icons.playlist_add_rounded,
+                          title: 'No routines yet',
+                          message: 'Add the chores your household does regularly.',
+                        ),
+                      ],
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        12,
+                        16,
+                        hasGenerated ? 24 : 104,
+                      ),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) =>
+                          _RoutineTile(chore: items[i], houseId: houseId),
                     ),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) =>
-                        _RoutineTile(chore: items[i], houseId: houseId),
-                  ),
+            ),
           ),
           // Generate button
           if (isDraft && items.isNotEmpty && seasonId != null)
@@ -259,7 +272,7 @@ class _RoutineTile extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        '${chore.frequency.label}  Â·  ${chore.karmaPoints} Karma',
+        '${chore.frequency.label}  ·  ${chore.karmaPoints} Karma',
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurfaceVariant,

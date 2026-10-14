@@ -37,6 +37,7 @@ public class ChoreConfiguration : IEntityTypeConfiguration<Chore>
         builder.HasOne(x => x.Season)
             .WithMany(x => x.Chores)
             .HasForeignKey(x => x.SeasonId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -17,4 +17,5 @@ public class PaymentObligationResponse
     public PaymentObligationStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? PaidAt { get; set; }
+    public string? ChoreName { get; set; }
 }

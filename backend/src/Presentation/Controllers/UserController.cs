@@ -36,4 +36,34 @@ public class UserController : ControllerBase
         var profile = await _authService.UpdateProfileAsync(CurrentUserId, request, cancellationToken);
         return Ok(profile);
     }
+
+    [HttpPost("avatar")]
+    public async Task<IActionResult> UploadAvatar(Microsoft.AspNetCore.Http.IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { Message = "File is empty" });
+
+        var ext = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+            return BadRequest(new { Message = "Only JPG, PNG, and WebP are allowed" });
+
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { Message = "File size must be under 5MB" });
+
+        var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "avatars");
+        if (!System.IO.Directory.Exists(uploadsFolder))
+            System.IO.Directory.CreateDirectory(uploadsFolder);
+
+        var uniqueFileName = Guid.NewGuid().ToString() + ext;
+        var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var avatarUrl = $"/avatars/{uniqueFileName}";
+        var profile = await _authService.UpdateAvatarUrlAsync(CurrentUserId, avatarUrl, cancellationToken);
+        return Ok(profile);
+    }
 }

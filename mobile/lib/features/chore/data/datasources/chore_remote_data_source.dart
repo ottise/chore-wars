@@ -51,8 +51,11 @@ class ChoreRemoteDataSource {
   Future<void> deleteChore(String choreId) =>
       _dio.delete<void>(ApiEndpoints.choreTemplate(choreId));
 
-  Future<void> completeChore(String occurrenceId) =>
-      _dio.post<void>(ApiEndpoints.completeChore(occurrenceId));
+  Future<void> completeChore(String occurrenceId, {String? proofImageUrl}) =>
+      _dio.post<void>(
+        ApiEndpoints.completeChore(occurrenceId),
+        data: proofImageUrl != null ? {'proofImageUrl': proofImageUrl} : null,
+      );
 
   Future<void> skipChore(String occurrenceId) =>
       _dio.post<void>(ApiEndpoints.skipChore(occurrenceId));

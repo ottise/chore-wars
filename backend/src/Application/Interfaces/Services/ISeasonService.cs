@@ -9,6 +9,7 @@ namespace ChoreWars.Application.Interfaces.Services;
 public interface ISeasonService
 {
     Task<SeasonResponse?> GetActiveSeasonAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<SeasonResponse>> GetSeasonsByHouseAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
     Task<SeasonResponse> CreateSeasonAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task StartSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);
     Task EndSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);
