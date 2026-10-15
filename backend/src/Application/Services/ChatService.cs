@@ -119,6 +119,13 @@ public class ChatService : IChatService
         };
     }
 
+    public async Task EnsureRoomAccessAsync(Guid roomId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var room = await _unitOfWork.Chats.GetRoomByIdAsync(roomId, cancellationToken)
+            ?? throw new NotFoundException($"ChatRoom {roomId} not found");
+        await ValidateHouseMembershipAsync(room.HouseId, userId, cancellationToken);
+    }
+
     private async Task ValidateHouseMembershipAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);

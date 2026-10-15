@@ -19,6 +19,8 @@ public class ChatHub : Hub
         _chatService = chatService;
     }
 
+    public static string RoomGroup(Guid roomId) => $"room:{roomId}";
+
     private Guid CurrentUserId
     {
         get
@@ -34,13 +36,13 @@ public class ChatHub : Hub
 
     public async Task JoinRoom(Guid roomId)
     {
-        // Add to group
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"room:{roomId}");
+        await _chatService.EnsureRoomAccessAsync(roomId, CurrentUserId, Context.ConnectionAborted);
+        await Groups.AddToGroupAsync(Context.ConnectionId, RoomGroup(roomId));
     }
 
     public async Task LeaveRoom(Guid roomId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"room:{roomId}");
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, RoomGroup(roomId));
     }
 
     public async Task SendMessage(Guid roomId, string content)
@@ -50,7 +52,7 @@ public class ChatHub : Hub
         
         var message = await _chatService.CreateMessageAsync(roomId, CurrentUserId, content, cancellationToken);
 
-        await Clients.Group($"room:{roomId}")
+        await Clients.Group(RoomGroup(roomId))
             .SendAsync("MessageReceived", message, cancellationToken);
     }
 }

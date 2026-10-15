@@ -17,6 +17,7 @@ public static class PresentationServiceExtensions
         services.AddEndpointsApiExplorer();
         services.AddSignalR();
         services.AddScoped<INotificationRealtimePublisher, NotificationRealtimePublisher>();
+        services.AddScoped<IActionProposalRealtimePublisher, ActionProposalRealtimePublisher>();
         
         return services;
     }

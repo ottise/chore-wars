@@ -55,6 +55,62 @@ namespace Infrastructure.Migrations
                     b.ToTable("Achievements");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ActionProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatorId");
+
+                    b.HasIndex("HouseId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("RoomId", "Status");
+
+                    b.ToTable("ActionProposals");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -599,6 +655,39 @@ namespace Infrastructure.Migrations
                     b.ToTable("PaymentObligations");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ProposalConfirmation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProposalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetUserId");
+
+                    b.HasIndex("ProposalId", "TargetUserId")
+                        .IsUnique();
+
+                    b.ToTable("ProposalConfirmations");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -841,6 +930,33 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("House");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ActionProposal", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.House", "House")
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.ChatRoom", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("House");
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChatMessage", b =>
@@ -1125,6 +1241,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("Season");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ProposalConfirmation", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.ActionProposal", "Proposal")
+                        .WithMany("Confirmations")
+                        .HasForeignKey("ProposalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", "TargetUser")
+                        .WithMany()
+                        .HasForeignKey("TargetUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Proposal");
+
+                    b.Navigation("TargetUser");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.User", "User")
@@ -1234,6 +1369,11 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("ChoreWars.Domain.Entities.Achievement", b =>
                 {
                     b.Navigation("UserAchievements");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ActionProposal", b =>
+                {
+                    b.Navigation("Confirmations");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChatRoom", b =>

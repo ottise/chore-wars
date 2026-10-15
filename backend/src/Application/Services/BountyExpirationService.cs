@@ -76,6 +76,7 @@ public class BountyExpirationService : IBountyExpirationService
                         DebtorUserId = bounty.PostedByUserId,
                         CreditorUserId = assignee.UserId,
                         HouseId = bounty.ChoreOccurrence.Chore.HouseId,
+                        OccurrenceId = bounty.ChoreOccurrenceId,
                         Amount = bounty.Amount * BountyConstants.ForcedReassignmentMultiplier,
                         Reason = PaymentObligationReason.FORCED_REASSIGNMENT,
                         Status = PaymentObligationStatus.PENDING,
