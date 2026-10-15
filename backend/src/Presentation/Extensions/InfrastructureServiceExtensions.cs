@@ -49,6 +49,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IPaymentObligationRepository, PaymentObligationRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IChatRepository, ChatRepository>();
+        services.AddScoped<IActionProposalRepository, ActionProposalRepository>();
 
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";

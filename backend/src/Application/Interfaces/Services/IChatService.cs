@@ -10,4 +10,5 @@ public interface IChatService
     Task<ChatRoomResponse> GetHouseRoomAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
     Task<PagedResult<ChatMessageResponse>> GetMessagesAsync(Guid roomId, Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<ChatMessageResponse> CreateMessageAsync(Guid roomId, Guid userId, string content, CancellationToken cancellationToken = default);
+    Task EnsureRoomAccessAsync(Guid roomId, Guid userId, CancellationToken cancellationToken = default);
 }

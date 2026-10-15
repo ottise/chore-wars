@@ -28,6 +28,7 @@ public interface IUnitOfWork : IDisposable
     IPaymentObligationRepository PaymentObligations { get; }
     INotificationRepository Notifications { get; }
     IChatRepository Chats { get; }
+    IActionProposalRepository ActionProposals { get; }
 
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
     Task CommitTransactionAsync(CancellationToken cancellationToken = default);

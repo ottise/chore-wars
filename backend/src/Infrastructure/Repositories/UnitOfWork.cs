@@ -33,6 +33,7 @@ public class UnitOfWork : IUnitOfWork
     public IPaymentObligationRepository PaymentObligations { get; }
     public INotificationRepository Notifications { get; }
     public IChatRepository Chats { get; }
+    public IActionProposalRepository ActionProposals { get; }
 
     public UnitOfWork(
         AppDbContext context,
@@ -57,7 +58,8 @@ public class UnitOfWork : IUnitOfWork
         IChoreBountyRepository choreBounties,
         IPaymentObligationRepository paymentObligations,
         INotificationRepository notifications,
-        IChatRepository chats)
+        IChatRepository chats,
+        IActionProposalRepository actionProposals)
     {
         _context = context;
         Users = users;
@@ -82,6 +84,7 @@ public class UnitOfWork : IUnitOfWork
         PaymentObligations = paymentObligations;
         Notifications = notifications;
         Chats = chats;
+        ActionProposals = actionProposals;
     }
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)

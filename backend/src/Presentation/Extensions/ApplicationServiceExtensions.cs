@@ -32,6 +32,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAchievementCheckService, AchievementCheckService>();
         services.AddScoped<IChoreGenerationService, ChoreGenerationService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IActionProposalService, ActionProposalService>();
 
         return services;
     }
