@@ -48,7 +48,10 @@ public static class InfrastructureServiceExtensions
 
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";
-        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnStr));
+        var redisOptions = ConfigurationOptions.Parse(redisConnStr);
+        redisOptions.AbortOnConnectFail = false;
+        redisOptions.ConnectTimeout = 2000;
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions));
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         // Kafka

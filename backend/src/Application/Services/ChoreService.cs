@@ -51,7 +51,13 @@ public class ChoreService : IChoreService
             KarmaPoints = request.KarmaPoints,
             Type = request.Type,
             FrequencyType = request.FrequencyType,
+<<<<<<< Updated upstream
             FrequencyValue = request.FrequencyValue
+=======
+            FrequencyValue = request.FrequencyValue,
+            Difficulty = request.Difficulty,
+            EstimatedMinutes = request.EstimatedMinutes > 0 ? request.EstimatedMinutes : CreateChoreRequest.GetDefaultMinutes(request.Difficulty)
+>>>>>>> Stashed changes
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

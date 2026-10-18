@@ -314,6 +314,7 @@ public class SeasonService : ISeasonService
             _unitOfWork.Seasons.Update(season);
 
             // 4. Create SeasonConfirmation records for all active members
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
             var activeMembers = await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken);
             foreach (var activeMember in activeMembers.Where(m => m.Status == HouseMemberStatus.ACTIVE))
             {
@@ -360,6 +361,7 @@ public class SeasonService : ISeasonService
             confirmation.Status = ConfirmationStatus.CONFIRMED;
             _unitOfWork.SeasonConfirmations.Update(confirmation);
 
+<<<<<<< Updated upstream
             // Check if all active members have confirmed
             var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
                 .Where(m => m.Status == HouseMemberStatus.ACTIVE)
@@ -371,6 +373,17 @@ public class SeasonService : ISeasonService
                 m.UserId == userId); // Handle current user who just confirmed
 
             if (allConfirmed)
+=======
+            var allConfirmations = (await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
+            var userConf = allConfirmations.FirstOrDefault(c => c.UserId == userId);
+            if (userConf != null)
+            {
+                userConf.Status = ConfirmationStatus.CONFIRMED;
+            }
+
+            // Only transition to ACTIVE if 100% of confirmations are CONFIRMED
+            if (allConfirmations.Any() && allConfirmations.All(c => c.Status == ConfirmationStatus.CONFIRMED))
+>>>>>>> Stashed changes
             {
                 season.Status = SeasonStatus.ACTIVE;
                 _unitOfWork.Seasons.Update(season);
@@ -402,11 +415,11 @@ public class SeasonService : ISeasonService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            confirmation.Status = ConfirmationStatus.REJECTED;
+            _unitOfWork.SeasonConfirmations.Update(confirmation);
+
             season.Status = SeasonStatus.DRAFT;
             _unitOfWork.Seasons.Update(season);
-
-            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
-            await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

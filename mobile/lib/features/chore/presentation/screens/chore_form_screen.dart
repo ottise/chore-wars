@@ -72,6 +72,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late ChoreType _type;
   late ChoreFrequency _frequency;
   late Set<int> _days;
+<<<<<<< Updated upstream
+=======
+  late ChoreEffort _difficulty;
+>>>>>>> Stashed changes
   bool _saving = false;
 
   bool get _editing => widget.initial != null;
@@ -89,6 +93,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _type = chore?.type ?? ChoreType.normal;
     _frequency = chore?.frequency ?? ChoreFrequency.daily;
     _days = {...?chore?.frequencyDays};
+<<<<<<< Updated upstream
+=======
+    _difficulty = chore?.difficulty ?? ChoreEffort.medium;
+>>>>>>> Stashed changes
   }
 
   @override
@@ -176,6 +184,22 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
             },
           ),
           const SizedBox(height: 20),
+<<<<<<< Updated upstream
+=======
+          DropdownButtonFormField<ChoreEffort>(
+            initialValue: _difficulty,
+            decoration: const InputDecoration(labelText: 'Difficulty'),
+            items: [
+              for (final effort in ChoreEffort.values)
+                DropdownMenuItem(
+                  value: effort,
+                  child: Text(effort.label),
+                ),
+            ],
+            onChanged: (value) => setState(() => _difficulty = value!),
+          ),
+          const SizedBox(height: 20),
+>>>>>>> Stashed changes
           DropdownButtonFormField<ChoreFrequency>(
             initialValue: _frequency,
             decoration: const InputDecoration(labelText: 'Frequency'),
@@ -270,6 +294,13 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         ? int.tryParse(_frequencyValue.text)
         : null,
     frequencyDays: _days.toList()..sort(),
+<<<<<<< Updated upstream
+=======
+    difficulty: _difficulty,
+    estimatedMinutes: _difficulty == ChoreEffort.easy
+        ? 15
+        : (_difficulty == ChoreEffort.medium ? 30 : 45),
+>>>>>>> Stashed changes
   );
 
   Future<void> _save() async {
