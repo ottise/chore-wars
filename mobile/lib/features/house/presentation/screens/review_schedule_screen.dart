@@ -151,10 +151,11 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     if (_workloadLoading) return const SizedBox.shrink();
     if (_workloadMembers.isEmpty) return const SizedBox.shrink();
 
-    int maxMinutes = 1;
+    int maxKarma = 1;
     for (var m in _workloadMembers) {
-      if (m['totalEstimatedMinutes'] > maxMinutes) {
-        maxMinutes = m['totalEstimatedMinutes'];
+      final karma = (m['totalKarma'] as num?)?.toInt() ?? 0;
+      if (karma > maxKarma) {
+        maxKarma = karma;
       }
     }
 
@@ -177,7 +178,10 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           ),
           const SizedBox(height: 16),
           ..._workloadMembers.map((m) {
-            final double progress = m['totalEstimatedMinutes'] / maxMinutes;
+            final int karma = (m['totalKarma'] as num?)?.toInt() ?? 0;
+            final double progress = maxKarma > 0 ? (karma / maxKarma).clamp(0.0, 1.0) : 0.0;
+            final int chores = (m['totalChores'] as num?)?.toInt() ?? 0;
+            final int mins = (m['totalEstimatedMinutes'] as num?)?.toInt() ?? 0;
             final int h = m['hardCount'] ?? 0;
             final int med = m['mediumCount'] ?? 0;
             final int e = m['easyCount'] ?? 0;
@@ -189,8 +193,8 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(m['displayName'], style: const TextStyle(fontWeight: FontWeight.w500)),
-                      Text('${m['totalChores']} chores • ${m['totalEstimatedMinutes']} min', 
+                      Text(m['displayName'] ?? 'Member', style: const TextStyle(fontWeight: FontWeight.w500)),
+                      Text('$chores chores • $mins min • $karma Karma', 
                            style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -209,7 +213,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('(${h}H ${med}M ${e}E)', style: Theme.of(context).textTheme.bodySmall),
+                      Text('Total Karma: $karma (${h}H ${med}M ${e}E)', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ],
@@ -253,7 +257,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                if (!isManual) _buildWorkloadSummary(),
+                _buildWorkloadSummary(),
                 if (isManual)
                   Container(
                     padding: const EdgeInsets.all(16),

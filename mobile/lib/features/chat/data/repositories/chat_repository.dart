@@ -1,3 +1,4 @@
+import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/data/models/chat_message_model.dart';
 import 'package:chore_wars/features/chat/data/models/chat_room_model.dart';
 import 'package:chore_wars/features/chat/data/services/chat_api_service.dart';
@@ -19,8 +20,17 @@ class ChatRepository {
       _apiService.getMessages(roomId, page: page, pageSize: pageSize);
 
   Future<void> connectToHub(
-          String roomId, void Function(ChatMessageModel) onMessageReceived) =>
-      _signalRService.connect(roomId, onMessageReceived);
+    String roomId,
+    void Function(ChatMessageModel) onMessageReceived, {
+    void Function(ActionProposalModel)? onProposalReceived,
+    void Function(ActionProposalModel)? onProposalUpdated,
+  }) =>
+      _signalRService.connect(
+        roomId,
+        onMessageReceived,
+        onProposalReceived: onProposalReceived,
+        onProposalUpdated: onProposalUpdated,
+      );
 
   Future<void> sendMessage(String roomId, String content) =>
       _signalRService.sendMessage(roomId, content);

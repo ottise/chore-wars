@@ -85,6 +85,11 @@ public class HouseService : IHouseService
         if (existingMember != null)
             throw new ConflictException("User is already a member of this house.");
 
+        var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(house.Id, cancellationToken))
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE);
+        if (activeMembers.Count() >= HouseConstants.MaxMembersPerHouse)
+            throw new ConflictException("Nhà đã đạt giới hạn tối đa 6 người.");
+
         var member = new HouseMember
         {
             Id = Guid.NewGuid(),

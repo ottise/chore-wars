@@ -132,6 +132,8 @@ public class ChoreGenerationServiceTests
         _mockUnitOfWork.Setup(u => u.ChoreOccurrences.HasOccurrencesForSeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
             
+        _mockUnitOfWork.Setup(u => u.Chores.GetByHouseIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chores);
         _mockUnitOfWork.Setup(u => u.Chores.GetBySeasonIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(chores);
 

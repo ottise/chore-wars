@@ -18,31 +18,55 @@ public class RedisCacheService : ICacheService
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var value = await db.StringGetAsync(key);
-        if (!value.HasValue)
-            return default;
+        try
+        {
+            if (!_redis.IsConnected) return default;
+            var db = _redis.GetDatabase();
+            var value = await db.StringGetAsync(key);
+            if (!value.HasValue)
+                return default;
 
-        return JsonSerializer.Deserialize<T>(value.ToString());
+            return JsonSerializer.Deserialize<T>(value.ToString());
+        }
+        catch
+        {
+            return default;
+        }
     }
 
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        var serialized = JsonSerializer.Serialize(value);
-        if (expiration.HasValue)
+        try
         {
-            await db.StringSetAsync(key, serialized, expiration.Value);
+            if (!_redis.IsConnected) return;
+            var db = _redis.GetDatabase();
+            var serialized = JsonSerializer.Serialize(value);
+            if (expiration.HasValue)
+            {
+                await db.StringSetAsync(key, serialized, expiration.Value);
+            }
+            else
+            {
+                await db.StringSetAsync(key, serialized);
+            }
         }
-        else
+        catch
         {
-            await db.StringSetAsync(key, serialized);
+            // Fallback gracefully
         }
     }
 
     public async Task RemoveAsync(string key, CancellationToken cancellationToken = default)
     {
-        var db = _redis.GetDatabase();
-        await db.KeyDeleteAsync(key);
+        try
+        {
+            if (!_redis.IsConnected) return;
+            var db = _redis.GetDatabase();
+            await db.KeyDeleteAsync(key);
+        }
+        catch
+        {
+            // Fallback gracefully
+        }
     }
 }

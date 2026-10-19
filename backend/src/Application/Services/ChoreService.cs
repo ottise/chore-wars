@@ -34,24 +34,30 @@ public class ChoreService : IChoreService
     public async Task<ChoreResponse> CreateChoreAsync(Guid houseId, CreateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
-            throw new ForbiddenException("Only house members can create chores.");
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only house owners can create chores.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (activeSeason == null)
+            throw new ConflictException("No active season to add chore to.");
 
         var chore = new Chore
         {
             Id = Guid.NewGuid(),
             HouseId = houseId,
-            SeasonId = activeSeason?.Id,
+            SeasonId = activeSeason.Id,
             Name = request.Name,
             Description = request.Description,
             KarmaPoints = request.KarmaPoints,
             Type = request.Type,
             FrequencyType = request.FrequencyType,
+<<<<<<< Updated upstream
+            FrequencyValue = request.FrequencyValue
+=======
             FrequencyValue = request.FrequencyValue,
             Difficulty = request.Difficulty,
-            EstimatedMinutes = request.EstimatedMinutes
+            EstimatedMinutes = request.EstimatedMinutes > 0 ? request.EstimatedMinutes : CreateChoreRequest.GetDefaultMinutes(request.Difficulty)
+>>>>>>> Stashed changes
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -85,7 +91,7 @@ public class ChoreService : IChoreService
         return _mapper.Map<ChoreResponse>(chore);
     }
 
-    public async Task CompleteChoreAsync(Guid occurrenceId, CompleteChoreRequest? request, Guid userId, CancellationToken cancellationToken = default)
+    public async Task CompleteChoreAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
     {
         var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
         if (occurrence == null)
@@ -101,11 +107,6 @@ public class ChoreService : IChoreService
 
         occurrence.Status = ChoreOccurrenceStatus.COMPLETED;
         occurrence.CompletedAt = DateTime.UtcNow;
-
-        if (!string.IsNullOrWhiteSpace(request?.ProofImageUrl))
-        {
-            occurrence.ProofImageUrl = request.ProofImageUrl;
-        }
 
         var chore = await _unitOfWork.Chores.GetByIdAsync(occurrence.ChoreId, cancellationToken);
         if (chore == null)
@@ -139,14 +140,10 @@ public class ChoreService : IChoreService
             var transactionType = chore.Type == ChoreType.BONUS
                 ? KarmaTransactionType.BONUS
                 : KarmaTransactionType.CHORE_COMPLETED;
-            var karmaAmount = occurrence.IsForcedReassigned
-                ? 0
-                : (occurrence.SnapshotKarma > 0 ? occurrence.SnapshotKarma : chore.KarmaPoints);
-
-            if (karmaAmount > 0)
-            {
-                await _karmaService.AddKarmaTransactionAsync(chore.HouseId, occurrence.SeasonId, userId, karmaAmount, transactionType, occurrenceId, cancellationToken);
-            }
+            var karmaAmount = occurrence.SnapshotKarma > 0
+                ? occurrence.SnapshotKarma
+                : chore.KarmaPoints;
+            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, chore.SeasonId, userId, karmaAmount, transactionType, occurrenceId, cancellationToken);
             
             if (bounty != null && payment != null)
             {
@@ -178,11 +175,9 @@ public class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), occurrence.ChoreId);
             
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (member == null)
-            throw new ForbiddenException("User is not a member of the house.");
-            
-        if (occurrence.AssignedUserId != userId)
-            throw new ForbiddenException("Cannot skip a chore assigned to someone else.");
+        
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only owner can manually skip a chore (unless using a pass).");
 
         if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED &&
             occurrence.Status != ChoreOccurrenceStatus.OVERDUE &&
@@ -239,8 +234,8 @@ public class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (member == null)
-            throw new ForbiddenException("Only house members can update chores.");
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only house owners can update chores.");
 
         chore.Name = request.Name;
         chore.Description = request.Description;
@@ -289,8 +284,8 @@ public class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (member == null)
-            throw new ForbiddenException("Only house members can delete chores.");
+        if (member == null || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only house owners can delete chores.");
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -309,7 +304,11 @@ public class ChoreService : IChoreService
 
     public async Task<IEnumerable<ChoreResponse>> GetChoresByHouseAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        var chores = await _unitOfWork.Chores.GetByHouseIdAsync(houseId, cancellationToken);
+        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (activeSeason == null)
+            return Array.Empty<ChoreResponse>();
+
+        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(activeSeason.Id, cancellationToken);
         return _mapper.Map<IEnumerable<ChoreResponse>>(chores);
     }
 
@@ -320,26 +319,20 @@ public class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var requestor = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (requestor == null)
-            throw new ForbiddenException("Only house members can manually assign chores.");
+        if (requestor == null || requestor.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only house owners can manually assign chores.");
 
         var assignee = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, request.UserId, cancellationToken);
         if (assignee == null)
             throw new ConflictException("Assignee is not a member of the house.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(chore.HouseId, cancellationToken);
-        if (activeSeason == null)
-            throw new ConflictException("No active season in this house.");
-
         var occurrence = new ChoreOccurrence
         {
             Id = Guid.NewGuid(),
             ChoreId = choreId,
-            SeasonId = activeSeason.Id,
             AssignedUserId = request.UserId,
             DueDate = DateTime.UtcNow.Date.AddDays(1), // Basic default for manual assign
-            Status = ChoreOccurrenceStatus.ASSIGNED,
-            SnapshotKarma = chore.KarmaPoints
+            Status = ChoreOccurrenceStatus.ASSIGNED
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

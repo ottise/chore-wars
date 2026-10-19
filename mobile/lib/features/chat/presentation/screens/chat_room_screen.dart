@@ -111,6 +111,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(
           children: [
+            _buildActiveProposalsBanner(context, proposalsAsync, currentUser?.id ?? ''),
             Expanded(
               child: ListenableBuilder(
                 listenable: chatNotifier,
@@ -130,7 +131,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   // Combine active proposals and messages
                   final activeProposals = proposalsAsync.when(
                     loading: () => const <ActionProposalModel>[],
-                    error: (_, __) => const <ActionProposalModel>[],
+                    error: (_, _) => const <ActionProposalModel>[],
                     data: (proposals) => proposals.where((p) => !p.isCompleted).toList(),
                   );
 
@@ -151,7 +152,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       }
 
                       // Render messages
-                      final msgIndex = index - activeProposals.length;
+                      final int msgIndex = (index - activeProposals.length).toInt();
                       final message = chatNotifier.messages[msgIndex];
                       final isMe = message.senderId == currentUser?.id;
 

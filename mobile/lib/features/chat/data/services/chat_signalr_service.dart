@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 import 'package:chore_wars/core/network/api_endpoints.dart';
 import 'package:chore_wars/features/chat/data/models/chat_message_model.dart';
+import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 
 class ChatSignalRService {
   HubConnection? _connection;
@@ -13,7 +14,12 @@ class ChatSignalRService {
     required this.getToken,
   });
 
-  Future<void> connect(String roomId, void Function(ChatMessageModel) onMessage) async {
+  Future<void> connect(
+    String roomId,
+    void Function(ChatMessageModel) onMessage, {
+    void Function(ActionProposalModel)? onProposalReceived,
+    void Function(ActionProposalModel)? onProposalUpdated,
+  }) async {
     final hubUrl = '$baseUrl${ApiEndpoints.chatHubUrl}';
 
     _connection = HubConnectionBuilder()
@@ -32,6 +38,26 @@ class ChatSignalRService {
         if (raw is Map) {
           final messageMap = Map<String, dynamic>.from(raw);
           onMessage(ChatMessageModel.fromJson(messageMap));
+        }
+      }
+    });
+
+    _connection!.on('ReceiveProposal', (arguments) {
+      if (arguments != null && arguments.isNotEmpty && onProposalReceived != null) {
+        final raw = arguments[0];
+        if (raw is Map) {
+          final map = Map<String, dynamic>.from(raw);
+          onProposalReceived(ActionProposalModel.fromJson(map));
+        }
+      }
+    });
+
+    _connection!.on('ProposalUpdated', (arguments) {
+      if (arguments != null && arguments.isNotEmpty && onProposalUpdated != null) {
+        final raw = arguments[0];
+        if (raw is Map) {
+          final map = Map<String, dynamic>.from(raw);
+          onProposalUpdated(ActionProposalModel.fromJson(map));
         }
       }
     });

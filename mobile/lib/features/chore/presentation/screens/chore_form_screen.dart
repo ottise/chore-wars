@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
@@ -73,10 +72,11 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late ChoreType _type;
   late ChoreFrequency _frequency;
   late Set<int> _days;
+<<<<<<< Updated upstream
+=======
   late ChoreEffort _difficulty;
-  late final TextEditingController _estimatedMinutes;
+>>>>>>> Stashed changes
   bool _saving = false;
-  String? _apiError;
 
   bool get _editing => widget.initial != null;
 
@@ -93,8 +93,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _type = chore?.type ?? ChoreType.normal;
     _frequency = chore?.frequency ?? ChoreFrequency.daily;
     _days = {...?chore?.frequencyDays};
+<<<<<<< Updated upstream
+=======
     _difficulty = chore?.difficulty ?? ChoreEffort.medium;
-    _estimatedMinutes = TextEditingController(text: (chore?.estimatedMinutes ?? 30).toString());
+>>>>>>> Stashed changes
   }
 
   @override
@@ -103,7 +105,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _description.dispose();
     _karma.dispose();
     _frequencyValue.dispose();
-    _estimatedMinutes.dispose();
     super.dispose();
   }
 
@@ -142,13 +143,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _description,
-            minLines: 3,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
+            maxLines: 3,
             decoration: const InputDecoration(
               labelText: 'Description',
               hintText: 'Add a clear finish line for this task',
-              alignLabelWithHint: true,
             ),
           ),
           const SizedBox(height: 24),
@@ -186,44 +184,22 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
             },
           ),
           const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<ChoreEffort>(
-                  initialValue: _difficulty,
-                  decoration: const InputDecoration(labelText: 'Difficulty'),
-                  items: [
-                    for (final effort in ChoreEffort.values)
-                      DropdownMenuItem(
-                        value: effort,
-                        child: Text(effort.label),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _difficulty = value!),
+<<<<<<< Updated upstream
+=======
+          DropdownButtonFormField<ChoreEffort>(
+            initialValue: _difficulty,
+            decoration: const InputDecoration(labelText: 'Difficulty'),
+            items: [
+              for (final effort in ChoreEffort.values)
+                DropdownMenuItem(
+                  value: effort,
+                  child: Text(effort.label),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _estimatedMinutes,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Duration',
-                    suffixText: 'min',
-                  ),
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    return parsed == null || parsed <= 0
-                        ? 'Invalid'
-                        : null;
-                  },
-                ),
-              ),
             ],
+            onChanged: (value) => setState(() => _difficulty = value!),
           ),
           const SizedBox(height: 20),
+>>>>>>> Stashed changes
           DropdownButtonFormField<ChoreFrequency>(
             initialValue: _frequency,
             decoration: const InputDecoration(labelText: 'Frequency'),
@@ -292,21 +268,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
           ],
           const SizedBox(height: 16),
           const _ScheduleNote(),
-          if (_apiError != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              _apiError!,
-              style: const TextStyle(color: AppTheme.red, fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-            if (_apiError!.toLowerCase().contains('season')) ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.add_task_rounded),
-                label: const Text('Start new season'),
-                onPressed: () => context.push('/houses/${widget.houseId}/seasons/new'),
-              ),
-            ],
-          ],
           const SizedBox(height: 28),
           ElevatedButton(
             onPressed: _saving ? null : _save,
@@ -333,8 +294,13 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         ? int.tryParse(_frequencyValue.text)
         : null,
     frequencyDays: _days.toList()..sort(),
+<<<<<<< Updated upstream
+=======
     difficulty: _difficulty,
-    estimatedMinutes: int.tryParse(_estimatedMinutes.text) ?? 30,
+    estimatedMinutes: _difficulty == ChoreEffort.easy
+        ? 15
+        : (_difficulty == ChoreEffort.medium ? 30 : 45),
+>>>>>>> Stashed changes
   );
 
   Future<void> _save() async {
@@ -343,10 +309,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
       setState(() {});
       return;
     }
-    setState(() {
-      _saving = true;
-      _apiError = null;
-    });
+    setState(() => _saving = true);
     try {
       final repository = ref.read(choreRepositoryProvider);
       if (_editing) {
@@ -360,7 +323,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         context.pop();
       }
     } catch (error) {
-      if (mounted) setState(() => _apiError = apiErrorMessage(error));
+      if (mounted) showAppMessage(context, error.toString(), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -397,7 +360,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
         showAppMessage(context, 'Chore deleted');
       }
     } catch (error) {
-      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (mounted) showAppMessage(context, error.toString(), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

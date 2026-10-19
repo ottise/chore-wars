@@ -60,15 +60,17 @@ class ChatMessagesNotifier extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      await _repo.connectToHub(_roomId, (message) {
-        _messages = [message, ..._messages];
-        notifyListeners();
-      });
+      await _repo.connectToHub(_roomId, receiveMessage);
     } catch (e) {
       _isLoading = false;
       _hasError = true;
       notifyListeners();
     }
+  }
+
+  void receiveMessage(ChatMessageModel message) {
+    _messages = [message, ..._messages];
+    notifyListeners();
   }
 
   @override
