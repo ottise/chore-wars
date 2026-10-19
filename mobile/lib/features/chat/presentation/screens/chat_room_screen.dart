@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:chore_wars/core/utils/api_error_message.dart';
 import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
@@ -8,6 +10,7 @@ import 'package:chore_wars/features/chat/presentation/widgets/chat_date_separato
 import 'package:chore_wars/features/chat/presentation/widgets/interactive_action_card.dart';
 import 'package:chore_wars/features/chat/presentation/widgets/message_bubble.dart';
 import 'package:chore_wars/features/chat/presentation/widgets/message_input.dart';
+import 'package:chore_wars/features/chat/presentation/widgets/urgent_event_banner.dart';
 
 class ChatRoomScreen extends ConsumerStatefulWidget {
   final String houseId;
@@ -45,25 +48,28 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           _roomId = room.id;
           _isLoadingRoom = false;
         });
-        _connectWithProposalCallbacks(room.id);
+        await _connectWithProposalCallbacks(room.id);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingRoom = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load chat room: $e')),
+          SnackBar(content: Text(apiErrorMessage(e))),
         );
       }
     }
   }
 
-  void _connectWithProposalCallbacks(String roomId) {
+  Future<void> _connectWithProposalCallbacks(String roomId) async {
     final repo = ref.read(chatRepositoryProvider);
-    final chatNotifier = ref.read(chatMessagesProvider(roomId));
 
-    repo.connectToHub(
+    await repo.connectToHub(
       roomId,
-      chatNotifier.receiveMessage,
+      (message) {
+        if (mounted && _roomId == roomId) {
+          ref.read(chatMessagesProvider(roomId)).receiveMessage(message);
+        }
+      },
       onProposalReceived: (proposal) {
         if (mounted) {
           ref.read(actionProposalProvider(roomId).notifier).addProposal(proposal);
@@ -107,10 +113,23 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         title: const Text('House Chat'),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Phát động nhiệm vụ khẩn cấp',
+            onPressed: () =>
+                context.push('/houses/${widget.houseId}/urgent-event'),
+            icon: const Icon(Icons.bolt_rounded),
+          ),
+        ],
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Column(
+      body: Column(
           children: [
+            if (_activeUrgentEvent(proposalsAsync) case final urgent?)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: UrgentEventBanner(proposal: urgent),
+              ),
             _buildActiveProposalsBanner(context, proposalsAsync, currentUser?.id ?? ''),
             Expanded(
               child: ListenableBuilder(
@@ -128,31 +147,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     return const Center(child: Text('No messages yet. Say hi!'));
                   }
 
-                  // Combine active proposals and messages
-                  final activeProposals = proposalsAsync.when(
-                    loading: () => const <ActionProposalModel>[],
-                    error: (_, _) => const <ActionProposalModel>[],
-                    data: (proposals) => proposals.where((p) => !p.isCompleted).toList(),
-                  );
-
-                  final totalItems = activeProposals.length + chatNotifier.messages.length;
-
                   return ListView.builder(
                     controller: _scrollController,
                     reverse: true,
-                    itemCount: totalItems,
+                    itemCount: chatNotifier.messages.length,
                     itemBuilder: (context, index) {
-                      // Render proposals first
-                      if (index < activeProposals.length) {
-                        final proposal = activeProposals[index];
-                        return InteractiveActionCard(
-                          proposal: proposal,
-                          currentUserId: currentUser?.id ?? '',
-                        );
-                      }
-
-                      // Render messages
-                      final int msgIndex = (index - activeProposals.length).toInt();
+                      final msgIndex = index;
                       final message = chatNotifier.messages[msgIndex];
                       final isMe = message.senderId == currentUser?.id;
 
@@ -178,8 +178,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               ),
             ),
             MessageInput(
-              onSendMessage: (content) {
-                ref.read(chatMessagesProvider(_roomId!)).sendMessage(content);
+              onSendMessage: (content) async {
+                await ref
+                    .read(chatMessagesProvider(_roomId!))
+                    .sendMessage(content);
               },
               onSendImage: (bytes, filename) async {
                 await ref.read(chatMessagesProvider(_roomId!)).sendImage(bytes, filename);
@@ -199,7 +201,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       loading: () => const SizedBox.shrink(),
       error: (_, e) => const SizedBox.shrink(),
       data: (proposals) {
-        final active = proposals.where((p) => !p.isCompleted).toList();
+        final now = DateTime.now();
+        final active = proposals
+            .where(
+              (proposal) =>
+                  !proposal.isCompleted ||
+                  (proposal.type == ProposalType.urgentEvent &&
+                      proposal.status == ProposalStatus.approved &&
+                      proposal.expiresAt?.isAfter(now) == true),
+            )
+            .toList();
         if (active.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -233,5 +244,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         );
       },
     );
+  }
+
+  ActionProposalModel? _activeUrgentEvent(
+    AsyncValue<List<ActionProposalModel>> proposals,
+  ) {
+    final now = DateTime.now();
+    for (final proposal in proposals.asData?.value ?? const []) {
+      if (proposal.type == ProposalType.urgentEvent &&
+          proposal.status == ProposalStatus.approved &&
+          proposal.expiresAt?.isAfter(now) == true) {
+        return proposal;
+      }
+    }
+    return null;
   }
 }

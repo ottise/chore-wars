@@ -33,7 +33,16 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        return Task.Run(() => StartConsumerLoop(stoppingToken), stoppingToken);
+        // Confluent's Consume call is synchronous and blocks while waiting for a
+        // message. Run each consumer on a dedicated thread so multiple idle
+        // consumers cannot starve ASP.NET Core's thread pool and stall HTTP
+        // requests (including CORS preflight requests).
+        return Task.Factory.StartNew(
+                () => StartConsumerLoop(stoppingToken),
+                stoppingToken,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default)
+            .Unwrap();
     }
 
     private async Task StartConsumerLoop(CancellationToken cancellationToken)

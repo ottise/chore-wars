@@ -71,11 +71,13 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
   Widget build(BuildContext context) {
     final activeSeason = ref.watch(activeSeasonProvider(widget.houseId));
     final templates = ref.watch(choreTemplatesProvider(widget.houseId));
+    final house = ref.watch(houseDetailProvider(widget.houseId));
 
     final seasonId = activeSeason.value?['id'] as String?;
     final seasonStatus = (activeSeason.value?['status'] as num?)?.toInt();
     final isDraft = seasonStatus == 0;
     final hasGenerated = seasonStatus != null && seasonStatus > 0;
+    final isOwner = house.value?.myRole == HouseRole.owner;
 
     return Scaffold(
       appBar: AppBar(
@@ -93,7 +95,8 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
           ],
         ),
       ),
-      floatingActionButton: _tabController.index == _Tab.routines.index
+      floatingActionButton:
+          _tabController.index == _Tab.routines.index && isOwner && isDraft
           ? FloatingActionButton.extended(
               onPressed: () =>
                   context.push('/houses/${widget.houseId}/chores/new'),
@@ -101,7 +104,21 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
               label: const Text('Add chore'),
             )
           : null,
-      body: TabBarView(
+      body: activeSeason.isLoading || house.isLoading
+          ? const LoadingView()
+          : activeSeason.hasError
+              ? ErrorView(
+                  error: activeSeason.error!,
+                  onRetry: () =>
+                      ref.invalidate(activeSeasonProvider(widget.houseId)),
+                )
+              : house.hasError
+                  ? ErrorView(
+                      error: house.error!,
+                      onRetry: () =>
+                          ref.invalidate(houseDetailProvider(widget.houseId)),
+                    )
+                  : TabBarView(
         controller: _tabController,
         children: [
           _RoutinesTab(
@@ -111,7 +128,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
             hasGenerated: hasGenerated,
             templates: templates,
             generating: _generating,
-            onGenerate: seasonId != null
+            onGenerate: seasonId != null && isOwner
                 ? () => _generateSchedule(seasonId)
                 : null,
             tabController: _tabController,
@@ -119,7 +136,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
           _MyChoresTab(houseId: widget.houseId, seasonId: seasonId),
           _TeamScheduleTab(houseId: widget.houseId, seasonId: seasonId),
         ],
-      ),
+                    ),
     );
   }
 }

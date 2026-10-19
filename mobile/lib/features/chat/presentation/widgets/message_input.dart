@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:chore_wars/core/theme/app_theme.dart';
+import 'package:chore_wars/core/utils/api_error_message.dart';
 
 class MessageInput extends StatefulWidget {
-  final Function(String) onSendMessage;
+  final Future<void> Function(String) onSendMessage;
   final Future<void> Function(List<int> bytes, String filename)? onSendImage;
 
   const MessageInput({
@@ -20,6 +21,7 @@ class _MessageInputState extends State<MessageInput> {
   final TextEditingController _controller = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _isComposing = false;
+  bool _isSending = false;
   bool _isUploading = false;
 
   @override
@@ -28,14 +30,25 @@ class _MessageInputState extends State<MessageInput> {
     super.dispose();
   }
 
-  void _handleSubmitted(String text) {
-    if (text.trim().isEmpty) return;
-    
-    widget.onSendMessage(text.trim());
-    _controller.clear();
-    setState(() {
-      _isComposing = false;
-    });
+  Future<void> _handleSubmitted(String text) async {
+    final content = text.trim();
+    if (content.isEmpty || _isSending) return;
+
+    setState(() => _isSending = true);
+    try {
+      await widget.onSendMessage(content);
+      if (!mounted) return;
+      _controller.clear();
+      setState(() => _isComposing = false);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
@@ -57,7 +70,7 @@ class _MessageInputState extends State<MessageInput> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải ảnh: $e')),
+          SnackBar(content: Text(apiErrorMessage(e))),
         );
       }
     } finally {
@@ -70,6 +83,7 @@ class _MessageInputState extends State<MessageInput> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isBusy = _isSending || _isUploading;
 
     return Container(
       padding: EdgeInsets.only(
@@ -136,12 +150,12 @@ class _MessageInputState extends State<MessageInput> {
           const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
-              color: _isComposing || _isUploading
+            color: (_isComposing && !_isSending) || _isUploading
                   ? AppTheme.purple
                   : theme.colorScheme.surface,
               shape: BoxShape.circle,
             ),
-            child: _isUploading
+            child: isBusy
                 ? const Padding(
                     padding: EdgeInsets.all(12.0),
                     child: SizedBox(
@@ -156,7 +170,7 @@ class _MessageInputState extends State<MessageInput> {
                 : IconButton(
                     icon: const Icon(Icons.send_rounded),
                     color: _isComposing ? Colors.white : AppTheme.muted,
-                    onPressed: _isComposing
+                    onPressed: _isComposing && !_isSending
                         ? () => _handleSubmitted(_controller.text)
                         : null,
                   ),

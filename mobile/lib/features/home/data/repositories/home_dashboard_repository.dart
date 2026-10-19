@@ -15,30 +15,35 @@ class HomeDashboardRepository {
       dio.get(ApiEndpoints.karma(houseId)),
       dio.get(ApiEndpoints.myChores(houseId)),
       dio.get(ApiEndpoints.bounties(houseId)),
+      dio.get('/houses/$houseId/seasons/current'),
     ]);
 
     final profile = _asMap(responses[0].data);
     final house = _asMap(responses[1].data);
     final karma = _asMap(responses[2].data);
-    final chores = responses[3].data is List ? responses[3].data as List : const [];
-    final bounties = responses[4].data is List ? responses[4].data as List : const [];
-
-    Map<String, dynamic>? season;
-    try {
-      final seasonRes = await dio.get('/houses/$houseId/seasons/current');
-      season = _asMapNullable(seasonRes.data);
-    } catch (_) {
-      season = null;
-    }
+    final chores = responses[3].data is List
+        ? responses[3].data as List
+        : const [];
+    final bounties = responses[4].data is List
+        ? responses[4].data as List
+        : const [];
+    final season = _asMapNullable(responses[5].data);
 
     return HomeDashboard(
       userDisplayName: profile['displayName'] as String? ?? '',
       houseId: house['id']?.toString() ?? houseId,
       houseName: house['name'] as String? ?? '',
+      isOwner:
+          house['currentUserRole'] == 1 || house['currentUserRole'] == 'OWNER',
       karma: (karma['karma'] as num?)?.toInt() ?? 0,
       rank: (karma['rank'] as num?)?.toInt(),
       seasonId: season?['id']?.toString(),
       seasonStatus: (season?['status'] as num?)?.toInt(),
+      currentUserConfirmationStatus:
+          (season?['currentUserConfirmationStatus'] as num?)?.toInt(),
+      confirmedCount: (season?['confirmedCount'] as num?)?.toInt() ?? 0,
+      requiredConfirmationCount:
+          (season?['requiredConfirmationCount'] as num?)?.toInt() ?? 0,
       chores: chores.whereType<Map<String, dynamic>>().map(_choreFromJson).toList(),
       bounties: bounties
           .whereType<Map<String, dynamic>>()

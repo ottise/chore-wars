@@ -25,7 +25,7 @@ class AppNotification {
       userId: json['userId'] as String,
       title: json['title'] as String,
       message: json['message'] as String,
-      type: json['type'] as String,
+      type: json['type']?.toString() ?? '',
       isRead: json['isRead'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
       metadata: json['metadata'] != null

@@ -19,6 +19,7 @@ public class SeasonConfirmationLockTests
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IChoreGenerationService> _mockGenerationService;
     private readonly Mock<IChoreAllocationService> _mockAllocationService;
+    private readonly Mock<IChoreOccurrenceRepository> _mockChoreOccurrences;
     private readonly SeasonService _service;
 
     public SeasonConfirmationLockTests()
@@ -27,6 +28,12 @@ public class SeasonConfirmationLockTests
         _mockMapper = new Mock<IMapper>();
         _mockGenerationService = new Mock<IChoreGenerationService>();
         _mockAllocationService = new Mock<IChoreAllocationService>();
+        _mockChoreOccurrences = new Mock<IChoreOccurrenceRepository>();
+
+        _mockUnitOfWork.SetupGet(u => u.ChoreOccurrences).Returns(_mockChoreOccurrences.Object);
+        _mockChoreOccurrences
+            .Setup(repository => repository.DeleteBySeasonIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
@@ -103,7 +110,7 @@ public class SeasonConfirmationLockTests
     }
 
     [Fact]
-    public async Task RejectSeasonAsync_WhenOneRejects_ShouldRollbackToDraft()
+    public async Task RejectSeasonAsync_WhenOneRejects_ShouldDiscardScheduleAndRollbackToDraft()
     {
         // Arrange
         var seasonId = Guid.NewGuid();
@@ -124,9 +131,13 @@ public class SeasonConfirmationLockTests
         await _service.RejectSeasonAsync(seasonId, userA);
 
         // Assert
-        Assert.Equal(ConfirmationStatus.REJECTED, confA.Status);
         Assert.Equal(SeasonStatus.DRAFT, season.Status);
         _mockUnitOfWork.Verify(u => u.Seasons.Update(season), Times.Once);
-        _mockUnitOfWork.Verify(u => u.SeasonConfirmations.Update(confA), Times.Once);
+        _mockUnitOfWork.Verify(
+            u => u.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockChoreOccurrences.Verify(
+            repository => repository.DeleteBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

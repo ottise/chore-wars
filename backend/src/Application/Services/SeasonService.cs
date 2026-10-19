@@ -27,15 +27,50 @@ public class SeasonService : ISeasonService
         _allocationService = allocationService;
     }
 
+    public async Task<SeasonResponse?> GetActiveSeasonAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
+        var season = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (season == null)
+            return null;
+
+        var response = _mapper.Map<SeasonResponse>(season);
+        if (season.Status == SeasonStatus.REVIEWING)
+        {
+            var confirmations = (await _unitOfWork.SeasonConfirmations
+                .GetBySeasonIdAsync(season.Id, cancellationToken))
+                .ToList();
+            response.CurrentUserConfirmationStatus = confirmations
+                .FirstOrDefault(item => item.UserId == userId)?.Status;
+            response.ConfirmedCount = confirmations.Count(item => item.Status == ConfirmationStatus.CONFIRMED);
+            response.RequiredConfirmationCount = confirmations.Count;
+        }
+
+        return response;
+    }
+
+    public async Task<IEnumerable<SeasonResponse>> GetSeasonsByHouseAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
+        var seasons = await _unitOfWork.Seasons.GetByHouseIdAsync(houseId, cancellationToken);
+        return _mapper.Map<IEnumerable<SeasonResponse>>(seasons);
+    }
+
     public async Task<SeasonResponse> CreateSeasonAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
         if (member == null || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only the house owner can create a season.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
-        if (activeSeason != null)
-            throw new ConflictException("There is already an active season in this house.");
+        var currentSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (currentSeason != null)
+            throw new ConflictException("There is already an unfinished season in this house.");
 
         var season = new ChoreSeason
         {
@@ -123,6 +158,23 @@ public class SeasonService : ISeasonService
         }
     }
 
+    public async Task<MemberAvailabilityRequest> GetAvailabilityAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException("You must be an active member of the house.");
+
+        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
+        return new MemberAvailabilityRequest
+        {
+            Availabilities = availabilities.ToDictionary(item => (int)item.DayOfWeek, item => item.IsAvailable)
+        };
+    }
+
     public async Task SetAvailabilityAsync(Guid seasonId, MemberAvailabilityRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
@@ -149,7 +201,7 @@ public class SeasonService : ISeasonService
                     Id = Guid.NewGuid(),
                     SeasonId = seasonId,
                     UserId = userId,
-                    DayOfWeek = kvp.Key,
+                    DayOfWeek = (DayOfWeek)kvp.Key,
                     IsAvailable = kvp.Value
                 };
                 await _unitOfWork.MemberAvailabilities.AddAsync(availability, cancellationToken);
@@ -224,9 +276,9 @@ public class SeasonService : ISeasonService
         if (member == null || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only the house owner can clone a season.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(originalSeason.HouseId, cancellationToken);
-        if (activeSeason != null)
-            throw new ConflictException("There is already an active season in this house.");
+        var currentSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(originalSeason.HouseId, cancellationToken);
+        if (currentSeason != null)
+            throw new ConflictException("There is already an unfinished season in this house.");
 
         var newSeason = new ChoreSeason
         {
@@ -361,29 +413,10 @@ public class SeasonService : ISeasonService
             confirmation.Status = ConfirmationStatus.CONFIRMED;
             _unitOfWork.SeasonConfirmations.Update(confirmation);
 
-<<<<<<< Updated upstream
-            // Check if all active members have confirmed
-            var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
-                .Where(m => m.Status == HouseMemberStatus.ACTIVE)
-                .ToList();
-            var allConfirmations = await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken);
-            
-            bool allConfirmed = activeMembers.All(m => 
-                allConfirmations.Any(c => c.UserId == m.UserId && c.Status == ConfirmationStatus.CONFIRMED) || 
-                m.UserId == userId); // Handle current user who just confirmed
-
-            if (allConfirmed)
-=======
             var allConfirmations = (await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
-            var userConf = allConfirmations.FirstOrDefault(c => c.UserId == userId);
-            if (userConf != null)
-            {
-                userConf.Status = ConfirmationStatus.CONFIRMED;
-            }
 
             // Only transition to ACTIVE if 100% of confirmations are CONFIRMED
             if (allConfirmations.Any() && allConfirmations.All(c => c.Status == ConfirmationStatus.CONFIRMED))
->>>>>>> Stashed changes
             {
                 season.Status = SeasonStatus.ACTIVE;
                 _unitOfWork.Seasons.Update(season);
@@ -415,8 +448,11 @@ public class SeasonService : ISeasonService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            confirmation.Status = ConfirmationStatus.REJECTED;
-            _unitOfWork.SeasonConfirmations.Update(confirmation);
+            // A rejected schedule is discarded completely. Keeping its
+            // occurrences would make the next generation look like a
+            // duplicate and would also expose assignments that were rejected.
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
 
             season.Status = SeasonStatus.DRAFT;
             _unitOfWork.Seasons.Update(season);
@@ -429,5 +465,22 @@ public class SeasonService : ISeasonService
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>> GetOccurrencesAsync(
+        Guid seasonId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
+        if (season == null)
+            throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null)
+            throw new ForbiddenException();
+
+        var occurrences = await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken);
+        return _mapper.Map<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>>(occurrences);
     }
 }

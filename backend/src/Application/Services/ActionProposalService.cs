@@ -19,11 +19,16 @@ public class ActionProposalService : IActionProposalService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IActionProposalRealtimePublisher _realtimePublisher;
+    private readonly INotificationService _notificationService;
 
-    public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher)
+    public ActionProposalService(
+        IUnitOfWork unitOfWork,
+        IActionProposalRealtimePublisher realtimePublisher,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _realtimePublisher = realtimePublisher;
+        _notificationService = notificationService;
     }
 
     public async Task<ActionProposalResponse> CreateProposalAsync(
@@ -135,6 +140,26 @@ public class ActionProposalService : IActionProposalService
 
         var response = Map(proposal);
         await _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken);
+
+        if (proposal.Type == ProposalType.URGENT_EVENT && proposal.Status == ProposalStatus.APPROVED)
+        {
+            var participantIds = proposal.Confirmations
+                .Select(x => x.TargetUserId)
+                .Append(proposal.CreatorId)
+                .Distinct();
+            foreach (var participantId in participantIds)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    participantId,
+                    proposal.HouseId,
+                    "Chiến dịch khẩn cấp đã bắt đầu!",
+                    $"{proposal.Title} đã được 100% thành viên đồng ý. Đồng hồ đang đếm ngược.",
+                    nameof(NotificationType.URGENT_EVENT),
+                    "ActionProposal",
+                    proposal.Id,
+                    cancellationToken);
+            }
+        }
         return response;
     }
 
@@ -206,6 +231,8 @@ public class ActionProposalService : IActionProposalService
                     ?? throw new NotFoundException(nameof(ChoreSeason), urgent.SeasonId);
                 if (season.HouseId != houseId)
                     throw new ForbiddenException("The selected season does not belong to this house.");
+                if (season.Status != SeasonStatus.ACTIVE)
+                    throw new ConflictException("Urgent events can only be created during an active season.");
                 var participants = targetIds.Append(creatorId).ToHashSet();
                 if (urgent.Chores.Any(x => string.IsNullOrWhiteSpace(x.Name) || !participants.Contains(x.AssignedUserId)))
                     throw new DomainException("Every urgent chore needs a name and an assignee participating in the event.");
@@ -241,6 +268,9 @@ public class ActionProposalService : IActionProposalService
             case ProposalType.URGENT_EVENT:
                 var urgent = Deserialize<UrgentEventPayload>(proposal.PayloadJson);
                 var dueDate = DateTime.UtcNow.AddMinutes(urgent.DeadlineMinutes);
+                // Once approved, ExpiresAt becomes the campaign deadline so
+                // clients can keep showing the active countdown banner.
+                proposal.ExpiresAt = dueDate;
                 foreach (var item in urgent.Chores)
                 {
                     var chore = new Chore

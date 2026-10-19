@@ -11,4 +11,7 @@ public class SeasonResponse
     public DateTime EndDate { get; set; }
     public SeasonStatus Status { get; set; }
     public AllocationMethod AllocationMethod { get; set; }
+    public ConfirmationStatus? CurrentUserConfirmationStatus { get; set; }
+    public int ConfirmedCount { get; set; }
+    public int RequiredConfirmationCount { get; set; }
 }

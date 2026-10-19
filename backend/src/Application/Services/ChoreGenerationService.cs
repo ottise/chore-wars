@@ -44,7 +44,7 @@ public class ChoreGenerationService : IChoreGenerationService
         if (hasOccurrences)
             throw new ConflictException("Occurrences have already been generated for this season.");
 
-        var chores = await _unitOfWork.Chores.GetByHouseIdAsync(season.HouseId, cancellationToken);
+        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(seasonId, cancellationToken);
         if (!chores.Any())
             throw new ConflictException("No chore templates found for this season.");
 

@@ -46,13 +46,10 @@ void refreshHouseState(WidgetRef ref, {String? houseId}) {
   }
 }
 
-final activeSeasonProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, houseId) async {
-  try {
-    final dio = ref.watch(dioProvider);
-    final response = await dio.get('/houses/$houseId/seasons/current');
-    return response.data as Map<String, dynamic>?;
-  } catch (e) {
-    return null;
-  }
-});
+final activeSeasonProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>?, String>((ref, houseId) async {
+      final dio = ref.watch(dioProvider);
+      final response = await dio.get('/houses/$houseId/seasons/current');
+      return response.data as Map<String, dynamic>?;
+    });
 

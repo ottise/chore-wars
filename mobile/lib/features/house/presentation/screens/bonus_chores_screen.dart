@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/api_error_message.dart';
+import '../../../../core/widgets/app_states.dart';
 
 class BonusChoresScreen extends ConsumerStatefulWidget {
   const BonusChoresScreen({
@@ -18,6 +20,7 @@ class BonusChoresScreen extends ConsumerStatefulWidget {
 class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   List<dynamic> _chores = [];
   bool _loading = true;
+  Object? _error;
 
   @override
   void initState() {
@@ -26,6 +29,10 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   }
 
   Future<void> _fetchBonusChores() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
@@ -39,7 +46,12 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e;
+        });
+      }
     }
   }
 
@@ -53,7 +65,9 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
       }
     }
   }
@@ -64,6 +78,8 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
       appBar: AppBar(title: const Text('Bonus Chores')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? ErrorView(error: _error!, onRetry: _fetchBonusChores)
           : _chores.isEmpty
               ? const Center(child: Text('No available bonus chores right now.'))
               : ListView.builder(

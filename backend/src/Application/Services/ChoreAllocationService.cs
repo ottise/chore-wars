@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ChoreWars.Application.DTOs.Season;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
+using ChoreWars.Domain.Common.Constants;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Enums;
 using ChoreWars.Domain.Exceptions;
@@ -47,22 +49,12 @@ public class ChoreAllocationService : IChoreAllocationService
 
     public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-<<<<<<< Updated upstream
-        _logger.LogInformation($"Starting allocation for season {seasonId}");
-=======
         _logger.LogInformation($"Starting Karma-centric allocation for season {seasonId}");
->>>>>>> Stashed changes
 
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
-<<<<<<< Updated upstream
-        if (season.AllocationMethod != AllocationMethod.AUTOMATIC)
-            throw new ConflictException("Season allocation method is not set to AUTOMATIC.");
-
-=======
->>>>>>> Stashed changes
         var unassignedOccurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList();
         if (!unassignedOccurrences.Any())
         {
@@ -79,10 +71,6 @@ public class ChoreAllocationService : IChoreAllocationService
 
         var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken); // Wait, we don't have GetBySeasonIdAsync yet, let's just get it per member or use a new method. I'll need to create GetBySeasonIdAsync.
 
-<<<<<<< Updated upstream
-        // Initialize assigned karma tracker for this allocation session to balance workload
-        var assignedKarma = members.ToDictionary(m => m.UserId, m => 0);
-=======
         // Fetch constraints and preferences
         var constraints = new Dictionary<Guid, MemberConstraint>();
         var preferences = new Dictionary<Guid, List<MemberPreference>>();
@@ -142,29 +130,12 @@ public class ChoreAllocationService : IChoreAllocationService
             .ThenByDescending(o => o.Chore?.Difficulty ?? ChoreEffort.EASY)
             .ThenBy(o => o.DueDate)
             .ToList();
->>>>>>> Stashed changes
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             foreach (var occurrence in unassignedOccurrences)
             {
-<<<<<<< Updated upstream
-                var dayOfWeek = occurrence.DueDate.DayOfWeek;
-
-                // Find eligible members (available on this day)
-                // If a user has explicitly set IsAvailable = false for this DayOfWeek, they are not eligible.
-                // Otherwise, they are eligible.
-                var eligibleMembers = members.Where(m => 
-                {
-                    var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
-                    return availability == null || availability.IsAvailable;
-                }).ToList();
-
-                // If no one is available, fallback to all members
-                if (!eligibleMembers.Any())
-                    eligibleMembers = members;
-=======
                 if (occurrence.Chore?.Type == ChoreType.BONUS)
                 {
                     continue; // Bonus chores remain unassigned for members to claim
@@ -209,18 +180,11 @@ public class ChoreAllocationService : IChoreAllocationService
                         var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
                         return availability == null || availability.IsAvailable;
                     }).ToList();
->>>>>>> Stashed changes
 
-                // Sort by least assigned karma in this session, then by least overall KarmaBalance to distribute fairly
-                var assignee = eligibleMembers
-                    .OrderBy(m => assignedKarma[m.UserId])
-                    .ThenBy(m => m.KarmaBalance)
-                    .First();
+                    if (!validCandidates.Any())
+                        validCandidates = members;
+                }
 
-<<<<<<< Updated upstream
-                occurrence.AssignedUserId = assignee.UserId;
-                assignedKarma[assignee.UserId] += occurrence.SnapshotKarma;
-=======
                 // 2. Score Candidates (Karma-centric + Chore Rotation Penalty + Preference)
                 var candidateScores = validCandidates.Select(m => 
                 {
@@ -274,7 +238,6 @@ public class ChoreAllocationService : IChoreAllocationService
 
                 if (!minutesPerDay[assignee.UserId].ContainsKey(dueDate)) minutesPerDay[assignee.UserId][dueDate] = 0;
                 minutesPerDay[assignee.UserId][dueDate] += estMinutes;
->>>>>>> Stashed changes
 
                 _unitOfWork.ChoreOccurrences.Update(occurrence);
             }
@@ -357,6 +320,12 @@ public class ChoreAllocationService : IChoreAllocationService
 
     public async Task<IEnumerable<string>> GetFairnessWarningsAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
+        var summary = await GetWorkloadSummaryAsync(seasonId, cancellationToken);
+        return summary.Warnings;
+    }
+
+    public async Task<WorkloadSummaryResponse> GetWorkloadSummaryAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
@@ -365,24 +334,11 @@ public class ChoreAllocationService : IChoreAllocationService
             .Where(m => m.Status == HouseMemberStatus.ACTIVE)
             .ToList();
 
-        if (activeMembers.Count < 2)
-            return Enumerable.Empty<string>();
+        var allOccurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
+        var response = new WorkloadSummaryResponse();
 
-        var occurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList(); // Wait, I need ALL occurrences, not unassigned.
-        // Let's create GetBySeasonIdAsync on ChoreOccurrences. For now, I can get chores then occurrences.
-        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(seasonId, cancellationToken);
-        var choreIds = chores.Select(c => c.Id).ToHashSet();
-        
-        // This could be slow if there are many chores, but it's okay for now.
-        // Actually, we can just use the DB context directly or add GetBySeasonIdAsync.
-        // Since I'm using _unitOfWork, let's just get occurrences by ChoreId.
-        var allOccurrences = new List<ChoreOccurrence>();
-        foreach(var chore in chores)
+        foreach (var member in activeMembers)
         {
-<<<<<<< Updated upstream
-            var occs = await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(chore.Id, cancellationToken);
-            allOccurrences.AddRange(occs);
-=======
             var memberOccs = allOccurrences
                 .Where(o => o.AssignedUserId == member.UserId)
                 .ToList();
@@ -398,15 +354,10 @@ public class ChoreAllocationService : IChoreAllocationService
                 MediumCount = memberOccs.Count(o => o.Chore?.Difficulty == ChoreEffort.MEDIUM),
                 HardCount = memberOccs.Count(o => o.Chore?.Difficulty == ChoreEffort.HARD),
             });
->>>>>>> Stashed changes
         }
 
-        var assignedKarmaMap = activeMembers.ToDictionary(m => m.UserId, m => 0);
-        foreach (var occ in allOccurrences.Where(o => o.AssignedUserId.HasValue))
+        if (response.Members.Count >= 2)
         {
-<<<<<<< Updated upstream
-            if (assignedKarmaMap.ContainsKey(occ.AssignedUserId.Value))
-=======
             var maxKarma = response.Members.Max(m => m.TotalKarma);
             var minKarma = response.Members.Min(m => m.TotalKarma);
             var avgKarma = response.Members.Average(m => m.TotalKarma);
@@ -427,26 +378,19 @@ public class ChoreAllocationService : IChoreAllocationService
             var minuteGap = maxMinutes - minMinutes;
 
             if (minuteGap > AIAllocationConstants.FairnessThresholdMinutes)
->>>>>>> Stashed changes
             {
-                assignedKarmaMap[occ.AssignedUserId.Value] += occ.SnapshotKarma;
+                response.Warnings.Add(
+                    $"Workload gap: {minuteGap} minutes exceeds the {AIAllocationConstants.FairnessThresholdMinutes}-minute fairness threshold. Consider rebalancing.");
+            }
+
+            var choreGap = response.Members.Max(m => m.TotalChores) - response.Members.Min(m => m.TotalChores);
+            if (choreGap > AIAllocationConstants.FairnessThresholdChores)
+            {
+                response.Warnings.Add(
+                    $"Chore-count gap: {choreGap} chores exceeds the {AIAllocationConstants.FairnessThresholdChores}-chore fairness threshold. Consider rebalancing.");
             }
         }
 
-<<<<<<< Updated upstream
-        var maxKarma = assignedKarmaMap.Values.Max();
-        var minKarma = assignedKarmaMap.Values.Min();
-
-        var warnings = new List<string>();
-        if (maxKarma - minKarma > 20)
-        {
-            var maxUser = assignedKarmaMap.First(kvp => kvp.Value == maxKarma).Key;
-            var minUser = assignedKarmaMap.First(kvp => kvp.Value == minKarma).Key;
-            warnings.Add($"Significant karma assignment gap: {maxKarma - minKarma} between max and min. Review schedule fairness.");
-        }
-
-        return warnings;
-=======
         // Include any warnings accumulated during allocation
         if (_seasonWarnings.TryGetValue(seasonId, out var allocWarnings))
         {
@@ -463,6 +407,5 @@ public class ChoreAllocationService : IChoreAllocationService
         }
 
         return response;
->>>>>>> Stashed changes
     }
 }

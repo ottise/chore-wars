@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/api_error_message.dart';
+import '../../../../core/widgets/app_states.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
+import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
 
 class ReviewScheduleScreen extends ConsumerStatefulWidget {
@@ -23,10 +27,12 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   bool _loading = false;
   List<dynamic> _occurrences = [];
   bool _occurrencesLoading = true;
+  Object? _occurrencesError;
   
   List<dynamic> _workloadMembers = [];
   List<String> _warnings = [];
   bool _workloadLoading = true;
+  Object? _workloadError;
 
   @override
   void initState() {
@@ -36,6 +42,10 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   }
 
   Future<void> _fetchOccurrences() async {
+    setState(() {
+      _occurrencesLoading = true;
+      _occurrencesError = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
@@ -43,17 +53,27 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
         setState(() {
           _occurrences = res.data;
           _occurrencesLoading = false;
+          _occurrencesError = null;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _occurrencesLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() {
+          _occurrencesLoading = false;
+          _occurrencesError = e;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
       }
     }
   }
 
   Future<void> _fetchWorkloadSummary() async {
+    setState(() {
+      _workloadLoading = true;
+      _workloadError = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get(ApiEndpoints.seasonWorkloadSummary(widget.houseId, widget.seasonId));
@@ -62,12 +82,15 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           _workloadMembers = res.data['members'] ?? [];
           _warnings = List<String>.from(res.data['warnings'] ?? []);
           _workloadLoading = false;
+          _workloadError = null;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _workloadLoading = false);
-        // Silently fail workload summary if backend doesn't support it yet
+        setState(() {
+          _workloadLoading = false;
+          _workloadError = e;
+        });
       }
     }
   }
@@ -80,12 +103,23 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
       await dio.post('/houses/${widget.houseId}/seasons/${widget.seasonId}/$action');
       if (mounted) {
         refreshHouseState(ref, houseId: widget.houseId);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(confirm ? 'Schedule confirmed!' : 'Schedule rejected!')));
+        refreshChoreState(ref, widget.houseId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              confirm
+                  ? 'Schedule confirmed!'
+                  : 'Schedule rejected. You can now generate a new schedule.',
+            ),
+          ),
+        );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -103,7 +137,9 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
       await _fetchWorkloadSummary();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
       }
     }
   }
@@ -149,6 +185,18 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
 
   Widget _buildWorkloadSummary() {
     if (_workloadLoading) return const SizedBox.shrink();
+    if (_workloadError != null) {
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.error_outline_rounded),
+          title: Text(apiErrorMessage(_workloadError!)),
+          trailing: TextButton(
+            onPressed: _fetchWorkloadSummary,
+            child: const Text('Retry'),
+          ),
+        ),
+      );
+    }
     if (_workloadMembers.isEmpty) return const SizedBox.shrink();
 
     int maxKarma = 1;
@@ -248,17 +296,26 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   Widget build(BuildContext context) {
     final activeSeasonAsync = ref.watch(activeSeasonProvider(widget.houseId));
     final membersAsync = ref.watch(houseMembersProvider(widget.houseId));
+    final houseAsync = ref.watch(houseDetailProvider(widget.houseId));
     
     final isManual = activeSeasonAsync.value?['allocationMethod'] == 0;
+    final isOwner = houseAsync.value?.myRole == HouseRole.owner;
+    final hasConfirmed =
+        activeSeasonAsync.value?['currentUserConfirmationStatus'] == 1;
+    final confirmedCount = activeSeasonAsync.value?['confirmedCount'] ?? 0;
+    final requiredCount =
+        activeSeasonAsync.value?['requiredConfirmationCount'] ?? 0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Review Schedule')),
-      body: _occurrencesLoading || membersAsync.isLoading
+      body: _occurrencesLoading || membersAsync.isLoading || houseAsync.isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _occurrencesError != null
+              ? ErrorView(error: _occurrencesError!, onRetry: _fetchOccurrences)
           : Column(
               children: [
                 _buildWorkloadSummary(),
-                if (isManual)
+                if (isManual && isOwner)
                   Container(
                     padding: const EdgeInsets.all(16),
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -336,7 +393,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                               title: Text(occ['choreName']),
                               subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
                               trailing: isUnassigned
-                                  ? (isManual
+                                  ? (isManual && isOwner
                                       ? ElevatedButton(
                                           onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
                                           child: const Text('Assign'),
@@ -354,7 +411,21 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: _loading
                       ? const CircularProgressIndicator()
-                      : Row(
+                      : hasConfirmed
+                          ? Card(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer,
+                              child: ListTile(
+                                leading: const Icon(Icons.check_circle_rounded),
+                                title: const Text('You confirmed this schedule'),
+                                subtitle: Text(
+                                  'Waiting for the other members '
+                                  '($confirmedCount/$requiredCount confirmed)',
+                                ),
+                              ),
+                            )
+                          : Row(
                           children: [
                             Expanded(
                               child: OutlinedButton(

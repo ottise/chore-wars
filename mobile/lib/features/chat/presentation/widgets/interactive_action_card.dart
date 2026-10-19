@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chore_wars/core/theme/app_theme.dart';
+import 'package:chore_wars/core/utils/api_error_message.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
 
@@ -57,17 +60,26 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   Future<void> _respond(ProposalConfirmationStatus status, {String? reason}) async {
     setState(() => _isResponding = true);
     try {
-      await ref
+      final updated = await ref
           .read(actionProposalProvider(widget.proposal.roomId).notifier)
           .respondProposal(
             proposalId: widget.proposal.id,
             status: status,
             reason: reason,
           );
+      if (mounted &&
+          updated.type == ProposalType.urgentEvent &&
+          updated.status == ProposalStatus.approved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 Chiến dịch đã kích hoạt! Đồng hồ bắt đầu đếm ngược.'),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Xử lý thất bại: $e')),
+          SnackBar(content: Text(apiErrorMessage(e))),
         );
       }
     } finally {
@@ -199,6 +211,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   ),
             ),
           ],
+          if (proposal.type == ProposalType.urgentEvent)
+            _buildUrgentEventDetails(context, proposal),
           const SizedBox(height: 12),
 
           // Confirmations list
@@ -260,6 +274,39 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   child: CircularProgressIndicator(),
                 ),
               )
+            else if (proposal.type == ProposalType.urgentEvent)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _respond(
+                        ProposalConfirmationStatus.confirmed,
+                      ),
+                      icon: const Icon(Icons.bolt_rounded, size: 18),
+                      label: const Text('Tham gia ngay'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _respond(
+                        ProposalConfirmationStatus.rejected,
+                        reason: 'Bận, không thể tham gia.',
+                      ),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      label: const Text('Bận rồi'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.red,
+                        side: const BorderSide(color: AppTheme.red),
+                      ),
+                    ),
+                  ),
+                ],
+              )
             else
               Row(
                 children: [
@@ -314,5 +361,47 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         ],
       ),
     );
+  }
+
+  Widget _buildUrgentEventDetails(
+    BuildContext context,
+    ActionProposalModel proposal,
+  ) {
+    try {
+      final payload = jsonDecode(proposal.payloadJson) as Map<String, dynamic>;
+      final deadline = payload['deadlineMinutes'];
+      final chores = payload['chores'] as List<dynamic>? ?? const [];
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.deepOrange.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Thời hạn: $deadline phút sau khi tất cả đồng ý',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            ...chores.map((raw) {
+              final chore = Map<String, dynamic>.from(raw as Map);
+              return Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text(
+                  '• ${chore['name']} (+${chore['karmaPoints']} Karma)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              );
+            }),
+          ],
+        ),
+      );
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
   }
 }

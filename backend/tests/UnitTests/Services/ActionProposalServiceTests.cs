@@ -135,6 +135,16 @@ public class ActionProposalServiceTests
             Assert.True(x.DueDate >= before);
             Assert.Equal(ChoreOccurrenceStatus.ASSIGNED, x.Status);
         });
+        Assert.NotNull(response.ExpiresAt);
+        fixture.Notifications.Verify(x => x.CreateNotificationAsync(
+            It.IsAny<Guid>(),
+            fixture.HouseId,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            nameof(NotificationType.URGENT_EVENT),
+            "ActionProposal",
+            proposal.Id,
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -165,10 +175,22 @@ public class ActionProposalServiceTests
         public Mock<IChoreRepository> Chores { get; } = new();
         public Mock<IChoreSeasonRepository> Seasons { get; } = new();
         public Mock<IActionProposalRealtimePublisher> Realtime { get; } = new();
+        public Mock<INotificationService> Notifications { get; } = new();
         public ActionProposalService Service { get; }
 
         public Fixture()
         {
+            Notifications
+                .Setup(x => x.CreateNotificationAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
             UnitOfWork.SetupGet(x => x.ActionProposals).Returns(Proposals.Object);
             UnitOfWork.SetupGet(x => x.HouseMembers).Returns(Members.Object);
             UnitOfWork.SetupGet(x => x.Chats).Returns(Chats.Object);
@@ -184,7 +206,10 @@ public class ActionProposalServiceTests
             Chats.Setup(x => x.GetRoomByHouseIdAsync(HouseId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatRoom { Id = RoomId, HouseId = HouseId });
             ActiveMember(CreatorId);
-            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object);
+            Service = new ActionProposalService(
+                UnitOfWork.Object,
+                Realtime.Object,
+                Notifications.Object);
         }
 
         public void ActiveMember(Guid userId) => Members

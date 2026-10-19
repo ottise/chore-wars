@@ -94,7 +94,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
     public async Task DeleteBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
         await _context.ChoreOccurrences
-            .Where(o => o.Chore.SeasonId == seasonId)
+            .Where(o => o.SeasonId == seasonId)
             .ExecuteDeleteAsync(cancellationToken);
     }
 

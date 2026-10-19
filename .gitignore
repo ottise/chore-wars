@@ -60,3 +60,6 @@ Desktop.ini
 # Logs
 # =========================
 *.log
+
+# Local ASP.NET Core Data Protection keys
+.data-protection-keys/

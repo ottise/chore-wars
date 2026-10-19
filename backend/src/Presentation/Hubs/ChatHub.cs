@@ -45,7 +45,7 @@ public class ChatHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, RoomGroup(roomId));
     }
 
-    public async Task SendMessage(Guid roomId, string content)
+    public async Task<ChatMessageResponse> SendMessage(Guid roomId, string content)
     {
         // Hub methods do not automatically pass a cancellation token from context.
         var cancellationToken = Context.ConnectionAborted;
@@ -54,5 +54,10 @@ public class ChatHub : Hub
 
         await Clients.Group(RoomGroup(roomId))
             .SendAsync("MessageReceived", message, cancellationToken);
+
+        // Returning the persisted message gives the sender an immediate,
+        // authoritative result even if its broadcast callback reconnects at
+        // exactly the same time. The client de-duplicates it by message Id.
+        return message;
     }
 }

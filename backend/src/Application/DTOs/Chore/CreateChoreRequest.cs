@@ -11,8 +11,6 @@ public class CreateChoreRequest
     public FrequencyType FrequencyType { get; set; }
     public int? FrequencyValue { get; set; }
     public System.DayOfWeek[]? FrequencyDays { get; set; }
-<<<<<<< Updated upstream
-=======
     public ChoreEffort Difficulty { get; set; } = ChoreEffort.MEDIUM;
     public int EstimatedMinutes { get; set; } = 30;
 
@@ -23,5 +21,4 @@ public class CreateChoreRequest
         ChoreEffort.HARD => 45,
         _ => 30
     };
->>>>>>> Stashed changes
 }

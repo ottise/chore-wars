@@ -43,6 +43,7 @@ class ChatMessagesNotifier extends ChangeNotifier {
 
   int _page = 1;
   bool _hasMore = true;
+  bool _disposed = false;
 
   ChatMessagesNotifier(this._repo, this._roomId) {
     _init();
@@ -51,31 +52,37 @@ class ChatMessagesNotifier extends ChangeNotifier {
   Future<void> _init() async {
     _isLoading = true;
     _hasError = false;
-    notifyListeners();
+    _notifySafely();
 
     try {
       final response = await _repo.getMessages(_roomId, page: 1);
+      if (_disposed) return;
       _hasMore = response.items.length == 30;
       _messages = response.items;
       _isLoading = false;
-      notifyListeners();
-
-      await _repo.connectToHub(_roomId, receiveMessage);
+      _notifySafely();
     } catch (e) {
+      if (_disposed) return;
       _isLoading = false;
       _hasError = true;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
   void receiveMessage(ChatMessageModel message) {
+    if (_disposed) return;
+    // A reconnect or an accidentally duplicated SignalR subscription can
+    // deliver the same persisted message more than once. The server-generated
+    // message id is the source of truth, so never add an id twice.
+    if (_messages.any((item) => item.id == message.id)) return;
     _messages = [message, ..._messages];
-    notifyListeners();
+    _notifySafely();
   }
 
   @override
   void dispose() {
-    _repo.disconnectHub(_roomId);
+    _disposed = true;
+    unawaited(_repo.disconnectHub(_roomId));
     super.dispose();
   }
 
@@ -86,9 +93,14 @@ class ChatMessagesNotifier extends ChangeNotifier {
     
     try {
       final response = await _repo.getMessages(_roomId, page: _page);
+      if (_disposed) return;
       _hasMore = response.items.length == 30;
-      _messages = [..._messages, ...response.items];
-      notifyListeners();
+      final existingIds = _messages.map((item) => item.id).toSet();
+      _messages = [
+        ..._messages,
+        ...response.items.where((item) => existingIds.add(item.id)),
+      ];
+      _notifySafely();
     } catch (e) {
       _page--;
       debugPrint('Error loading more messages: $e');
@@ -96,16 +108,23 @@ class ChatMessagesNotifier extends ChangeNotifier {
   }
 
   Future<void> sendMessage(String content) async {
-    await _repo.sendMessage(_roomId, content);
+    final message = await _repo.sendMessage(_roomId, content);
+    receiveMessage(message);
   }
 
   Future<void> sendImage(List<int> bytes, String filename) async {
     final imageUrl = await _repo.uploadImage(bytes, filename);
-    await _repo.sendMessage(_roomId, '[IMAGE]$imageUrl');
+    final message = await _repo.sendMessage(_roomId, '[IMAGE]$imageUrl');
+    receiveMessage(message);
+  }
+
+  void _notifySafely() {
+    if (!_disposed) notifyListeners();
   }
 }
 
-final chatMessagesProvider = Provider.family<ChatMessagesNotifier, String>(
+final chatMessagesProvider =
+    Provider.autoDispose.family<ChatMessagesNotifier, String>(
   (ref, roomId) {
     final repo = ref.watch(chatRepositoryProvider);
     final notifier = ChatMessagesNotifier(repo, roomId);

@@ -66,9 +66,17 @@ public class ChoreGenerationServiceTests
     }
     
     [Fact]
-    public async Task GenerateOccurrences_AlreadyGenerated_ThrowsConflictException()
+    public async Task GenerateOccurrences_AlreadyGenerated_ReplacesRejectedDraftSchedule()
     {
-        var season = new ChoreSeason { HouseId = Guid.NewGuid(), Status = SeasonStatus.DRAFT };
+        var seasonId = Guid.NewGuid();
+        var season = new ChoreSeason
+        {
+            Id = seasonId,
+            HouseId = Guid.NewGuid(),
+            Status = SeasonStatus.DRAFT,
+            StartDate = new DateTime(2026, 10, 20),
+            EndDate = new DateTime(2026, 10, 20)
+        };
         _mockUnitOfWork.Setup(u => u.Seasons.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(season);
             
@@ -77,8 +85,30 @@ public class ChoreGenerationServiceTests
 
         _mockUnitOfWork.Setup(u => u.ChoreOccurrences.HasOccurrencesForSeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockUnitOfWork.Setup(u => u.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(u => u.Chores.GetBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new Chore
+                {
+                    Id = Guid.NewGuid(),
+                    SeasonId = seasonId,
+                    FrequencyType = FrequencyType.DAILY,
+                    KarmaPoints = 10
+                }
+            });
 
-        await Assert.ThrowsAsync<ConflictException>(() => _service.GenerateOccurrencesAsync(Guid.NewGuid(), Guid.NewGuid()));
+        await _service.GenerateOccurrencesAsync(seasonId, Guid.NewGuid());
+
+        _mockUnitOfWork.Verify(
+            u => u.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockUnitOfWork.Verify(
+            u => u.ChoreOccurrences.AddRangeAsync(
+                It.Is<IEnumerable<ChoreOccurrence>>(items => items.Count() == 1),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
     
     [Fact]

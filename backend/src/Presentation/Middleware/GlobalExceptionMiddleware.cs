@@ -11,6 +11,7 @@ namespace ChoreWars.Presentation.Middleware;
 
 public class GlobalExceptionMiddleware
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly RequestDelegate _next;
     private readonly ILogger<GlobalExceptionMiddleware> _logger;
 
@@ -26,9 +27,27 @@ public class GlobalExceptionMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            _logger.LogInformation("Request {Method} {Path} was cancelled by the client.",
+                context.Request.Method, context.Request.Path);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An unhandled exception has occurred.");
+            if (ex is DomainException)
+            {
+                _logger.LogWarning("Request {Method} {Path} failed: {Message}",
+                    context.Request.Method, context.Request.Path, ex.Message);
+            }
+            else
+            {
+                _logger.LogError(ex, "Unhandled exception for {Method} {Path}.",
+                    context.Request.Method, context.Request.Path);
+            }
+
+            if (context.Response.HasStarted)
+                throw;
+
             await HandleExceptionAsync(context, ex);
         }
     }
@@ -44,6 +63,8 @@ public class GlobalExceptionMiddleware
             ConflictException => (int)HttpStatusCode.Conflict,
             ValidationException => (int)HttpStatusCode.BadRequest,
             DomainException => (int)HttpStatusCode.BadRequest,
+            BadHttpRequestException => (int)HttpStatusCode.BadRequest,
+            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             _ => (int)HttpStatusCode.InternalServerError
         };
 
@@ -52,16 +73,30 @@ public class GlobalExceptionMiddleware
         var problemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
         {
             Status = statusCode,
-            Title = exception.GetType().Name,
-            Detail = exception.Message,
+            Title = GetTitle(statusCode),
+            Detail = statusCode == (int)HttpStatusCode.InternalServerError
+                ? "An unexpected server error occurred. Please try again."
+                : exception.Message,
             Instance = context.Request.Path
         };
+
+        problemDetails.Extensions["traceId"] = context.TraceIdentifier;
 
         if (exception is ValidationException validationException)
         {
             problemDetails.Extensions["errors"] = validationException.Errors;
         }
 
-        return context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails));
+        return context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, JsonOptions));
     }
+
+    private static string GetTitle(int statusCode) => statusCode switch
+    {
+        (int)HttpStatusCode.BadRequest => "Invalid request",
+        (int)HttpStatusCode.Unauthorized => "Authentication required",
+        (int)HttpStatusCode.Forbidden => "Permission denied",
+        (int)HttpStatusCode.NotFound => "Resource not found",
+        (int)HttpStatusCode.Conflict => "Request conflict",
+        _ => "Server error"
+    };
 }

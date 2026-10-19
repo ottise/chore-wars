@@ -29,6 +29,7 @@ class ApiEndpoints {
   static String skipChore(String id) => '/occurrences/$id/skip';
 
   // Seasons & gamification
+  static String houseSeasons(String houseId) => '/houses/$houseId/seasons';
   static String seasonRankings(String houseId, String seasonId) =>
       '/houses/$houseId/seasons/$seasonId/rankings';
   static String karma(String houseId) => '/houses/$houseId/gamification/karma';
@@ -46,8 +47,6 @@ class ApiEndpoints {
     String occurrenceId,
   ) =>
       '/houses/$houseId/gamification/rewards/redemptions/$redemptionId/use-chore-pass/$occurrenceId';
-<<<<<<< Updated upstream
-=======
   static String bounties(String houseId) => '/houses/$houseId/bounties';
   static String bountyDetails(String houseId, String bountyId) =>
       '/houses/$houseId/bounties/$bountyId';
@@ -59,10 +58,14 @@ class ApiEndpoints {
       '/houses/$houseId/bounties/payments/$paymentId';
   static String settlePayment(String houseId, String paymentId) =>
       '/houses/$houseId/bounties/payments/$paymentId/settle';
-  static String housePreferences(String houseId) => '/houses/$houseId/preferences';
-  static String houseConstraints(String houseId) => '/houses/$houseId/constraints';
-  static String seasonAvailability(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/availability';
-  static String seasonWorkloadSummary(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/workload-summary';
+  static String housePreferences(String houseId) =>
+      '/houses/$houseId/preferences';
+  static String houseConstraints(String houseId) =>
+      '/houses/$houseId/constraints';
+  static String seasonAvailability(String houseId, String seasonId) =>
+      '/houses/$houseId/seasons/$seasonId/availability';
+  static String seasonWorkloadSummary(String houseId, String seasonId) =>
+      '/houses/$houseId/seasons/$seasonId/workload-summary';
 
   // Chat
   static String houseChat(String houseId) => '/houses/$houseId/chat';
@@ -71,14 +74,19 @@ class ApiEndpoints {
   static const String chatHubUrl = '/chat-hub';
 
   // Action Proposals
-  static String houseProposals(String houseId) => '/houses/$houseId/proposals';
-  static String respondProposal(String proposalId) => '/proposals/$proposalId/respond';
-  static String activeProposals(String roomId) => '/rooms/$roomId/proposals/active';
+  // ActionProposalController is versioned under /api/v1 while the Dio base URL
+  // already contains /api.
+  static String houseProposals(String houseId) =>
+      '/v1/houses/$houseId/proposals';
+  static String respondProposal(String proposalId) =>
+      '/v1/proposals/$proposalId/respond';
+  static String activeProposals(String roomId) =>
+      '/v1/rooms/$roomId/proposals/active';
 
   // Notifications
   static const String notifications = '/notifications';
   static String readNotification(String id) => '/notifications/$id/read';
   static const String readAllNotifications = '/notifications/read-all';
-  static const String notificationsHubUrl = '/notifications'; // SignalR endpoint (/hubs/notifications on backend)
->>>>>>> Stashed changes
+  static const String notificationsHubUrl =
+      '/notifications'; // SignalR endpoint (/hubs/notifications on backend)
 }

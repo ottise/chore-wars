@@ -37,27 +37,26 @@ public class ChoreService : IChoreService
         if (member == null || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only house owners can create chores.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
-        if (activeSeason == null)
-            throw new ConflictException("No active season to add chore to.");
+        var currentSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (currentSeason == null)
+            throw new ConflictException("Create a season before adding chores.");
+
+        if (currentSeason.Status != SeasonStatus.DRAFT)
+            throw new ConflictException("Chores can only be added while the season is in DRAFT state.");
 
         var chore = new Chore
         {
             Id = Guid.NewGuid(),
             HouseId = houseId,
-            SeasonId = activeSeason.Id,
+            SeasonId = currentSeason.Id,
             Name = request.Name,
             Description = request.Description,
             KarmaPoints = request.KarmaPoints,
             Type = request.Type,
             FrequencyType = request.FrequencyType,
-<<<<<<< Updated upstream
-            FrequencyValue = request.FrequencyValue
-=======
             FrequencyValue = request.FrequencyValue,
             Difficulty = request.Difficulty,
             EstimatedMinutes = request.EstimatedMinutes > 0 ? request.EstimatedMinutes : CreateChoreRequest.GetDefaultMinutes(request.Difficulty)
->>>>>>> Stashed changes
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -91,7 +90,7 @@ public class ChoreService : IChoreService
         return _mapper.Map<ChoreResponse>(chore);
     }
 
-    public async Task CompleteChoreAsync(Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task CompleteChoreAsync(Guid occurrenceId, CompleteChoreRequest? request, Guid userId, CancellationToken cancellationToken = default)
     {
         var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
         if (occurrence == null)
@@ -107,6 +106,7 @@ public class ChoreService : IChoreService
 
         occurrence.Status = ChoreOccurrenceStatus.COMPLETED;
         occurrence.CompletedAt = DateTime.UtcNow;
+        occurrence.ProofImageUrl = request?.ProofImageUrl;
 
         var chore = await _unitOfWork.Chores.GetByIdAsync(occurrence.ChoreId, cancellationToken);
         if (chore == null)
@@ -143,7 +143,7 @@ public class ChoreService : IChoreService
             var karmaAmount = occurrence.SnapshotKarma > 0
                 ? occurrence.SnapshotKarma
                 : chore.KarmaPoints;
-            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, chore.SeasonId, userId, karmaAmount, transactionType, occurrenceId, cancellationToken);
+            await _karmaService.AddKarmaTransactionAsync(chore.HouseId, occurrence.SeasonId, userId, karmaAmount, transactionType, occurrenceId, cancellationToken);
             
             if (bounty != null && payment != null)
             {
@@ -304,11 +304,11 @@ public class ChoreService : IChoreService
 
     public async Task<IEnumerable<ChoreResponse>> GetChoresByHouseAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
-        if (activeSeason == null)
+        var currentSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (currentSeason == null)
             return Array.Empty<ChoreResponse>();
 
-        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(activeSeason.Id, cancellationToken);
+        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(currentSeason.Id, cancellationToken);
         return _mapper.Map<IEnumerable<ChoreResponse>>(chores);
     }
 

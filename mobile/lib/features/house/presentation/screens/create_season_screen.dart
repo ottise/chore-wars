@@ -7,6 +7,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
+import '../../../home/presentation/providers/home_dashboard_provider.dart';
 import '../providers/house_providers.dart';
 
 class CreateSeasonScreen extends ConsumerStatefulWidget {
@@ -208,6 +209,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
       }
       
       refreshHouseState(ref, houseId: widget.houseId);
+      ref.invalidate(homeDashboardProvider(widget.houseId));
       if (mounted) {
         showAppMessage(context, 'Season created!');
         context.pop();

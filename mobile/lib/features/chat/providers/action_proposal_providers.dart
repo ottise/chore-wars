@@ -1,10 +1,36 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chore_wars/core/network/api_client.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/data/services/action_proposal_service.dart';
+import 'package:chore_wars/features/chat/providers/chat_providers.dart';
 
 final actionProposalServiceProvider = Provider<ActionProposalService>((ref) {
   return ActionProposalService(ref.watch(dioProvider));
+});
+
+final activeUrgentEventForHouseProvider = FutureProvider.autoDispose
+    .family<ActionProposalModel?, String>((ref, houseId) async {
+  final refreshTimer = Timer(
+    const Duration(seconds: 3),
+    ref.invalidateSelf,
+  );
+  ref.onDispose(refreshTimer.cancel);
+  final room = await ref.watch(chatRepositoryProvider).getHouseRoom(houseId);
+  final proposals = await ref
+      .watch(actionProposalServiceProvider)
+      .getActiveProposals(room.id);
+  final now = DateTime.now();
+  for (final proposal in proposals) {
+    if (proposal.type == ProposalType.urgentEvent &&
+        proposal.status == ProposalStatus.approved &&
+        proposal.expiresAt != null &&
+        proposal.expiresAt!.isAfter(now)) {
+      return proposal;
+    }
+  }
+  return null;
 });
 
 class ActionProposalNotifier
@@ -49,7 +75,7 @@ class ActionProposalNotifier
     });
   }
 
-  Future<void> respondProposal({
+  Future<ActionProposalModel> respondProposal({
     required String proposalId,
     required ProposalConfirmationStatus status,
     String? reason,
@@ -61,6 +87,7 @@ class ActionProposalNotifier
       reason: reason,
     );
     updateProposal(updated);
+    return updated;
   }
 }
 

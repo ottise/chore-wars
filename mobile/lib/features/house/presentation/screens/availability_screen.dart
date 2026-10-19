@@ -22,6 +22,7 @@ class AvailabilityScreen extends ConsumerStatefulWidget {
 
 class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   bool _isLoading = false;
+  String? _loadError;
   
   // 0 = Sunday, 1 = Monday ... 6 = Saturday
   final Map<int, bool> _availability = {
@@ -51,7 +52,10 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/availability');
@@ -65,7 +69,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
         });
       });
     } catch (e) {
-      debugPrint('Failed to load availability: $e');
+      if (mounted) setState(() => _loadError = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -124,6 +128,20 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 24),
+          if (_loadError != null) ...[
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: ListTile(
+                leading: const Icon(Icons.error_outline_rounded),
+                title: Text(_loadError!),
+                trailing: TextButton(
+                  onPressed: _isLoading ? null : _load,
+                  child: const Text('Retry'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Card(
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
