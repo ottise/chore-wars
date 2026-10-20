@@ -5,6 +5,11 @@ namespace ChoreWars.Domain.Entities;
 
 public class ChoreOccurrence
 {
+    public ICollection<ChoreResponsibility> Responsibilities { get; set; } = new List<ChoreResponsibility>();
+    public int SnapshotMinutes { get; set; }
+    public ChoreEffort SnapshotDifficulty { get; set; }
+    public DateTime? PlannedStartAt { get; set; }
+    public Guid? CompletedByUserId { get; set; }
     public Guid Id { get; set; }
     public Guid ChoreId { get; set; }
     public Guid SeasonId { get; set; }

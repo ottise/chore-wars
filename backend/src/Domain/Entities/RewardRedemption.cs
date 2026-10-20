@@ -5,6 +5,8 @@ namespace ChoreWars.Domain.Entities;
 
 public class RewardRedemption
 {
+    public Guid? ClientRequestId { get; set; }
+    public int CostSnapshot { get; set; }
     public Guid Id { get; set; }
     public Guid RewardId { get; set; }
     public Guid UserId { get; set; }

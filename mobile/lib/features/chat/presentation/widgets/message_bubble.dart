@@ -1,3 +1,5 @@
+import 'audio_message_bubble.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:chore_wars/core/constants/app_constants.dart';
@@ -9,11 +11,7 @@ class MessageBubble extends StatelessWidget {
   final ChatMessageModel message;
   final bool isMe;
 
-  const MessageBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-  });
+  const MessageBubble({super.key, required this.message, required this.isMe});
 
   String _resolveImageUrl(String path) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -34,8 +32,9 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
@@ -45,15 +44,20 @@ class MessageBubble extends StatelessWidget {
                   ? CachedNetworkImageProvider(message.senderAvatar!)
                   : null,
               child: message.senderAvatar == null
-                  ? Text(message.senderName.isNotEmpty ? message.senderName[0].toUpperCase() : '?')
+                  ? Text(
+                      message.senderName.isNotEmpty
+                          ? message.senderName[0].toUpperCase()
+                          : '?',
+                    )
                   : null,
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 if (!isMe) ...[
                   Text(
@@ -65,7 +69,13 @@ class MessageBubble extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                 ],
-                if (isImage && imageUrl != null)
+                if (message.messageType == 'AUDIO' &&
+                    message.attachmentId != null)
+                  AudioMessageBubble(attachmentId: message.attachmentId!)
+                else if (message.messageType == 'IMAGE' &&
+                    message.attachmentId != null)
+                  PrivateImageBubble(attachmentId: message.attachmentId!)
+                else if (isImage && imageUrl != null)
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
@@ -93,7 +103,11 @@ class MessageBubble extends StatelessWidget {
                                     child: CircularProgressIndicator(),
                                   ),
                                   errorWidget: (_, _, _) => const Center(
-                                    child: Icon(Icons.broken_image, size: 48, color: Colors.white),
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      size: 48,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -118,7 +132,10 @@ class MessageBubble extends StatelessWidget {
                             height: 140,
                             color: Colors.black12,
                             child: const Center(
-                              child: Icon(Icons.broken_image, color: AppTheme.muted),
+                              child: Icon(
+                                Icons.broken_image,
+                                color: AppTheme.muted,
+                              ),
                             ),
                           ),
                         ),
@@ -128,7 +145,9 @@ class MessageBubble extends StatelessWidget {
                 else
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 12.0),
+                      horizontal: 16.0,
+                      vertical: 12.0,
+                    ),
                     decoration: BoxDecoration(
                       color: isMe ? AppTheme.purple : theme.colorScheme.surface,
                       borderRadius: BorderRadius.only(

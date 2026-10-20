@@ -1,3 +1,5 @@
+import '../../../../core/storage/session_provider.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -34,7 +36,13 @@ class AuthUnauthenticated extends AuthState {
 
 class AuthStateNotifier extends Notifier<AuthState> {
   @override
-  AuthState build() => const AuthInitial();
+  AuthState build() {
+    ref.listen(
+      sessionExpiryProvider,
+      (_, _) => state = const AuthUnauthenticated(),
+    );
+    return const AuthInitial();
+  }
 
   AuthRepository get _repo => ref.read(authRepositoryProvider);
   SecureStorage get _storage => ref.read(secureStorageProvider);
@@ -50,6 +58,7 @@ class AuthStateNotifier extends Notifier<AuthState> {
 
   Future<void> login({required String email, required String password}) async {
     final user = await _repo.login(email: email, password: password);
+    ref.read(sessionEpochProvider.notifier).advance();
     state = AuthAuthenticated(user);
   }
 
@@ -65,6 +74,7 @@ class AuthStateNotifier extends Notifier<AuthState> {
 
   Future<void> logout() async {
     await _repo.logout();
+    ref.read(sessionEpochProvider.notifier).advance();
     state = const AuthUnauthenticated();
   }
 

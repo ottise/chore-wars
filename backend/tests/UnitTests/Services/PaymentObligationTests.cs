@@ -17,8 +17,8 @@ public class PaymentObligationTests
         var payment = new PaymentObligation
         {
             Id = Guid.NewGuid(),
-            DebtorUserId = userId,
-            CreditorUserId = Guid.NewGuid(),
+            DebtorUserId = Guid.NewGuid(),
+            CreditorUserId = userId,
             Status = PaymentObligationStatus.PENDING
         };
         var unitOfWork = new Mock<IUnitOfWork>();
@@ -29,6 +29,7 @@ public class PaymentObligationTests
         unitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        unitOfWork.Setup(x => x.HouseMembers.GetByHouseAndUserIdAsync(payment.HouseId,userId,It.IsAny<CancellationToken>())).ReturnsAsync(new HouseMember { Status = HouseMemberStatus.ACTIVE });
         var service = new BountyService(unitOfWork.Object, Mock.Of<IMapper>(), Mock.Of<IEventPublisher>());
 
         await service.SettlePaymentAsync(payment.Id, userId);

@@ -1,3 +1,4 @@
+import '../../../../core/network/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -97,6 +98,15 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen> {
     await _controller.stop();
 
     try {
+      final code = rawValue.trim().toUpperCase();
+      final preview = await ref.read(dioProvider).get('/invitations/${Uri.encodeComponent(code)}/preview');
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
+        title:Text('Join ${preview.data['name']}?'),
+        content:Text('${preview.data['activeMembers']} / ${preview.data['capacity']} members'),
+        actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('Join'))],
+      ));
+      if (confirmed != true) { await _controller.start(); if(mounted) setState(()=>_processing=false); return; }
       await ref.read(houseRepositoryProvider).joinHouse(
         inviteCode: rawValue.trim().toUpperCase(),
       );

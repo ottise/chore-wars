@@ -6,6 +6,9 @@ part 'chat_message_model.g.dart';
 @freezed
 abstract class ChatMessageModel with _$ChatMessageModel {
   const factory ChatMessageModel({
+    @Default('TEXT') String messageType,
+    String? attachmentId,
+    String? clientMessageId,
     required String id,
     required String roomId,
     required String senderId,

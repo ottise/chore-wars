@@ -22,12 +22,12 @@ public class ChoreSeasonRepository : IChoreSeasonRepository
 
     public async Task<ChoreSeason?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Seasons.FindAsync(new object[] { id }, cancellationToken);
+        return await _context.Seasons.Include(s => s.Confirmations).FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
     }
 
     public async Task<IEnumerable<ChoreSeason>> GetByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        return await _context.Seasons
+        return await _context.Seasons.Include(s => s.Confirmations)
             .Where(s => s.HouseId == houseId)
             .OrderByDescending(s => s.StartDate)
             .ToListAsync(cancellationToken);
@@ -35,13 +35,13 @@ public class ChoreSeasonRepository : IChoreSeasonRepository
 
     public async Task<ChoreSeason?> GetActiveSeasonByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        return await _context.Seasons
+        return await _context.Seasons.Include(s => s.Confirmations)
             .FirstOrDefaultAsync(s => s.HouseId == houseId && s.Status == SeasonStatus.ACTIVE, cancellationToken);
     }
 
     public async Task<ChoreSeason?> GetCurrentSeasonByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        return await _context.Seasons
+        return await _context.Seasons.Include(s => s.Confirmations)
             .Where(s => s.HouseId == houseId && s.Status != SeasonStatus.COMPLETED && s.Status != SeasonStatus.CANCELLED)
             .OrderByDescending(s => s.StartDate)
             .FirstOrDefaultAsync(cancellationToken);
@@ -49,7 +49,7 @@ public class ChoreSeasonRepository : IChoreSeasonRepository
 
     public async Task<IEnumerable<ChoreSeason>> GetActiveSeasonsAsync(DateTime now, CancellationToken cancellationToken = default)
     {
-        return await _context.Seasons
+        return await _context.Seasons.Include(s => s.Confirmations)
             .Where(s => s.Status == SeasonStatus.ACTIVE)
             .ToListAsync(cancellationToken);
     }

@@ -1,3 +1,5 @@
+import 'core/constants/app_constants.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +11,7 @@ import 'core/widgets/web_preview_frame.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppConstants.validateReleaseConfiguration();
 
   final sharedPreferences = await SharedPreferences.getInstance();
 

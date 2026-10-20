@@ -75,6 +75,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late Set<int> _days;
   late ChoreEffort _difficulty;
   late final TextEditingController _estimatedMinutes;
+  bool _asRoutine = false;
+  int _deadlineMinutes = 1439;
+  DateTime? _anchor;
+  final List<String> _customDates = [];
   bool _saving = false;
   String? _apiError;
 
@@ -84,6 +88,9 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   void initState() {
     super.initState();
     final chore = widget.initial;
+    _deadlineMinutes = chore?.deadlineMinutes ?? 1439;
+    _anchor = DateTime.tryParse(chore?.recurrenceAnchor ?? '');
+    _customDates.addAll(chore?.customDates ?? const []);
     _name = TextEditingController(text: chore?.name ?? '');
     _description = TextEditingController(text: chore?.description ?? '');
     _karma = TextEditingController(text: chore?.karmaPoints.toString() ?? '');
@@ -94,7 +101,9 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     _frequency = chore?.frequency ?? ChoreFrequency.daily;
     _days = {...?chore?.frequencyDays};
     _difficulty = chore?.difficulty ?? ChoreEffort.medium;
-    _estimatedMinutes = TextEditingController(text: (chore?.estimatedMinutes ?? 30).toString());
+    _estimatedMinutes = TextEditingController(
+      text: (chore?.estimatedMinutes ?? 30).toString(),
+    );
   }
 
   @override
@@ -151,6 +160,15 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               alignLabelWithHint: true,
             ),
           ),
+          if (!_editing)
+            SwitchListTile(
+              title: const Text('Save as reusable routine'),
+              subtitle: const Text(
+                'Import a snapshot into a draft season later.',
+              ),
+              value: _asRoutine,
+              onChanged: (value) => setState(() => _asRoutine = value),
+            ),
           const SizedBox(height: 24),
           Text('Chore type', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -206,19 +224,12 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: TextFormField(
-                  controller: _estimatedMinutes,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Duration',
-                    suffixText: 'min',
-                  ),
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    return parsed == null || parsed <= 0
-                        ? 'Invalid'
-                        : null;
-                  },
+                child: Text(
+                  'Default effort: ${_difficulty == ChoreEffort.easy
+                      ? 15
+                      : _difficulty == ChoreEffort.hard
+                      ? 45
+                      : 30} min',
                 ),
               ),
             ],
@@ -255,7 +266,11 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               },
             ),
           ],
-          if (_frequency == ChoreFrequency.specificDays) ...[
+          if ([
+            ChoreFrequency.specificDays,
+            ChoreFrequency.xTimesPerWeek,
+            ChoreFrequency.weekly,
+          ].contains(_frequency)) ...[
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
@@ -291,19 +306,88 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               ),
           ],
           const SizedBox(height: 16),
+          ListTile(
+            title: const Text('Deadline (Vietnam time)'),
+            subtitle: Text(
+              '${(_deadlineMinutes ~/ 60).toString().padLeft(2, '0')}:${(_deadlineMinutes % 60).toString().padLeft(2, '0')}',
+            ),
+            onTap: () async {
+              final time = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay(
+                  hour: _deadlineMinutes ~/ 60,
+                  minute: _deadlineMinutes % 60,
+                ),
+              );
+              if (time != null && mounted) {
+                setState(() => _deadlineMinutes = time.hour * 60 + time.minute);
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('Recurrence anchor'),
+            subtitle: Text(
+              _anchor?.toIso8601String().split('T').first ?? 'Season start',
+            ),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _anchor ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+              if (date != null && mounted) setState(() => _anchor = date);
+            },
+          ),
+          if (_frequency == ChoreFrequency.custom) ...[
+            TextButton.icon(
+              icon: const Icon(Icons.calendar_month),
+              label: const Text('Add custom date'),
+              onPressed: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (date != null && mounted) {
+                  final value = date.toIso8601String().split('T').first;
+                  if (!_customDates.contains(value)) {
+                    setState(() => _customDates.add(value));
+                  }
+                }
+              },
+            ),
+            Wrap(
+              children: _customDates
+                  .map(
+                    (date) => InputChip(
+                      label: Text(date),
+                      onDeleted: () =>
+                          setState(() => _customDates.remove(date)),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
           const _ScheduleNote(),
           if (_apiError != null) ...[
             const SizedBox(height: 16),
             Text(
               _apiError!,
-              style: const TextStyle(color: AppTheme.red, fontSize: 13, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: AppTheme.red,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             if (_apiError!.toLowerCase().contains('season')) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 icon: const Icon(Icons.add_task_rounded),
                 label: const Text('Start new season'),
-                onPressed: () => context.push('/houses/${widget.houseId}/seasons/new'),
+                onPressed: () =>
+                    context.push('/houses/${widget.houseId}/seasons/new'),
               ),
             ],
           ],
@@ -323,6 +407,10 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   );
 
   ChoreTemplate _buildChore() => ChoreTemplate(
+    asRoutine: _asRoutine,
+    deadlineMinutes: _deadlineMinutes,
+    recurrenceAnchor: _anchor?.toIso8601String().split('T').first,
+    customDates: List.of(_customDates),
     id: widget.initial?.id ?? '',
     name: _name.text,
     description: _description.text,

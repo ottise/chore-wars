@@ -19,6 +19,10 @@ public class ChatRepository : IChatRepository
         _context = context;
     }
 
+    public async Task AddAttachmentAsync(MediaAttachment attachment, CancellationToken ct = default) => await _context.MediaAttachments.AddAsync(attachment, ct);
+    public Task<MediaAttachment?> GetAttachmentAsync(Guid id, CancellationToken ct = default) => _context.MediaAttachments.FirstOrDefaultAsync(x => x.Id == id, ct);
+    public Task<ChatMessage?> GetMessageByClientIdAsync(Guid roomId, Guid senderId, Guid clientId, CancellationToken ct = default)
+        => _context.ChatMessages.Include(x => x.Sender).FirstOrDefaultAsync(x => x.RoomId == roomId && x.SenderId == senderId && x.ClientMessageId == clientId, ct);
     public async Task<ChatRoom?> GetRoomByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
         return await _context.ChatRooms

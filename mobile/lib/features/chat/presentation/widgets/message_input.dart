@@ -3,7 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:chore_wars/core/theme/app_theme.dart';
 
 class MessageInput extends StatefulWidget {
-  final Function(String) onSendMessage;
+  final Future<void> Function(String) onSendMessage;
   final Future<void> Function(List<int> bytes, String filename)? onSendImage;
 
   const MessageInput({
@@ -28,14 +28,23 @@ class _MessageInputState extends State<MessageInput> {
     super.dispose();
   }
 
-  void _handleSubmitted(String text) {
-    if (text.trim().isEmpty) return;
-    
-    widget.onSendMessage(text.trim());
-    _controller.clear();
-    setState(() {
-      _isComposing = false;
-    });
+  Future<void> _handleSubmitted(String text) async {
+    if (text.trim().isEmpty || _isUploading) return;
+    setState(() => _isUploading = true);
+    try {
+      await widget.onSendMessage(text.trim());
+      if (!mounted) return;
+      _controller.clear();
+      setState(() => _isComposing = false);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Message was not sent: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   Future<void> _pickAndSendImage(ImageSource source) async {
@@ -56,9 +65,8 @@ class _MessageInputState extends State<MessageInput> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải ảnh: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
       }
     } finally {
       if (mounted) {
@@ -94,13 +102,17 @@ class _MessageInputState extends State<MessageInput> {
             icon: const Icon(Icons.camera_alt_rounded),
             color: AppTheme.purple,
             tooltip: 'Chụp ảnh',
-            onPressed: _isUploading ? null : () => _pickAndSendImage(ImageSource.camera),
+            onPressed: _isUploading
+                ? null
+                : () => _pickAndSendImage(ImageSource.camera),
           ),
           IconButton(
             icon: const Icon(Icons.photo_library_rounded),
             color: AppTheme.purple,
             tooltip: 'Chọn ảnh',
-            onPressed: _isUploading ? null : () => _pickAndSendImage(ImageSource.gallery),
+            onPressed: _isUploading
+                ? null
+                : () => _pickAndSendImage(ImageSource.gallery),
           ),
           Expanded(
             child: Container(
@@ -118,7 +130,9 @@ class _MessageInputState extends State<MessageInput> {
                 },
                 onSubmitted: _handleSubmitted,
                 decoration: InputDecoration(
-                  hintText: _isUploading ? 'Đang gửi ảnh...' : 'Nhập tin nhắn...',
+                  hintText: _isUploading
+                      ? 'Đang gửi ảnh...'
+                      : 'Nhập tin nhắn...',
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
                     color: AppTheme.muted,
                   ),

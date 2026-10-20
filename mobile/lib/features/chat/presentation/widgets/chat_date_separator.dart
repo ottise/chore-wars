@@ -10,7 +10,7 @@ class ChatDateSeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     String dateString;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);

@@ -21,6 +21,8 @@ public class BountyCompensationTests
         {
             Id = Guid.NewGuid(),
             AssignedUserId = posterId,
+            SeasonId = Guid.NewGuid(),
+            DueDate = DateTime.UtcNow.AddHours(-1),
             Chore = new Chore { HouseId = houseId }
         };
         var bounty = new ChoreBounty
@@ -30,6 +32,7 @@ public class BountyCompensationTests
             PostedByUserId = posterId,
             Amount = 100m,
             Status = BountyStatus.OPEN,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(-1),
             ChoreOccurrence = occurrence
         };
 
@@ -52,17 +55,23 @@ public class BountyCompensationTests
         members.Setup(x => x.GetByHouseIdAsync(houseId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
-                new HouseMember { UserId = posterId, KarmaBalance = 10 },
-                new HouseMember { UserId = assigneeId, KarmaBalance = 0 }
+                new HouseMember { Status = HouseMemberStatus.ACTIVE, UserId = posterId, KarmaBalance = 10 },
+                new HouseMember { Status = HouseMemberStatus.ACTIVE, UserId = assigneeId, KarmaBalance = 0 }
             });
         occurrences.Setup(x => x.GetByIdAsync(occurrence.Id, It.IsAny<CancellationToken>())).ReturnsAsync(occurrence);
         payments.Setup(x => x.AddAsync(It.IsAny<PaymentObligation>(), It.IsAny<CancellationToken>()))
             .Callback<PaymentObligation, CancellationToken>((payment, _) => captured = payment)
             .Returns(Task.CompletedTask);
+        bounties.Setup(x => x.GetByIdAsync(bounty.Id,It.IsAny<CancellationToken>())).ReturnsAsync(bounty);
+        occurrences.Setup(x => x.GetBySeasonIdAsync(occurrence.SeasonId,It.IsAny<CancellationToken>())).ReturnsAsync(new[] { occurrence });
+        payments.Setup(x => x.GetByHouseIdAsync(houseId,It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<PaymentObligation>());
+        unitOfWork.Setup(x => x.MemberAvailabilities.GetBySeasonIdAsync(occurrence.SeasonId,It.IsAny<CancellationToken>())).ReturnsAsync(Enumerable.Range(0,7).Select(day => new MemberAvailability { UserId = assigneeId, DayOfWeek = (DayOfWeek)day, IsAvailable = true }));
+        unitOfWork.Setup(x => x.MemberConstraints.GetByUserAndHouseIdAsync(assigneeId,houseId,It.IsAny<CancellationToken>())).ReturnsAsync((MemberConstraint?)null);
         var events = new Mock<IEventPublisher>();
         events.Setup(x => x.PublishAsync(It.IsAny<object>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         var service = new BountyExpirationService(unitOfWork.Object, Mock.Of<ILogger<BountyExpirationService>>(), events.Object);
 
+        var originalDeadline = occurrence.DueDate;
         await service.ProcessExpiredBountiesAsync();
 
         Assert.Equal(BountyStatus.EXPIRED, bounty.Status);
@@ -71,5 +80,7 @@ public class BountyCompensationTests
         Assert.Equal(100m * BountyConstants.ForcedReassignmentMultiplier, captured.Amount);
         Assert.Equal(occurrence.Id, captured.OccurrenceId);
         Assert.Equal(PaymentObligationReason.FORCED_REASSIGNMENT, captured.Reason);
+        var previous = Assert.Single(occurrence.Responsibilities, r => r.EndedAt != null);
+        Assert.Equal(originalDeadline, previous.Deadline);
     }
 }

@@ -8,6 +8,7 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IRewardRedemptionRepository
 {
+    Task<RewardRedemption?> GetByRequestAsync(Guid rewardId, Guid userId, Guid requestId, CancellationToken ct = default);
     Task<RewardRedemption?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<RewardRedemption>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<RewardRedemption?> GetByRewardAndUserIdAsync(Guid rewardId, Guid userId, CancellationToken cancellationToken = default);

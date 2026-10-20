@@ -1,6 +1,22 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
+  static void validateReleaseConfiguration() {
+    if (!kReleaseMode) return;
+    if (uiPreview) throw StateError('Release builds require UI_PREVIEW=false.');
+    for (final value in [
+      const String.fromEnvironment('API_BASE_URL'),
+      const String.fromEnvironment('SIGNALR_BASE_URL'),
+    ]) {
+      final uri = Uri.tryParse(value);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        throw StateError(
+          'Release requires explicit HTTPS API_BASE_URL and SIGNALR_BASE_URL.',
+        );
+      }
+    }
+  }
+
   static const String appName = 'Chore Wars';
 
   /// Web builds are primarily used as a zero-setup UI preview. Pass
@@ -20,10 +36,14 @@ class AppConstants {
   // On web, use localhost
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kIsWeb ? 'http://localhost:5297/api' : 'http://10.0.2.2:5297/api',
+    defaultValue: kIsWeb
+        ? 'http://localhost:5297/api'
+        : 'http://10.0.2.2:5297/api',
   );
   static const String signalRBaseUrl = String.fromEnvironment(
     'SIGNALR_BASE_URL',
-    defaultValue: kIsWeb ? 'http://localhost:5297/hubs' : 'http://10.0.2.2:5297/hubs',
+    defaultValue: kIsWeb
+        ? 'http://localhost:5297/hubs'
+        : 'http://10.0.2.2:5297/hubs',
   );
 }

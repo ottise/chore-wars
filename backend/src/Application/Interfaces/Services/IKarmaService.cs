@@ -7,5 +7,5 @@ namespace ChoreWars.Application.Interfaces.Services;
 
 public interface IKarmaService
 {
-    Task AddKarmaTransactionAsync(Guid houseId, Guid seasonId, Guid userId, int amount, KarmaTransactionType type, Guid? referenceId = null, CancellationToken cancellationToken = default);
+    Task AddKarmaTransactionAsync(Guid houseId, Guid seasonId, Guid userId, int amount, KarmaTransactionType type, Guid? referenceId = null, CancellationToken cancellationToken = default, DateTime? effectiveAt = null, int? penaltyStep = null);
 }

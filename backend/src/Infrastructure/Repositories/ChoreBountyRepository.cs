@@ -68,7 +68,7 @@ public class ChoreBountyRepository : IChoreBountyRepository
         return await _context.ChoreBounties
             .Include(b => b.ChoreOccurrence)
             .ThenInclude(o => o.Chore)
-            .Where(b => (b.Status == BountyStatus.OPEN || b.Status == BountyStatus.CLAIMED) && b.ExpiresAt < now)
+            .Where(b => b.Status == BountyStatus.OPEN && b.ExpiresAt < now)
             .ToListAsync(cancellationToken);
     }
 

@@ -8,6 +8,9 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IChoreOccurrenceRepository
 {
+    Task<int> CountAcceptedBountiesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ChoreOccurrence>> GetUnresolvedByHouseIdAsync(Guid houseId, CancellationToken ct = default);
+    Task AddResponsibilityAsync(ChoreResponsibility responsibility, CancellationToken cancellationToken = default);
     Task<ChoreOccurrence?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrence>> GetByAssignedUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ChoreOccurrence>> GetByChoreIdAsync(Guid choreId, CancellationToken cancellationToken = default);

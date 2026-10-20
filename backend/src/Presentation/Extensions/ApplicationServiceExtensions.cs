@@ -10,12 +10,17 @@ public static class ApplicationServiceExtensions
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddSingleton(TimeProvider.System);
         // AutoMapper
         services.AddAutoMapper(typeof(AuthService).Assembly);
 
         // FluentValidation
         services.AddValidatorsFromAssembly(typeof(RegisterRequestValidator).Assembly);
 
+        services.AddScoped<IRewardService, RewardService>();
+        services.AddScoped<IMediaService, MediaService>();
+        services.AddScoped<IHouseAccessService, HouseAccessService>();
+        services.AddScoped<IHouseholdResolutionService, HouseholdResolutionService>();
         // Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IHouseService, HouseService>();

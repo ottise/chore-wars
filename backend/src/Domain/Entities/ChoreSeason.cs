@@ -8,6 +8,10 @@ public class ChoreSeason
 {
     public Guid Id { get; set; }
     public Guid HouseId { get; set; }
+    public string? LastRejectionReason { get; set; }
+    public Guid? LastRejectedByUserId { get; set; }
+    public int ScheduleRevision { get; set; }
+    public DateTime? FinalizedAt { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

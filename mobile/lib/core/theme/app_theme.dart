@@ -24,10 +24,26 @@ class AppTheme {
       scaffoldBackgroundColor: canvas,
       useMaterial3: true,
       textTheme: const TextTheme(
-        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: ink),
-        headlineSmall: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: ink),
-        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink),
-        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ink),
+        displaySmall: TextStyle(
+          fontSize: 36,
+          fontWeight: FontWeight.w800,
+          color: ink,
+        ),
+        headlineSmall: TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          color: ink,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: ink,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: ink,
+        ),
         bodyLarge: TextStyle(fontSize: 16, height: 1.45, color: ink),
         bodyMedium: TextStyle(fontSize: 14, height: 1.45, color: muted),
       ),
@@ -57,13 +73,13 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme => ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: purple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(centerTitle: true),
-      );
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: purple,
+      brightness: Brightness.dark,
+    ),
+    useMaterial3: true,
+    appBarTheme: const AppBarTheme(centerTitle: true),
+  );
 
   static const successColor = green;
   static const warningColor = orange;

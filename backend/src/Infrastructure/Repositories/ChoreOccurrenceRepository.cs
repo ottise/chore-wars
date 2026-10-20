@@ -13,6 +13,11 @@ namespace ChoreWars.Infrastructure.Repositories;
 
 public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 {
+    public Task<int> CountAcceptedBountiesAsync(Guid houseId, Guid userId, CancellationToken ct = default)
+        => (from episode in _context.Set<ChoreResponsibility>()
+            join occurrence in _context.ChoreOccurrences on episode.OccurrenceId equals occurrence.Id
+            where episode.UserId == userId && episode.Reason == "BOUNTY" && occurrence.Chore.HouseId == houseId
+            select episode.Id).CountAsync(ct);
     private readonly AppDbContext _context;
 
     public ChoreOccurrenceRepository(AppDbContext context)
@@ -20,9 +25,19 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
         _context = context;
     }
 
+    public async Task<IEnumerable<ChoreOccurrence>> GetUnresolvedByHouseIdAsync(Guid houseId, CancellationToken ct = default)
+        => await _context.ChoreOccurrences.Include(o=>o.Chore).Include(o=>o.AssignedUser)
+            .Where(o=>o.Chore.HouseId==houseId && o.Chore.Type==ChoreWars.Domain.Enums.ChoreType.NORMAL
+                && o.Status!=ChoreWars.Domain.Enums.ChoreOccurrenceStatus.COMPLETED && o.Status!=ChoreWars.Domain.Enums.ChoreOccurrenceStatus.SKIPPED
+                && (o.Status==ChoreWars.Domain.Enums.ChoreOccurrenceStatus.CRITICAL_OVERDUE || _context.ChoreBounties.Any(b=>b.ChoreOccurrenceId==o.Id && b.Status==ChoreWars.Domain.Enums.BountyStatus.EXPIRED)))
+            .ToListAsync(ct);
+
+    public async Task AddResponsibilityAsync(ChoreResponsibility responsibility, CancellationToken cancellationToken = default)
+        => await _context.Set<ChoreResponsibility>().AddAsync(responsibility, cancellationToken);
+
     public async Task<ChoreOccurrence?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Include(o => o.Chore)
             .Include(o => o.AssignedUser)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
@@ -30,7 +45,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task<IEnumerable<ChoreOccurrence>> GetByAssignedUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Include(o => o.Chore)
             .Include(o => o.AssignedUser)
             .Where(o => o.AssignedUserId == userId)
@@ -40,14 +55,14 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task<IEnumerable<ChoreOccurrence>> GetByChoreIdAsync(Guid choreId, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Where(o => o.ChoreId == choreId)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<ChoreOccurrence>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Include(o => o.Chore)
             .Include(o => o.AssignedUser)
             .Where(o => o.SeasonId == seasonId)
@@ -56,7 +71,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task<IEnumerable<ChoreOccurrence>> GetUnassignedBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Include(o => o.Chore)
             .Where(o => o.SeasonId == seasonId && o.AssignedUserId == null)
             .OrderBy(o => o.DueDate)
@@ -65,7 +80,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task<bool> HasOccurrencesForSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .AnyAsync(o => o.SeasonId == seasonId, cancellationToken);
     }
 
@@ -74,7 +89,7 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
         // Eligibility for penalty:
         // DueDate is in the past
         // Status is ASSIGNED or OVERDUE
-        return await _context.ChoreOccurrences
+        return await _context.ChoreOccurrences.Include(o => o.Responsibilities)
             .Include(o => o.Chore)
             .Where(o => (o.Status == ChoreOccurrenceStatus.ASSIGNED || o.Status == ChoreOccurrenceStatus.OVERDUE)
                      && o.DueDate < now)
@@ -93,8 +108,8 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task DeleteBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        await _context.ChoreOccurrences
-            .Where(o => o.Chore.SeasonId == seasonId)
+        await _context.ChoreOccurrences.Include(o => o.Responsibilities)
+            .Where(o => o.SeasonId == seasonId)
             .ExecuteDeleteAsync(cancellationToken);
     }
 

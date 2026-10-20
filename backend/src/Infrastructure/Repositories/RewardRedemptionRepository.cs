@@ -19,6 +19,8 @@ public class RewardRedemptionRepository : IRewardRedemptionRepository
         _context = context;
     }
 
+    public Task<RewardRedemption?> GetByRequestAsync(Guid rewardId, Guid userId, Guid requestId, CancellationToken ct = default) => _context.RewardRedemptions.FirstOrDefaultAsync(x => x.RewardId == rewardId && x.UserId == userId && x.ClientRequestId == requestId,ct);
+
     public async Task<RewardRedemption?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.RewardRedemptions.FindAsync(new object[] { id }, cancellationToken);

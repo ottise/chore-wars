@@ -12,10 +12,12 @@ namespace ChoreWars.Presentation.Hubs;
 [Authorize]
 public class ChatHub : Hub
 {
+    private readonly ChatConnectionRegistry? _connections;
     private readonly IChatService _chatService;
 
-    public ChatHub(IChatService chatService)
+    public ChatHub(IChatService chatService, ChatConnectionRegistry? connections = null)
     {
+        _connections = connections;
         _chatService = chatService;
     }
 
@@ -38,7 +40,10 @@ public class ChatHub : Hub
     {
         await _chatService.EnsureRoomAccessAsync(roomId, CurrentUserId, Context.ConnectionAborted);
         await Groups.AddToGroupAsync(Context.ConnectionId, RoomGroup(roomId));
+        _connections?.Add(roomId,CurrentUserId,Context.ConnectionId,Context.Abort);
     }
+
+    public override Task OnDisconnectedAsync(Exception? exception) { _connections?.Remove(Context.ConnectionId); return base.OnDisconnectedAsync(exception); }
 
     public async Task LeaveRoom(Guid roomId)
     {

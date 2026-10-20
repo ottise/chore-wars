@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSMicrophoneUsageDescription</key><string>Record voice notes for your household chat.</string>
+	<key>NSCameraUsageDescription</key><string>Take chore proof photos and scan household invitations.</string>
+	<key>NSPhotoLibraryUsageDescription</key><string>Select photos for household chat.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

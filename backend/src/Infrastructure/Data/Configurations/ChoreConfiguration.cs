@@ -9,6 +9,7 @@ public class ChoreConfiguration : IEntityTypeConfiguration<Chore>
     public void Configure(EntityTypeBuilder<Chore> builder)
     {
         builder.HasKey(x => x.Id);
+        builder.HasOne<Chore>().WithMany().HasForeignKey(x => x.SourceTemplateId).OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(x => x.Name)
             .IsRequired()

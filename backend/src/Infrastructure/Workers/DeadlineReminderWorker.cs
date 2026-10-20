@@ -1,3 +1,4 @@
+using ChoreWars.Application.Interfaces.Services;
 using System;
 using System.Linq;
 using System.Threading;
@@ -52,20 +53,14 @@ public class DeadlineReminderWorker : BackgroundService
                                     && o.DueDate <= twoHoursLater)
                         .ToListAsync(stoppingToken);
 
-                    foreach (var occurrence in occurrences)
-                    {
-                        occurrence.ReminderSent = true;
-                        
-                        // Publish event to Kafka
-                        var reminderEvent = new DeadlineReminderEvent(occurrence.Id, occurrence.AssignedUserId.Value, occurrence.Chore.HouseId);
-                        await eventPublisher.PublishAsync(reminderEvent, stoppingToken);
-
-                        _logger.LogInformation($"Sent deadline reminder for ChoreOccurrence {occurrence.Id}");
-                    }
-
-                    if (occurrences.Any())
-                    {
-                        await dbContext.SaveChangesAsync(stoppingToken);
+                    var mutations = scope.ServiceProvider.GetRequiredService<IHouseMutationCoordinator>();
+                    foreach (var candidate in occurrences) {
+                        await mutations.RunAsync(candidate.Chore.HouseId,async () => {
+                            var occurrence = await dbContext.ChoreOccurrences.Include(o=>o.Chore).Include(o=>o.Season).SingleAsync(o=>o.Id==candidate.Id,stoppingToken);
+                            if (occurrence.ReminderSent || occurrence.AssignedUserId == null || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED || occurrence.Season.Status != SeasonStatus.ACTIVE || occurrence.Season.StartDate > now) return;
+                            occurrence.ReminderSent = true;
+                            await eventPublisher.PublishAsync(new DeadlineReminderEvent(occurrence.Id,occurrence.AssignedUserId.Value,occurrence.Chore.HouseId),stoppingToken);
+                        },stoppingToken);
                     }
                 }
             }

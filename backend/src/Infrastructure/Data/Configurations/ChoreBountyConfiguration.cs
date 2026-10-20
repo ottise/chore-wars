@@ -9,6 +9,7 @@ public class ChoreBountyConfiguration : IEntityTypeConfiguration<ChoreBounty>
     public void Configure(EntityTypeBuilder<ChoreBounty> builder)
     {
         builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.ChoreOccurrenceId).IsUnique().HasFilter("\"Status\" IN ('OPEN','CLAIMED')");
 
         builder.Property(x => x.Status)
             .IsRequired()

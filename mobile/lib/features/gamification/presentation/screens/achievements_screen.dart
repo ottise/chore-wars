@@ -1,3 +1,5 @@
+import '../widgets/achievement_share_card.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -57,8 +59,17 @@ class AchievementsScreen extends ConsumerWidget {
                           childAspectRatio: 0.86,
                         ),
                     itemCount: items.length,
-                    itemBuilder: (context, index) =>
-                        _AchievementCard(item: items[index]),
+                    itemBuilder: (context, index) => GestureDetector(
+                      onTap: items[index].isUnlocked
+                          ? () => showDialog<void>(
+                              context: context,
+                              builder: (context) => AchievementShareCard(
+                                achievement: items[index],
+                              ),
+                            )
+                          : null,
+                      child: _AchievementCard(item: items[index]),
+                    ),
                   ),
                 ),
               ],

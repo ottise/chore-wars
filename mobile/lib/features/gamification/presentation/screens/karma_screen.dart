@@ -38,7 +38,7 @@ class KarmaScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     const Text(
-                      'Your Karma',
+                      'Spendable Karma',
                       style: TextStyle(
                         color: AppTheme.ink,
                         fontWeight: FontWeight.w800,

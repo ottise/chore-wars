@@ -8,6 +8,7 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IRewardRepository
 {
+    Task<IEnumerable<Reward>> GetByHouseIdAsync(Guid houseId, CancellationToken ct = default);
     Task<Reward?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<Reward>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default);
     Task<Reward?> GetChorePassRewardAsync(CancellationToken cancellationToken = default);

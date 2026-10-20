@@ -73,7 +73,7 @@ public class ChoreGenerationServiceTests
             .ReturnsAsync(season);
             
         _mockUnitOfWork.Setup(u => u.HouseMembers.GetByHouseAndUserIdAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new HouseMember());
+            .ReturnsAsync(new HouseMember { Status = HouseMemberStatus.ACTIVE });
 
         _mockUnitOfWork.Setup(u => u.ChoreOccurrences.HasOccurrencesForSeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -127,7 +127,7 @@ public class ChoreGenerationServiceTests
             .ReturnsAsync(season);
             
         _mockUnitOfWork.Setup(u => u.HouseMembers.GetByHouseAndUserIdAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new HouseMember());
+            .ReturnsAsync(new HouseMember { Status = HouseMemberStatus.ACTIVE });
 
         _mockUnitOfWork.Setup(u => u.ChoreOccurrences.HasOccurrencesForSeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);

@@ -12,10 +12,13 @@ public static class PresentationServiceExtensions
         services.AddControllers(options =>
         {
             options.Filters.Add<ValidationFilter>();
+            options.Filters.Add<HouseScopeFilter>();
         });
         
         services.AddEndpointsApiExplorer();
         services.AddSignalR();
+        services.AddSingleton<ChatConnectionRegistry>();
+        services.AddScoped<IHouseRealtimeAccess, HouseRealtimeAccess>();
         services.AddScoped<INotificationRealtimePublisher, NotificationRealtimePublisher>();
         services.AddScoped<IActionProposalRealtimePublisher, ActionProposalRealtimePublisher>();
         

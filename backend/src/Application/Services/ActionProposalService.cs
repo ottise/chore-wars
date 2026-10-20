@@ -17,11 +17,13 @@ public class ActionProposalService : IActionProposalService
         Converters = { new JsonStringEnumConverter() }
     };
 
+    private readonly bool _mutationsEnabled;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IActionProposalRealtimePublisher _realtimePublisher;
 
-    public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher)
+    public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher, bool mutationsEnabled = false)
     {
+        _mutationsEnabled = mutationsEnabled;
         _unitOfWork = unitOfWork;
         _realtimePublisher = realtimePublisher;
     }
@@ -32,6 +34,7 @@ public class ActionProposalService : IActionProposalService
         Guid creatorId,
         CancellationToken cancellationToken = default)
     {
+        EnsureMutationsEnabled();
         ValidateCreateRequest(request, creatorId);
         await EnsureActiveMemberAsync(houseId, creatorId, cancellationToken);
 
@@ -89,6 +92,7 @@ public class ActionProposalService : IActionProposalService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        EnsureMutationsEnabled();
         if (request.Status is not (ConfirmationStatus.CONFIRMED or ConfirmationStatus.REJECTED))
             throw new DomainException("A response must be CONFIRMED or REJECTED.");
 
@@ -148,6 +152,12 @@ public class ActionProposalService : IActionProposalService
         await EnsureActiveMemberAsync(room.HouseId, userId, cancellationToken);
         var proposals = await _unitOfWork.ActionProposals.GetActiveByRoomIdAsync(roomId, DateTime.UtcNow, cancellationToken);
         return proposals.Select(Map).ToList();
+    }
+
+    private void EnsureMutationsEnabled()
+    {
+        if (!_mutationsEnabled)
+            throw new ConflictException("Proposal actions are deferred. Use season review for season approvals.");
     }
 
     private static void ValidateCreateRequest(CreateProposalRequest request, Guid creatorId)

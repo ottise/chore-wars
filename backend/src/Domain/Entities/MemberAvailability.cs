@@ -4,6 +4,7 @@ namespace ChoreWars.Domain.Entities;
 
 public class MemberAvailability
 {
+    public ICollection<MemberAvailabilitySlot> Slots { get; set; } = new List<MemberAvailabilitySlot>();
     public Guid Id { get; set; }
     public Guid SeasonId { get; set; }
     public Guid UserId { get; set; }

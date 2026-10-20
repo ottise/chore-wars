@@ -9,7 +9,6 @@ import '../../domain/entities/gamification_models.dart';
 import '../providers/gamification_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class SeasonRewardScreen extends ConsumerStatefulWidget {
   const SeasonRewardScreen({
     required this.houseId,

@@ -8,6 +8,9 @@ part of 'chat_message_model.dart';
 
 _ChatMessageModel _$ChatMessageModelFromJson(Map<String, dynamic> json) =>
     _ChatMessageModel(
+      messageType: json['messageType'] as String? ?? 'TEXT',
+      attachmentId: json['attachmentId'] as String?,
+      clientMessageId: json['clientMessageId'] as String?,
       id: json['id'] as String,
       roomId: json['roomId'] as String,
       senderId: json['senderId'] as String,
@@ -22,6 +25,9 @@ _ChatMessageModel _$ChatMessageModelFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ChatMessageModelToJson(_ChatMessageModel instance) =>
     <String, dynamic>{
+      'messageType': instance.messageType,
+      'attachmentId': instance.attachmentId,
+      'clientMessageId': instance.clientMessageId,
       'id': instance.id,
       'roomId': instance.roomId,
       'senderId': instance.senderId,

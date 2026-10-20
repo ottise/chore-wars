@@ -8,6 +8,9 @@ namespace ChoreWars.Application.Interfaces.Services;
 
 public interface IHouseService
 {
+    Task<InvitePreviewResponse> PreviewInviteAsync(string code, CancellationToken ct = default);
+    Task<string> RotateInviteAsync(Guid houseId, Guid userId, CancellationToken ct = default);
+    Task ArchiveAsync(Guid houseId, Guid userId, CancellationToken ct = default);
     Task<HouseResponse> CreateHouseAsync(CreateHouseRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task JoinHouseAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task LeaveHouseAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);

@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../utils/api_error_message.dart';
 
 class ErrorState extends StatelessWidget {
   final Object error;
   final VoidCallback onRetry;
 
-  const ErrorState({
-    super.key,
-    required this.error,
-    required this.onRetry,
-  });
+  const ErrorState({super.key, required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {

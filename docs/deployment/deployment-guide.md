@@ -45,3 +45,16 @@ Or check the health status:
 ```bash
 docker compose ps
 ```
+
+## Giai đoạn code không-AI — 20/10/2026
+
+Theo yêu cầu hiện tại, chưa đóng gói APK hoặc deploy. Không cần URL production để tiếp tục code/test. Release configuration chỉ được kiểm tra khi bước release được thực hiện sau này.
+
+- Docker compose bổ sung persistent volume `private_media`; cấu hình `MediaStorage__RootPath` ngoài wwwroot và giữ volume khi restart. Không public/static serve thư mục này.
+- Có `/health/live`, `/health/ready` (DB); cần kiểm tra riêng Kafka/Redis.
+- Trước migration: backup, chạy SQL read-only `backend/scripts/non-ai-migration-preflight.sql`, thử upgrade trên bản sao dữ liệu. Không chạy reset/drop database dự án.
+- Test backend với PostgreSQL riêng: từ root chạy `./backend/scripts/test-non-ai.ps1` sau khi Docker engine sẵn sàng. Script sử dụng container/cổng/DB ngẫu nhiên, tự dọn tài nguyên do nó tạo, không dùng connection production.
+- Kiểm tra source mobile: `flutter test --no-pub` và `dart analyze lib test` trong `mobile`. Camera/mic/speaker/share phải xác minh trên máy Android thật trước nghiệm thu.
+- Tồn tại cảnh báo NuGet AutoMapper 12.0.1 NU1903; cần đợt nâng dependency và regression test trước nghiệm thu bảo mật.
+
+Không gán trạng thái release-ready cho bộ source chỉ dựa vào build/unit tests. Xem báo cáo hiện hành ở `../reports/non-ai-implementation-progress-2026-10-20.vi.md`.

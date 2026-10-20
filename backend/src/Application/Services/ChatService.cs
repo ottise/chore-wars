@@ -1,3 +1,4 @@
+using ChoreWars.Domain.Enums;
 using System;
 using System.Linq;
 using System.Threading;
@@ -12,14 +13,20 @@ namespace ChoreWars.Application.Services;
 
 public class ChatService : IChatService
 {
+    private readonly IHouseMutationCoordinator? _mutations;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ChatService(IUnitOfWork unitOfWork)
+    public ChatService(IUnitOfWork unitOfWork,IHouseMutationCoordinator? mutations=null)
     {
+        _mutations=mutations;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<ChatRoomResponse> GetHouseRoomAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        return _mutations!=null?await _mutations.RunAsync(houseId,()=>GetHouseRoomCoreAsync(houseId,userId,cancellationToken),cancellationToken):await GetHouseRoomCoreAsync(houseId,userId,cancellationToken);
+    }
+    private async Task<ChatRoomResponse> GetHouseRoomCoreAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
     {
         await ValidateHouseMembershipAsync(houseId, userId, cancellationToken);
 
@@ -55,6 +62,7 @@ public class ChatService : IChatService
 
         await ValidateHouseMembershipAsync(room.HouseId, userId, cancellationToken);
 
+        if (page < 1 || pageSize < 1 || pageSize > 100) throw new DomainException("Invalid pagination.");
         var totalCount = await _unitOfWork.Chats.GetMessageCountAsync(roomId, cancellationToken);
         var messages = await _unitOfWork.Chats.GetMessagesPagedAsync(roomId, page, pageSize, cancellationToken);
 
@@ -65,7 +73,7 @@ public class ChatService : IChatService
             SenderId = m.SenderId,
             SenderName = m.Sender?.DisplayName ?? "Unknown",
             SenderAvatar = m.Sender?.AvatarUrl,
-            Content = m.Content,
+            Content = m.Content, MessageType = m.MessageType, AttachmentId = m.AttachmentId, ClientMessageId = m.ClientMessageId,
             CreatedAt = m.CreatedAt,
             EditedAt = m.EditedAt
         }).ToList();
@@ -81,6 +89,12 @@ public class ChatService : IChatService
 
     public async Task<ChatMessageResponse> CreateMessageAsync(Guid roomId, Guid userId, string content, CancellationToken cancellationToken = default)
     {
+        var room=await _unitOfWork.Chats.GetRoomByIdAsync(roomId,cancellationToken)??throw new NotFoundException("Room not found.");
+        return _mutations!=null?await _mutations.RunAsync(room.HouseId,()=>CreateMessageCoreAsync(roomId,userId,content,cancellationToken),cancellationToken):await CreateMessageCoreAsync(roomId,userId,content,cancellationToken);
+    }
+    private async Task<ChatMessageResponse> CreateMessageCoreAsync(Guid roomId, Guid userId, string content, CancellationToken cancellationToken)
+    {
+        if (content?.Length > 4000) throw new DomainException("Messages cannot exceed 4000 characters.");
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new DomainException("Message content cannot be empty.");
@@ -90,6 +104,8 @@ public class ChatService : IChatService
             ?? throw new NotFoundException($"ChatRoom {roomId} not found");
 
         await ValidateHouseMembershipAsync(room.HouseId, userId, cancellationToken);
+        var houseContext = await _unitOfWork.Houses.GetByIdAsync(room.HouseId,cancellationToken);
+        if (houseContext?.IsArchived == true) throw new ConflictException("Archived households are read-only.");
 
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken)
             ?? throw new NotFoundException($"User {userId} not found");
@@ -129,7 +145,7 @@ public class ChatService : IChatService
     private async Task ValidateHouseMembershipAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
         {
             throw new ForbiddenException("You are not a member of this house.");
         }

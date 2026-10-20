@@ -10,6 +10,7 @@ public class UnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _context;
     private IDbContextTransaction? _transaction;
+    private int _transactionDepth;
 
     public IUserRepository Users { get; }
     public IRefreshTokenRepository RefreshTokens { get; }
@@ -89,11 +90,15 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
+        if (_transactionDepth > 0) { _transactionDepth++; return; }
         _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        _transactionDepth = 1;
     }
 
     public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
     {
+        if (_transactionDepth > 1) { _transactionDepth--; return; }
+        _transactionDepth = 0;
         if (_transaction != null)
         {
             await _transaction.CommitAsync(cancellationToken);
@@ -104,6 +109,7 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
     {
+        _transactionDepth = 0;
         if (_transaction != null)
         {
             await _transaction.RollbackAsync(cancellationToken);

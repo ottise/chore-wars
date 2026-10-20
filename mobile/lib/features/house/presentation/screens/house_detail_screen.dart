@@ -30,6 +30,17 @@ class HouseDetailScreen extends ConsumerWidget {
           data: (h) => Text(h.name),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Chores needing resolution',
+            onPressed: () =>
+                context.push('/houses/$houseId/unresolved-chores'),
+            icon: const Icon(Icons.pending_actions),
+          ),
+          IconButton(
+            tooltip: 'Household rewards',
+            onPressed: () => context.push('/houses/$houseId/rewards'),
+            icon: const Icon(Icons.redeem),
+          ),
           house
                   .whenData(
                     (h) => IconButton(
@@ -133,9 +144,9 @@ class _HouseBody extends ConsumerWidget {
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(apiErrorMessage(e))),
+                      );
                     }
                   }
                 },
@@ -148,7 +159,9 @@ class _HouseBody extends ConsumerWidget {
                 tileColor: Theme.of(context).colorScheme.tertiaryContainer,
                 leading: const Icon(Icons.rate_review_rounded),
                 title: const Text('Review Schedule'),
-                subtitle: const Text('Review and confirm the generated schedule'),
+                subtitle: const Text(
+                  'Review and confirm the generated schedule',
+                ),
                 onTap: () => context.push(
                   '/houses/$houseId/seasons/${activeSeason.value!['id']}/review',
                 ),
@@ -265,8 +278,7 @@ class _QuickActions extends StatelessWidget {
         _ActionChip(
           icon: Icons.qr_code_rounded,
           label: 'Invite QR',
-          onTap: () =>
-              context.push('/houses/$houseId/qr-invite', extra: house),
+          onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
         ),
         if (activeSeason?.value != null)
           _ActionChip(

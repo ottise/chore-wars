@@ -27,7 +27,7 @@ public class BountyExpiredConsumer : KafkaConsumerBase<BountyExpiredEvent>
             userId: @event.PostedByUserId,
             houseId: @event.HouseId,
             title: "Bounty Expired",
-            message: $"Your bounty has expired and the chore was forced-reassigned.",
+            message: "Your bounty has expired. Check the chore's current responsibility and payment obligations.",
             type: "BOUNTY_EXPIRED",
             targetType: "BOUNTY",
             targetId: @event.BountyId,

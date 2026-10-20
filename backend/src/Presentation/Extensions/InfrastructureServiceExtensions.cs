@@ -26,7 +26,10 @@ public static class InfrastructureServiceExtensions
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
+        services.AddScoped<IAfterCommitActions, ChoreWars.Infrastructure.Concurrency.AfterCommitActions>();
+        services.AddSingleton<ChoreWars.Infrastructure.Diagnostics.IRuntimeProbe, ChoreWars.Infrastructure.Diagnostics.NoopRuntimeProbe>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IHouseMutationCoordinator, ChoreWars.Infrastructure.Concurrency.PostgresHouseMutationCoordinator>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IHouseRepository, HouseRepository>();
@@ -51,14 +54,20 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IChatRepository, ChatRepository>();
         services.AddScoped<IActionProposalRepository, ActionProposalRepository>();
 
+        services.Configure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(configuration.GetSection("MediaStorage"));
+        services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.FileMediaStorage>();
+
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";
-        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisConnStr));
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnStr));
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         // Kafka
         services.Configure<KafkaOptions>(configuration.GetSection("Kafka"));
-        services.AddSingleton<IEventPublisher, KafkaEventPublisher>();
+        services.AddScoped<IEventPublisher, ChoreWars.Infrastructure.Messaging.OutboxEventPublisher>();
+        services.AddScoped<IFailedEventService, ChoreWars.Infrastructure.Messaging.Recovery.FailedEventService>();
+        services.AddHostedService<OutboxDispatcherWorker>();
+        services.AddHostedService<MediaCleanupWorker>();
 
         // Auth
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -73,6 +82,7 @@ public static class InfrastructureServiceExtensions
         
         services.AddHostedService<ChoreCompletedConsumer>();
         services.AddHostedService<BountyCreatedConsumer>();
+        services.AddHostedService<BountyAcceptedConsumer>();
         services.AddHostedService<ChoreOverdueConsumer>();
         services.AddHostedService<BountyExpiredConsumer>();
         services.AddHostedService<SeasonEndedConsumer>();
@@ -83,10 +93,10 @@ public static class InfrastructureServiceExtensions
 
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        var secret = configuration["Jwt:Secret"] ?? "a-very-long-fallback-secret-key-that-should-be-replaced";
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
+                var secret = configuration["Jwt:Secret"] ?? "a-very-long-fallback-secret-key-that-should-be-replaced";
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,

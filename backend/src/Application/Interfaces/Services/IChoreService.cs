@@ -8,6 +8,8 @@ namespace ChoreWars.Application.Interfaces.Services;
 
 public interface IChoreService
 {
+    Task ClaimBonusAsync(Guid occurrenceId, Guid userId, CancellationToken ct = default);
+    Task<ChoreResponse> ImportRoutineAsync(Guid houseId, Guid seasonId, Guid templateId, Guid userId, CancellationToken ct = default);
     Task<ChoreResponse> CreateChoreAsync(Guid houseId, CreateChoreRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task<ChoreResponse> UpdateChoreAsync(Guid choreId, UpdateChoreRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task DeleteChoreAsync(Guid choreId, Guid userId, CancellationToken cancellationToken = default);

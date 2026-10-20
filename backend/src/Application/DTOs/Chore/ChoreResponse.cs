@@ -5,7 +5,12 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class ChoreResponse
 {
+    public Guid? SeasonId { get; set; }
     public Guid Id { get; set; }
+    public Guid? SourceTemplateId { get; set; }
+    public int DeadlineMinutes { get; set; } = 1439;
+    public DateOnly? RecurrenceAnchor { get; set; }
+    public List<DateOnly> CustomDates { get; set; } = new();
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int KarmaPoints { get; set; }

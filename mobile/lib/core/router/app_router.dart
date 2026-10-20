@@ -1,6 +1,13 @@
+import '../../features/house/presentation/screens/unresolved_chores_screen.dart';
+import '../../features/house/presentation/screens/failed_events_screen.dart';
+import '../../features/gamification/presentation/screens/reward_catalog_screen.dart';
+import '../../features/gamification/presentation/screens/reward_form_screen.dart';
+import '../../features/payment/presentation/screens/payment_obligations_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/chores/presentation/screens/chores_screen.dart';
 import '../../features/leaderboard/presentation/screens/leaderboard_screen.dart';
@@ -8,25 +15,30 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 import '../../features/bounty/presentation/screens/bounty_board_screen.dart';
 import '../../features/bounty/presentation/screens/create_bounty_screen.dart';
 import '../../features/bounty/presentation/screens/bounty_detail_screen.dart';
-import '../../features/chores/presentation/screens/chore_detail_screen.dart' as chores;
-import '../../features/gamification/presentation/screens/karma_history_screen.dart' as gamification_history;
+import '../../features/chores/presentation/screens/chore_detail_screen.dart'
+    as chores;
+import '../../features/gamification/presentation/screens/karma_history_screen.dart'
+    as gamification_history;
 import '../widgets/app_shell.dart';
 import '../constants/app_constants.dart';
 import '../screens/ui_preview_screen.dart';
 import '../storage/secure_storage.dart';
+import '../storage/session_provider.dart';
 import '../../features/auth/domain/entities/auth_models.dart';
 import '../../features/auth/presentation/screens/edit_profile_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/chore/domain/entities/chore_models.dart';
-import '../../features/chore/presentation/screens/chore_detail_screen.dart' as chore_feature;
+import '../../features/chore/presentation/screens/chore_detail_screen.dart'
+    as chore_feature;
 import '../../features/chore/presentation/screens/chore_form_screen.dart';
 import '../../features/chore/presentation/screens/chore_list_screen.dart';
 import '../../features/gamification/presentation/screens/achievements_screen.dart';
 import '../../features/gamification/presentation/screens/chore_pass_screen.dart';
 import '../../features/gamification/presentation/screens/karma_screen.dart';
-import '../../features/gamification/presentation/screens/leaderboard_screen.dart' as gamification_leaderboard;
+import '../../features/gamification/presentation/screens/leaderboard_screen.dart'
+    as gamification_leaderboard;
 import '../../features/gamification/presentation/screens/season_reward_screen.dart';
 import '../../features/house/domain/entities/house_models.dart';
 import '../../features/house/presentation/screens/availability_screen.dart';
@@ -48,7 +60,7 @@ import '../../features/chat/presentation/screens/chat_room_screen.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/houses',
     redirect: (context, state) async {
       if (AppConstants.uiPreview) return null;
@@ -69,9 +81,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => AppShell(
-          navigationShell: navigationShell,
-        ),
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [
@@ -126,9 +137,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/bounties',
-        builder: (context, state) => BountyBoardScreen(
-          houseId: state.uri.queryParameters['houseId'],
-        ),
+        builder: (context, state) =>
+            BountyBoardScreen(houseId: state.uri.queryParameters['houseId']),
       ),
       GoRoute(
         path: '/bounties/create',
@@ -148,33 +158,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/payments',
-        redirect: (context, state) {
-          final houseId = state.uri.queryParameters['houseId'];
-          return houseId != null ? '/bounties?houseId=${Uri.encodeComponent(houseId)}' : '/houses';
-        },
-      ),
-      GoRoute(
-        path: '/bounties',
-        builder: (context, state) => BountyBoardScreen(
-          houseId: state.uri.queryParameters['houseId']!,
+        builder: (context, state) => PaymentObligationsScreen(
+          houseId: state.uri.queryParameters['houseId'],
         ),
       ),
-      GoRoute(
-        path: '/bounties/create',
-        builder: (context, state) => CreateBountyScreen(
-          houseId: state.uri.queryParameters['houseId']!,
-          occurrenceId: state.uri.queryParameters['occurrenceId']!,
-          choreName: state.uri.queryParameters['choreName']!,
-          deadline: state.uri.queryParameters['deadline']!,
-        ),
-      ),
-      GoRoute(
-        path: '/bounties/:bountyId',
-        builder: (context, state) => BountyDetailScreen(
-          houseId: state.uri.queryParameters['houseId']!,
-          bountyId: state.pathParameters['bountyId']!,
-        ),
-      ),
+
       GoRoute(
         path: '/karma-history',
         builder: (context, state) => gamification_history.KarmaHistoryScreen(
@@ -189,20 +177,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           status: state.uri.queryParameters['status'] ?? 'Unknown',
         ),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(
-        path: '/karma-history',
-        builder: (context, state) => gamification_history.KarmaHistoryScreen(
-          houseId: state.uri.queryParameters['houseId'] ?? '',
-        ),
-      ),
+
       GoRoute(
         path: '/houses',
         builder: (context, state) => const MyHousesScreen(),
@@ -231,6 +211,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'settings',
                 builder: (context, state) => HouseSettingsScreen(
+                  houseId: state.pathParameters['houseId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'failed-events',
+                builder: (context, state) => FailedEventsScreen(
                   houseId: state.pathParameters['houseId']!,
                 ),
               ),
@@ -274,6 +260,23 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'karma',
                 builder: (context, state) =>
                     KarmaScreen(houseId: state.pathParameters['houseId']!),
+              ),
+              GoRoute(
+                path: 'unresolved-chores',
+                builder: (context, state) => UnresolvedChoresScreen(
+                  houseId: state.pathParameters['houseId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'rewards',
+                builder: (context, state) => RewardCatalogScreen(
+                  houseId: state.pathParameters['houseId']!,
+                ),
+              ),
+              GoRoute(
+                path: 'rewards/new',
+                builder: (context, state) =>
+                    RewardFormScreen(houseId: state.pathParameters['houseId']!),
               ),
               GoRoute(
                 path: 'chat',
@@ -356,4 +359,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.listen(sessionEpochProvider, (_, _) => router.refresh());
+  ref.onDispose(router.dispose);
+  return router;
 });

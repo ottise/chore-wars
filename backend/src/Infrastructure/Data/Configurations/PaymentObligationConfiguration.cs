@@ -9,6 +9,7 @@ public class PaymentObligationConfiguration : IEntityTypeConfiguration<PaymentOb
     public void Configure(EntityTypeBuilder<PaymentObligation> builder)
     {
         builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.OccurrenceId).IsUnique().HasFilter("\"Reason\" = 'FORCED_REASSIGNMENT' AND \"OccurrenceId\" IS NOT NULL");
 
         builder.Property(x => x.Reason)
             .IsRequired()
@@ -21,7 +22,7 @@ public class PaymentObligationConfiguration : IEntityTypeConfiguration<PaymentOb
         builder.HasOne(x => x.House)
             .WithMany()
             .HasForeignKey(x => x.HouseId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.DebtorUser)
             .WithMany()
@@ -36,11 +37,11 @@ public class PaymentObligationConfiguration : IEntityTypeConfiguration<PaymentOb
         builder.HasOne(x => x.Season)
             .WithMany()
             .HasForeignKey(x => x.SeasonId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Occurrence)
             .WithMany()
             .HasForeignKey(x => x.OccurrenceId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

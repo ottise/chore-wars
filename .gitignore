@@ -60,3 +60,7 @@ Desktop.ini
 # Logs
 # =========================
 *.log
+
+# Local runtime verification evidence
+/artifacts/
+**/TestResults/

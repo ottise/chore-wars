@@ -1,7 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
 using ChoreWars.Domain.Entities;
@@ -10,76 +6,45 @@ using Microsoft.Extensions.Logging;
 
 namespace ChoreWars.Application.Services;
 
-public class AchievementCheckService : IAchievementCheckService
+public class AchievementCheckService(IUnitOfWork uow, ILogger<AchievementCheckService> logger,
+    IHouseMutationCoordinator? mutations = null, TimeProvider? clock = null) : IAchievementCheckService
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly ILogger<AchievementCheckService> _logger;
-
-    public AchievementCheckService(IUnitOfWork unitOfWork, ILogger<AchievementCheckService> logger)
+    public Task CheckAchievementsAsync(Guid houseId,Guid userId,AchievementConditionType condition,CancellationToken ct=default)
+        => mutations != null ? mutations.RunAsync(houseId,()=>CheckCore(houseId,userId,condition,ct),ct) : CheckCore(houseId,userId,condition,ct);
+    private async Task CheckCore(Guid houseId,Guid userId,AchievementConditionType condition,CancellationToken ct)
     {
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
-
-    public async Task CheckAchievementsAsync(Guid houseId, Guid userId, AchievementConditionType conditionType, CancellationToken cancellationToken = default)
-    {
-        var achievements = await _unitOfWork.Achievements.GetByHouseIdAsync(houseId, cancellationToken);
-        var targetAchievements = achievements.Where(a => a.ConditionType == conditionType).ToList();
-        
-        if (!targetAchievements.Any()) return;
-
-        var existingUserAchievements = await _unitOfWork.UserAchievements.GetByUserIdAsync(userId, cancellationToken);
-        var unlockedIds = existingUserAchievements.Select(ua => ua.AchievementId).ToHashSet();
-
-        // Evaluate metric based on condition type
-        int currentMetric = await CalculateMetricAsync(userId, conditionType, cancellationToken);
-
-        foreach (var achievement in targetAchievements)
-        {
-            if (unlockedIds.Contains(achievement.Id)) continue; // already unlocked
-
-            if (currentMetric >= achievement.Threshold)
-            {
-                var newUnlock = new UserAchievement
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = userId,
-                    AchievementId = achievement.Id,
-                    UnlockedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.UserAchievements.AddAsync(newUnlock, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation($"User {userId} unlocked achievement {achievement.Name}");
-                
-                // (Optional) We could publish an AchievementUnlockedEvent here if needed for notifications
-            }
+        var member=await uow.HouseMembers.GetByHouseAndUserIdAsync(houseId,userId,ct);
+        if(member?.Status!=HouseMemberStatus.ACTIVE)return;
+        var definitions=(await uow.Achievements.GetByHouseIdAsync(houseId,ct)).Where(a=>a.ConditionType==condition).ToList();
+        if(definitions.Count==0)return;
+        var unlocked=(await uow.UserAchievements.GetByUserIdAsync(userId,ct)).Select(a=>a.AchievementId).ToHashSet();
+        int metric;
+        if(condition==AchievementConditionType.KARMA_EARNED)
+            metric=(await uow.KarmaTransactions.GetByUserIdAsync(userId,ct)).Where(t=>t.HouseId==houseId && t.Amount>0 && t.Type is KarmaTransactionType.CHORE_COMPLETED or KarmaTransactionType.BONUS or KarmaTransactionType.BOUNTY_REWARD).Sum(t=>t.Amount);
+        else if(condition==AchievementConditionType.BOUNTIES_CLAIMED)
+            metric=await uow.ChoreOccurrences.CountAcceptedBountiesAsync(houseId,userId,ct);
+        else {
+            var completed=(await uow.ChoreOccurrences.GetByAssignedUserIdAsync(userId,ct))
+                .Where(o=>o.Chore.HouseId==houseId && o.Status==ChoreOccurrenceStatus.COMPLETED && (o.CompletedByUserId??o.AssignedUserId)==userId).ToList();
+            metric=condition switch {
+                AchievementConditionType.CHORES_COMPLETED=>completed.Count,
+                AchievementConditionType.STREAK_DAYS=>LongestStreak(completed.Where(o=>o.CompletedAt.HasValue).Select(o=>DateOnly.FromDateTime(ScheduleTime.Local(o.CompletedAt!.Value)))),
+                _=>0
+            };
         }
-    }
-
-    private async Task<int> CalculateMetricAsync(Guid userId, AchievementConditionType conditionType, CancellationToken cancellationToken)
-    {
-        switch (conditionType)
-        {
-            case AchievementConditionType.CHORES_COMPLETED:
-                var chores = await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(userId, cancellationToken);
-                return chores.Count(c => c.Status == ChoreOccurrenceStatus.COMPLETED);
-                
-            case AchievementConditionType.KARMA_EARNED:
-                // For simplicity, we just count the sum of positive transactions 
-                // Currently no repository method for getting all KarmaTransactions by user, so return a placeholder.
-                // In a real app we'd query: await _unitOfWork.KarmaTransactions.GetByUserIdAsync(...)
-                return 0; 
-                
-            case AchievementConditionType.BOUNTIES_CLAIMED:
-                // Placeholder
-                return 0;
-                
-            case AchievementConditionType.STREAK_DAYS:
-                // Placeholder
-                return 0;
-                
-            default:
-                return 0;
+        foreach(var item in definitions.Where(a=>a.Threshold>0 && a.Threshold<=metric && !unlocked.Contains(a.Id))) {
+            await uow.UserAchievements.AddAsync(new UserAchievement {Id=Guid.NewGuid(),UserId=userId,AchievementId=item.Id,UnlockedAt=(clock??TimeProvider.System).GetUtcNow().UtcDateTime},ct);
+            unlocked.Add(item.Id);
+            logger.LogInformation("Awarded achievement {AchievementId} to {UserId} in {HouseId}",item.Id,userId,houseId);
         }
+        await uow.SaveChangesAsync(ct);
+    }
+    public static int LongestStreak(IEnumerable<DateOnly> days) {
+        DateOnly? previous=null;var current=0;var longest=0;
+        foreach(var day in days.Distinct().Order()) {
+            current=previous.HasValue && day.DayNumber==previous.Value.DayNumber+1?current+1:1;
+            longest=Math.Max(longest,current);previous=day;
+        }
+        return longest;
     }
 }

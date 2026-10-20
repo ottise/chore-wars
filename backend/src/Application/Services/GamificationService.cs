@@ -14,11 +14,15 @@ namespace ChoreWars.Application.Services;
 
 public class GamificationService : IGamificationService
 {
+    private readonly IHouseMutationCoordinator? _mutations;
+    private readonly TimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
-    public GamificationService(IUnitOfWork unitOfWork, IMapper mapper)
+    public GamificationService(IUnitOfWork unitOfWork, IMapper mapper, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null)
     {
+        _clock = clock ?? TimeProvider.System;
+        _mutations = mutationCoordinator;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
@@ -32,12 +36,12 @@ public class GamificationService : IGamificationService
     public async Task<KarmaSummaryResponse> GetKarmaSummaryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException();
 
         var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken);
         if (activeSeason == null)
-            return new KarmaSummaryResponse();
+            return new KarmaSummaryResponse { Current = member.KarmaBalance };
 
         var transactions = (await _unitOfWork.KarmaTransactions.GetByUserIdAsync(userId, cancellationToken))
             .Where(item => item.HouseId == houseId && item.SeasonId == activeSeason.Id)
@@ -45,7 +49,7 @@ public class GamificationService : IGamificationService
 
         return new KarmaSummaryResponse
         {
-            Current = transactions.Sum(item => item.Amount),
+            Current = member.KarmaBalance,
             NormalChores = transactions
                 .Where(item => item.Type == KarmaTransactionType.CHORE_COMPLETED)
                 .Sum(item => item.Amount),
@@ -61,7 +65,7 @@ public class GamificationService : IGamificationService
     public async Task<IEnumerable<KarmaTransactionResponse>> GetKarmaHistoryAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException();
 
         var transactions = await _unitOfWork.KarmaTransactions.GetByUserIdAsync(userId, cancellationToken);
@@ -92,7 +96,7 @@ public class GamificationService : IGamificationService
             throw new NotFoundException("Season not found");
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException();
 
         var rewards = await _unitOfWork.Rewards.GetBySeasonIdAsync(seasonId, cancellationToken);
@@ -109,11 +113,11 @@ public class GamificationService : IGamificationService
             var status = redemption.Status;
             if (status == RewardRedemptionStatus.UNCLAIMED &&
                 redemption.ClaimDeadline.HasValue &&
-                redemption.ClaimDeadline.Value < DateTime.UtcNow)
+                redemption.ClaimDeadline.Value < _clock.GetUtcNow().UtcDateTime)
                 status = RewardRedemptionStatus.EXPIRED;
             if (status == RewardRedemptionStatus.CLAIMED &&
                 redemption.UsageDeadline.HasValue &&
-                redemption.UsageDeadline.Value < DateTime.UtcNow)
+                redemption.UsageDeadline.Value < _clock.GetUtcNow().UtcDateTime)
                 status = RewardRedemptionStatus.EXPIRED;
 
             var rewardResponse = _mapper.Map<RewardResponse>(reward);
@@ -128,6 +132,14 @@ public class GamificationService : IGamificationService
 
     public async Task ClaimRewardAsync(Guid redemptionId, Guid userId, CancellationToken cancellationToken = default)
     {
+        if (_mutations == null) { await ClaimRewardCoreAsync(redemptionId, userId, cancellationToken); return; }
+        var redemptionContext = await _unitOfWork.RewardRedemptions.GetByIdAsync(redemptionId, cancellationToken) ?? throw new NotFoundException("Redemption not found.");
+        var context = await _unitOfWork.Rewards.GetByIdAsync(redemptionContext.RewardId, cancellationToken) ?? throw new NotFoundException("Reward not found.");
+        await _mutations.RunAsync(context.HouseId, () => ClaimRewardCoreAsync(redemptionId, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task ClaimRewardCoreAsync(Guid redemptionId, Guid userId, CancellationToken cancellationToken = default)
+    {
         var redemption = await _unitOfWork.RewardRedemptions.GetByIdAsync(redemptionId, cancellationToken);
         if (redemption == null)
             throw new NotFoundException("Reward redemption not found");
@@ -135,10 +147,16 @@ public class GamificationService : IGamificationService
         if (redemption.UserId != userId)
             throw new ForbiddenException("Cannot claim someone else's reward");
 
+        var reward = await _unitOfWork.Rewards.GetByIdAsync(redemption.RewardId,cancellationToken)
+            ?? throw new NotFoundException("Reward not found.");
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(reward.HouseId,userId,cancellationToken);
+        if (member?.Status != HouseMemberStatus.ACTIVE) throw new ForbiddenException("Active household membership is required.");
+        if (reward.Type != RewardType.CHORE_PASS) throw new ConflictException("Only an awarded Chore Pass can be claimed.");
+
         if (redemption.Status != RewardRedemptionStatus.UNCLAIMED)
             throw new ConflictException("Reward is already claimed or expired");
 
-        if (redemption.ClaimDeadline.HasValue && redemption.ClaimDeadline.Value < DateTime.UtcNow)
+        if (redemption.ClaimDeadline.HasValue && redemption.ClaimDeadline.Value < _clock.GetUtcNow().UtcDateTime)
         {
             redemption.Status = RewardRedemptionStatus.EXPIRED;
             _unitOfWork.RewardRedemptions.Update(redemption);
@@ -147,8 +165,8 @@ public class GamificationService : IGamificationService
         }
 
         redemption.Status = RewardRedemptionStatus.CLAIMED;
-        redemption.RedeemedAt = DateTime.UtcNow;
-        redemption.UsageDeadline = DateTime.UtcNow.AddDays(10);
+        redemption.RedeemedAt = _clock.GetUtcNow().UtcDateTime;
+        redemption.UsageDeadline = _clock.GetUtcNow().UtcDateTime.AddDays(10);
         
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -166,6 +184,13 @@ public class GamificationService : IGamificationService
 
     public async Task UseChorePassAsync(Guid redemptionId, Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
     {
+        if (_mutations == null) { await UseChorePassCoreAsync(redemptionId, occurrenceId, userId, cancellationToken); return; }
+        var context = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken) ?? throw new NotFoundException("Occurrence not found.");
+        await _mutations.RunAsync(context.Chore.HouseId, () => UseChorePassCoreAsync(redemptionId, occurrenceId, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task UseChorePassCoreAsync(Guid redemptionId, Guid occurrenceId, Guid userId, CancellationToken cancellationToken = default)
+    {
         var redemption = await _unitOfWork.RewardRedemptions.GetByIdAsync(redemptionId, cancellationToken);
         if (redemption == null)
             throw new NotFoundException("Reward redemption not found");
@@ -176,7 +201,7 @@ public class GamificationService : IGamificationService
         if (redemption.Status != RewardRedemptionStatus.CLAIMED)
             throw new ConflictException("Reward must be claimed before use, and cannot be already used");
 
-        if (redemption.UsageDeadline.HasValue && redemption.UsageDeadline.Value < DateTime.UtcNow)
+        if (redemption.UsageDeadline.HasValue && redemption.UsageDeadline.Value < _clock.GetUtcNow().UtcDateTime)
         {
             redemption.Status = RewardRedemptionStatus.EXPIRED;
             _unitOfWork.RewardRedemptions.Update(redemption);
@@ -198,21 +223,16 @@ public class GamificationService : IGamificationService
         if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED)
             throw new ConflictException("Only a pending chore can be covered by a Chore Pass.");
         
-        var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
-        var eligibleMembers = members.Where(m => m.UserId != userId).ToList();
-        if (!eligibleMembers.Any())
-            throw new ConflictException("No eligible house member is available to cover this chore.");
-
-        var assignee = eligibleMembers
-            .OrderBy(m => m.KarmaBalance)
-            .ThenBy(x => Guid.NewGuid())
-            .First();
-
-        occurrence.AssignedUserId = assignee.UserId;
-        occurrence.Status = ChoreOccurrenceStatus.ASSIGNED;
-        occurrence.IsForcedReassigned = true;
+        if (occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime || occurrence.Chore.HouseId != reward.HouseId) throw new ConflictException("Pass requires an unexpired chore in this household.");
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(reward.HouseId, userId, cancellationToken);
+        if (member?.Status != HouseMemberStatus.ACTIVE) throw new ForbiddenException();
+        var bounty = await _unitOfWork.ChoreBounties.GetByOccurrenceIdAsync(occurrence.Id,cancellationToken);
+        if (bounty?.Status is BountyStatus.OPEN or BountyStatus.CLAIMED) throw new ConflictException("Resolve the existing bounty before using a pass.");
+        var selected = await ReplacementSelector.SelectAsync(_unitOfWork, occurrence, userId, cancellationToken);
+        if (!selected.HasValue) throw new ConflictException("No eligible replacement. Your pass has not been consumed.");
+        await ChoreResponsibilityService.AssignAsync(_unitOfWork, occurrence, selected.Value, "CHORE_PASS", occurrence.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
         redemption.Status = RewardRedemptionStatus.USED;
-        redemption.UsedAt = DateTime.UtcNow;
+        redemption.UsedAt = _clock.GetUtcNow().UtcDateTime;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -233,7 +253,7 @@ public class GamificationService : IGamificationService
     public async Task<IEnumerable<AchievementResponse>> GetAchievementsAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException();
 
         var achievements = await _unitOfWork.Achievements.GetByHouseIdAsync(houseId, cancellationToken);

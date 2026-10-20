@@ -16,226 +16,111 @@ namespace ChoreWars.Application.Services;
 
 public class ChoreAllocationService : IChoreAllocationService
 {
+    private readonly IHouseMutationCoordinator? _mutations;
+    private readonly TimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ChoreAllocationService> _logger;
 
-    public ChoreAllocationService(IUnitOfWork unitOfWork, ILogger<ChoreAllocationService> logger)
+    public ChoreAllocationService(IUnitOfWork unitOfWork, ILogger<ChoreAllocationService> logger, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null)
     {
+        _clock = clock ?? TimeProvider.System;
+        _mutations = mutationCoordinator;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
     public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation($"Starting Workload-based allocation for season {seasonId}");
+        if (_mutations == null) { await AllocateSeasonCoreAsync(seasonId, cancellationToken); return; }
+        var context = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException("Season not found.");
+        await _mutations.RunAsync(context.HouseId, () => AllocateSeasonCoreAsync(seasonId, cancellationToken), cancellationToken);
+    }
 
-        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
-        if (season == null)
-            throw new NotFoundException(nameof(ChoreSeason), seasonId);
-
-        // Removed check for AUTOMATIC to allow forced allocation when generating schedule
-
-        var unassignedOccurrences = (await _unitOfWork.ChoreOccurrences.GetUnassignedBySeasonIdAsync(seasonId, cancellationToken)).ToList();
-        if (!unassignedOccurrences.Any())
-        {
-            _logger.LogWarning($"No unassigned occurrences found for season {seasonId}");
-            return; // Nothing to allocate
-        }
-
-        var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken))
-            .Where(m => m.Status == HouseMemberStatus.ACTIVE)
-            .ToList();
-
-        if (!members.Any())
-            throw new ConflictException("No active members in the household to assign chores to.");
-
-        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken);
-
-        // Fetch constraints and preferences
+    private async Task AllocateSeasonCoreAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
+        if (season.Status != SeasonStatus.DRAFT || season.AllocationMethod != AllocationMethod.AUTOMATIC)
+            throw new ConflictException("Automatic allocation only applies to automatic draft seasons.");
+        var occurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL).ToList();
+        var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
+        var availability = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
         var constraints = new Dictionary<Guid, MemberConstraint>();
         var preferences = new Dictionary<Guid, List<MemberPreference>>();
-        foreach (var m in members)
-        {
-            var c = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(m.UserId, season.HouseId, cancellationToken);
-            constraints[m.UserId] = c ?? new MemberConstraint { 
-                MaxChoresPerWeek = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxChoresPerWeek, 
-                MaxEffortMinutesPerDay = ChoreWars.Domain.Common.Constants.AIAllocationConstants.DefaultMaxEffortMinutesPerDay 
-            };
-
-            var p = await _unitOfWork.MemberPreferences.GetByUserIdAsync(m.UserId, cancellationToken);
-            preferences[m.UserId] = p.ToList();
+        foreach (var member in members) {
+            constraints[member.UserId] = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(member.UserId, season.HouseId, cancellationToken)
+                ?? new MemberConstraint { MaxChoresPerWeek = AIAllocationConstants.DefaultMaxChoresPerWeek, MaxEffortMinutesPerDay = AIAllocationConstants.DefaultMaxEffortMinutesPerDay };
+            preferences[member.UserId] = (await _unitOfWork.MemberPreferences.GetByUserIdAsync(member.UserId, cancellationToken)).ToList();
         }
-
-        // Initialize state tracking
-        var assignedWorkload = members.ToDictionary(m => m.UserId, m => 0); // Total minutes assigned in this session
-        var choresPerWeek = members.ToDictionary(m => m.UserId, m => new Dictionary<int, int>()); // WeekOfYear -> Count
-        var minutesPerDay = members.ToDictionary(m => m.UserId, m => new Dictionary<DateTime, int>()); // Date -> Minutes
-
-        // Helper to get ISO week
-        int GetIso8601WeekOfYear(DateTime time)
-        {
-            var cal = System.Globalization.DateTimeFormatInfo.CurrentInfo.Calendar;
-            return cal.GetWeekOfYear(time, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-        }
-
-        // Sort occurrences by Difficulty (Hardest first) and then EstimatedMinutes (Longest first)
-        unassignedOccurrences = unassignedOccurrences
-            .OrderByDescending(o => o.Chore.Difficulty)
-            .ThenByDescending(o => o.Chore.EstimatedMinutes)
-            .ToList();
-
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            foreach (var occurrence in unassignedOccurrences)
-            {
-                if (occurrence.Chore.Type == ChoreType.BONUS)
-                {
-                    continue; // Bonus chores remain unassigned for members to claim
+        try {
+            foreach (var occurrence in occurrences.Where(o => !o.AssignedUserId.HasValue).OrderBy(o => o.DueDate).ThenByDescending(o => o.SnapshotKarma).ThenBy(o => o.Id)) {
+                var date = ScheduleTime.Local(occurrence.DueDate).Date;
+                var week = System.Globalization.ISOWeek.GetWeekOfYear(date);
+                var year = System.Globalization.ISOWeek.GetYear(date);
+                var candidates = new List<(Guid UserId, int Karma, int Preference, int Count, DateTime Start)>();
+                foreach (var member in members) {
+                    var assigned = occurrences.Where(o => o.AssignedUserId == member.UserId).ToList();
+                    var limit = constraints[member.UserId];
+                    if (assigned.Count(o => { var d = ScheduleTime.Local(o.DueDate); return System.Globalization.ISOWeek.GetYear(d) == year && System.Globalization.ISOWeek.GetWeekOfYear(d) == week; }) >= limit.MaxChoresPerWeek) continue;
+                    if (assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(occurrence) > limit.MaxEffortMinutesPerDay) continue;
+                    var start = AllocationEligibilityService.FindStart(occurrence, availability.FirstOrDefault(a => a.UserId == member.UserId && a.DayOfWeek == date.DayOfWeek), assigned);
+                    if (start == null) continue;
+                    var pref = preferences[member.UserId].FirstOrDefault(p => p.ChoreId == occurrence.ChoreId)?.Type;
+                    candidates.Add((member.UserId, assigned.Sum(o => o.SnapshotKarma), pref == PreferenceType.PREFERRED ? -1 : pref == PreferenceType.DISLIKED ? 1 : 0, assigned.Count, start.Value));
                 }
-
-                var dueDate = occurrence.DueDate.Date;
-                var dayOfWeek = dueDate.DayOfWeek;
-                var weekOfYear = GetIso8601WeekOfYear(dueDate);
-                var estMinutes = occurrence.Chore.EstimatedMinutes;
-
-                // 1. Filter Valid Candidates (Hard Constraints)
-                var validCandidates = members.Where(m => 
-                {
-                    var userId = m.UserId;
-                    
-                    // Availability Check
-                    var availability = availabilities.FirstOrDefault(a => a.UserId == userId && a.DayOfWeek == dayOfWeek);
-                    if (availability != null && !availability.IsAvailable) return false;
-
-                    // Constraints Check
-                    var c = constraints[userId];
-                    
-                    var currentChoresThisWeek = choresPerWeek[userId].TryGetValue(weekOfYear, out var cw) ? cw : 0;
-                    if (currentChoresThisWeek >= c.MaxChoresPerWeek) return false;
-
-                    var currentMinutesThisDay = minutesPerDay[userId].TryGetValue(dueDate, out var md) ? md : 0;
-                    if (currentMinutesThisDay + estMinutes > c.MaxEffortMinutesPerDay) return false;
-
-                    return true;
-                }).ToList();
-
-                // If no one is valid under constraints, we must fallback to all available members ignoring constraints to ensure chore gets done
-                if (!validCandidates.Any())
-                {
-                    _logger.LogWarning($"No valid candidates for occurrence {occurrence.Id} respecting constraints. Falling back.");
-                    validCandidates = members.Where(m => 
-                    {
-                        var availability = availabilities.FirstOrDefault(a => a.UserId == m.UserId && a.DayOfWeek == dayOfWeek);
-                        return availability == null || availability.IsAvailable;
-                    }).ToList();
-
-                    if (!validCandidates.Any())
-                        validCandidates = members; // Absolute fallback
-                }
-
-                // 2. Score Valid Candidates (Fairness + Preference)
-                // Lower score is better (we want to pick the person with lowest workload / best preference)
-                var candidateScores = validCandidates.Select(m => 
-                {
-                    var userId = m.UserId;
-                    
-                    // Workload factor
-                    var workload = assignedWorkload[userId];
-
-                    // Preference factor
-                    var pref = preferences[userId].FirstOrDefault(p => p.ChoreId == occurrence.ChoreId);
-                    int prefModifier = 0;
-                    if (pref != null)
-                    {
-                        if (pref.Type == PreferenceType.PREFERRED) prefModifier = -30;
-                        if (pref.Type == PreferenceType.DISLIKED) prefModifier = 30; // Increase perceived workload
-                    }
-                    
-                    return new { Member = m, Score = workload + prefModifier };
-                }).OrderBy(x => x.Score).ToList();
-
-                var assignee = candidateScores.First().Member;
-
-                // 3. Assign
-                occurrence.AssignedUserId = assignee.UserId;
-                
-                // Update tracking
-                assignedWorkload[assignee.UserId] += estMinutes;
-                
-                if (!choresPerWeek[assignee.UserId].ContainsKey(weekOfYear)) choresPerWeek[assignee.UserId][weekOfYear] = 0;
-                choresPerWeek[assignee.UserId][weekOfYear]++;
-
-                if (!minutesPerDay[assignee.UserId].ContainsKey(dueDate)) minutesPerDay[assignee.UserId][dueDate] = 0;
-                minutesPerDay[assignee.UserId][dueDate] += estMinutes;
-
+                if (candidates.Count == 0) continue; // Keep unassigned; never override a hard constraint.
+                var selected = candidates.OrderBy(x => x.Karma).ThenBy(x => x.Preference).ThenBy(x => x.Count).ThenBy(x => x.UserId).First();
+                occurrence.AssignedUserId = selected.UserId;
+                occurrence.PlannedStartAt = selected.Start;
                 _unitOfWork.ChoreOccurrences.Update(occurrence);
             }
-
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-            
-            _logger.LogInformation($"Successfully allocated {unassignedOccurrences.Count} occurrences for season {seasonId}");
-        }
-        catch (Exception ex)
-        {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-            _logger.LogError(ex, $"Failed to allocate occurrences for season {seasonId}");
-            throw;
-        }
+        } catch { await _unitOfWork.RollbackTransactionAsync(cancellationToken); throw; }
     }
 
-    public async Task AllocateAllActiveSeasonsAsync(CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Starting AllocateAllActiveSeasonsAsync");
-        var activeSeasons = await _unitOfWork.Seasons.GetActiveSeasonsAsync(DateTime.UtcNow, cancellationToken);
-        var autoSeasons = activeSeasons.Where(s => s.AllocationMethod == AllocationMethod.AUTOMATIC).ToList();
-
-        foreach (var season in autoSeasons)
-        {
-            try
-            {
-                await AllocateSeasonAsync(season.Id, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Failed to allocate season {season.Id} in background worker.");
-            }
-        }
-    }
+    public Task AllocateAllActiveSeasonsAsync(CancellationToken cancellationToken = default)
+        => Task.CompletedTask; // Approved schedules are immutable; allocate only explicitly in draft.
 
     public async Task ManualAllocateAsync(Guid seasonId, Guid occurrenceId, Guid assigneeId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (_mutations == null) { await ManualAllocateCoreAsync(seasonId, occurrenceId, assigneeId, userId, cancellationToken); return; }
+        var context = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException("Season not found.");
+        await _mutations.RunAsync(context.HouseId, () => ManualAllocateCoreAsync(seasonId, occurrenceId, assigneeId, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task ManualAllocateCoreAsync(Guid seasonId, Guid occurrenceId, Guid assigneeId, Guid userId, CancellationToken cancellationToken = default)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("Only house members can manually allocate chores.");
 
         var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
         if (occurrence == null)
             throw new NotFoundException(nameof(ChoreOccurrence), occurrenceId);
 
+        if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Assignments are locked outside draft.");
         // Fetch chore to verify season
         var chore = await _unitOfWork.Chores.GetByIdAsync(occurrence.ChoreId, cancellationToken);
-        if (chore == null || chore.SeasonId != seasonId)
+        if (chore == null || occurrence.SeasonId != seasonId || chore.HouseId != season.HouseId)
             throw new ConflictException("Occurrence does not belong to this season.");
+        if (chore.Type != ChoreType.NORMAL)
+            throw new ConflictException("Bonus chores must be claimed after the season starts.");
 
         var assigneeMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, assigneeId, cancellationToken);
         if (assigneeMember == null || assigneeMember.Status != HouseMemberStatus.ACTIVE)
             throw new ConflictException("Assignee is not an active member of the household.");
 
-        var availabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, assigneeId, cancellationToken);
-        var dayAvailability = availabilities.FirstOrDefault(a => a.DayOfWeek == occurrence.DueDate.DayOfWeek);
-        if (dayAvailability != null && !dayAvailability.IsAvailable)
-            throw new ConflictException("Assignee is explicitly marked as unavailable on this day.");
-
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             occurrence.AssignedUserId = assigneeId;
+            occurrence.PlannedStartAt = null;
+            season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -264,10 +149,12 @@ public class ChoreAllocationService : IChoreAllocationService
             .ToList();
 
         var allOccurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken))
-            .Where(o => o.AssignedUserId.HasValue)
+            .Where(o => o.Chore.Type == ChoreType.NORMAL)
             .ToList();
 
-        var response = new WorkloadSummaryResponse();
+        var response = new WorkloadSummaryResponse { UnassignedCount = allOccurrences.Count(o => !o.AssignedUserId.HasValue) };
+        if (response.UnassignedCount > 0) response.Warnings.Add($"{response.UnassignedCount} mandatory chores remain unassigned.");
+        var availabilities = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
 
         foreach (var member in activeMembers)
         {
@@ -275,12 +162,22 @@ public class ChoreAllocationService : IChoreAllocationService
                 .Where(o => o.AssignedUserId == member.UserId)
                 .ToList();
 
+            if (season.AllocationMethod == AllocationMethod.MANUAL) {
+                foreach (var day in memberOccs.GroupBy(o => ScheduleTime.Local(o.DueDate).Date)) {
+                    var available = availabilities.FirstOrDefault(a => a.UserId == member.UserId && a.DayOfWeek == day.Key.DayOfWeek);
+                    var freeMinutes = available?.IsAvailable == true ? (available.Slots.Count == 0 ? 1440 : available.Slots.Sum(s => s.EndMinute - s.StartMinute)) : 0;
+                    if (day.Sum(AllocationEligibilityService.Minutes) > freeMinutes || day.Any(o => AllocationEligibilityService.FindStart(o,available,Array.Empty<ChoreOccurrence>()) == null))
+                        response.Warnings.Add($"{member.User.DisplayName}: assignments on {day.Key:yyyy-MM-dd} exceed declared availability. Manual allocation requires household review.");
+                }
+            }
+
             response.Members.Add(new MemberWorkload
             {
                 UserId = member.UserId,
                 DisplayName = member.User.DisplayName,
                 TotalChores = memberOccs.Count,
-                TotalEstimatedMinutes = memberOccs.Sum(o => o.Chore.EstimatedMinutes),
+                TotalEstimatedMinutes = memberOccs.Sum(AllocationEligibilityService.Minutes),
+                TotalAssignedKarma = memberOccs.Sum(o => o.SnapshotKarma),
                 EasyCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.EASY),
                 MediumCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.MEDIUM),
                 HardCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.HARD),
@@ -289,6 +186,8 @@ public class ChoreAllocationService : IChoreAllocationService
 
         if (response.Members.Count >= 2)
         {
+            var karmaGap = response.Members.Max(m => m.TotalAssignedKarma) - response.Members.Min(m => m.TotalAssignedKarma);
+            if (karmaGap > 0) response.Warnings.Add($"Assigned Karma gap: {karmaGap}. Review the distribution before approval.");
             var maxMinutes = response.Members.Max(m => m.TotalEstimatedMinutes);
             var minMinutes = response.Members.Min(m => m.TotalEstimatedMinutes);
             var minuteGap = maxMinutes - minMinutes;

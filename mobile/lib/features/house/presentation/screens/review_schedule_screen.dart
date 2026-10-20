@@ -1,379 +1,280 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
 import '../../../../core/network/api_client.dart';
-import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../providers/house_providers.dart';
 
 class ReviewScheduleScreen extends ConsumerStatefulWidget {
+  final String houseId, seasonId;
   const ReviewScheduleScreen({
+    super.key,
     required this.houseId,
     required this.seasonId,
-    super.key,
   });
-  final String houseId;
-  final String seasonId;
-
   @override
-  ConsumerState<ReviewScheduleScreen> createState() => _ReviewScheduleScreenState();
+  ConsumerState<ReviewScheduleScreen> createState() =>
+      _ReviewScheduleScreenState();
 }
 
 class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
-  bool _loading = false;
+  bool _busy = true;
+  String? _error;
+  Map<String, dynamic>? _season;
+  Map<String, dynamic> _summary = {};
   List<dynamic> _occurrences = [];
-  bool _occurrencesLoading = true;
-  
-  List<dynamic> _workloadMembers = [];
-  List<String> _warnings = [];
-  bool _workloadLoading = true;
-
+  String get _base => '/houses/${widget.houseId}/seasons/${widget.seasonId}';
+  bool get _draft => _season?['status'] == 0 || _season?['status'] == 'DRAFT';
+  bool get _reviewing =>
+      _season?['status'] == 1 || _season?['status'] == 'REVIEWING';
   @override
   void initState() {
     super.initState();
-    _fetchOccurrences();
-    _fetchWorkloadSummary();
+    _load();
   }
 
-  Future<void> _fetchOccurrences() async {
+  Future<void> _load() async {
     try {
       final dio = ref.read(dioProvider);
-      final res = await dio.get('/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences');
-      if (mounted) {
-        setState(() {
-          _occurrences = res.data;
-          _occurrencesLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _occurrencesLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
-  }
-
-  Future<void> _fetchWorkloadSummary() async {
-    try {
-      final dio = ref.read(dioProvider);
-      final res = await dio.get(ApiEndpoints.seasonWorkloadSummary(widget.houseId, widget.seasonId));
-      if (mounted) {
-        setState(() {
-          _workloadMembers = res.data['members'] ?? [];
-          _warnings = List<String>.from(res.data['warnings'] ?? []);
-          _workloadLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _workloadLoading = false);
-        // Silently fail workload summary if backend doesn't support it yet
-      }
-    }
-  }
-
-  Future<void> _action(bool confirm) async {
-    setState(() => _loading = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final action = confirm ? 'confirm' : 'reject';
-      await dio.post('/houses/${widget.houseId}/seasons/${widget.seasonId}/$action');
-      if (mounted) {
-        refreshHouseState(ref, houseId: widget.houseId);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(confirm ? 'Schedule confirmed!' : 'Schedule rejected!')));
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      final results = await Future.wait([
+        dio.get('/houses/${widget.houseId}/seasons'),
+        dio.get('$_base/occurrences'),
+        dio.get('$_base/workload-summary'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _season = Map<String, dynamic>.from(
+          (results[0].data as List).firstWhere(
+            (s) => s['id'] == widget.seasonId,
+          ),
+        );
+        _occurrences = List.from(results[1].data as List);
+        _summary = Map<String, dynamic>.from(results[2].data);
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _assignOccurrence(String occurrenceId, String memberId) async {
+  Future<void> _act(String action) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final dio = ref.read(dioProvider);
-      await dio.put(
-        '/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences/$occurrenceId/assign',
-        data: {'assigneeId': memberId},
-      );
-      await _fetchOccurrences(); // Refresh
-      await _fetchWorkloadSummary();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
-  }
-
-  void _showAssignDialog(dynamic occurrence, List<dynamic> members) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Assign Chore'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: members.length,
-            itemBuilder: (ctx, i) {
-              final m = members[i];
-              return Material(
-                type: MaterialType.transparency,
-                child: ListTile(
-                  leading: CircleAvatar(child: Text(m.displayName.isNotEmpty ? m.displayName[0].toUpperCase() : '?')),
-                  title: Text(m.displayName),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _assignOccurrence(occurrence['id'], m.userId);
-                  },
+      String? reason;
+      if (action == 'reject') {
+        final input = TextEditingController();
+        try {
+          reason = await showDialog<String>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Why reject this schedule?'),
+              content: TextField(
+                controller: input,
+                maxLength: 1000,
+                decoration: const InputDecoration(labelText: 'Reason'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _difficultyLabel(int? difficulty) {
-    switch (difficulty) {
-      case 1: return 'Easy';
-      case 2: return 'Medium';
-      case 3: return 'Hard';
-      default: return 'Medium';
-    }
-  }
-
-  Widget _buildWorkloadSummary() {
-    if (_workloadLoading) return const SizedBox.shrink();
-    if (_workloadMembers.isEmpty) return const SizedBox.shrink();
-
-    int maxMinutes = 1;
-    for (var m in _workloadMembers) {
-      if (m['totalEstimatedMinutes'] > maxMinutes) {
-        maxMinutes = m['totalEstimatedMinutes'];
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, input.text.trim()),
+                  child: const Text('Reject'),
+                ),
+              ],
+            ),
+          );
+        } finally {
+          input.dispose();
+        }
+        if (reason == null || reason.isEmpty) return;
       }
+      await ref
+          .read(dioProvider)
+          .post(
+            '$_base/$action',
+            data: action == 'confirm'
+                ? {'scheduleRevision': _season?['scheduleRevision']}
+                : action == 'reject'
+                ? {'reason': reason}
+                : null,
+          );
+      if (!mounted) return;
+      refreshHouseState(ref, houseId: widget.houseId);
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
+  }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Future<void> _assign(Map<String, dynamic> occurrence) async {
+    final members = await ref.read(houseMembersProvider(widget.houseId).future);
+    if (!mounted) return;
+    final user = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Assign to'),
         children: [
-          Row(
-            children: [
-              const Icon(Icons.bar_chart_rounded, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Workload Summary',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ..._workloadMembers.map((m) {
-            final double progress = m['totalEstimatedMinutes'] / maxMinutes;
-            final int h = m['hardCount'] ?? 0;
-            final int med = m['mediumCount'] ?? 0;
-            final int e = m['easyCount'] ?? 0;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(m['displayName'], style: const TextStyle(fontWeight: FontWeight.w500)),
-                      Text('${m['totalChores']} chores • ${m['totalEstimatedMinutes']} min', 
-                           style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 8,
-                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('(${h}H ${med}M ${e}E)', style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }),
-          if (_warnings.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            ..._warnings.map((w) => Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.orange.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(w, style: const TextStyle(color: AppTheme.orange, fontSize: 13))),
-                ],
-              ),
-            )),
-          ],
+          for (final member in members.where((m) => m.isActive))
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, member.userId),
+              child: Text(member.displayName),
+            ),
         ],
       ),
     );
+    if (user == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(dioProvider)
+          .put(
+            '$_base/occurrences/${occurrence['id']}/assign',
+            data: {'assigneeId': user},
+          );
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _importRoutine() async {
+    try {
+      final result = await ref
+          .read(dioProvider)
+          .get('/houses/${widget.houseId}/chores');
+      if (!mounted) return;
+      final routines = (result.data as List)
+          .where((item) => item['seasonId'] == null)
+          .toList();
+      final id = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('Import routine snapshot'),
+          children: [
+            if (routines.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Create a reusable routine first.'),
+              ),
+            for (final routine in routines)
+              SimpleDialogOption(
+                onPressed: () =>
+                    Navigator.pop(context, routine['id'].toString()),
+                child: Text(routine['name'].toString()),
+              ),
+          ],
+        ),
+      );
+      if (id == null || !mounted) return;
+      setState(() => _busy = true);
+      await ref.read(dioProvider).post('$_base/routines/$id');
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final activeSeasonAsync = ref.watch(activeSeasonProvider(widget.houseId));
-    final membersAsync = ref.watch(houseMembersProvider(widget.houseId));
-    
-    final isManual = activeSeasonAsync.value?['allocationMethod'] == 0;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Review Schedule')),
-      body: _occurrencesLoading || membersAsync.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                if (!isManual) _buildWorkloadSummary(),
-                if (isManual)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    width: double.infinity,
-                    child: Column(
-                      children: [
-                        Text(
-                          'Assign Chores',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Please tap on unassigned chores to manually assign them to members.',
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final startDateStr = activeSeasonAsync.value?['startDate'];
-                      final startDate = startDateStr != null ? DateTime.parse(startDateStr).toLocal() : null;
-
-                      final List<dynamic> listItems = [];
-                      if (startDate != null && _occurrences.isNotEmpty) {
-                        final sorted = List<Map<String, dynamic>>.from(_occurrences)
-                          ..sort((a, b) => DateTime.parse(a['dueDate']).compareTo(DateTime.parse(b['dueDate'])));
-                        
-                        final firstDay = startDate.subtract(Duration(days: startDate.weekday - 1));
-                        int currentWeek = -1;
-                        
-                        for (var occ in sorted) {
-                          final date = DateTime.parse(occ['dueDate']).toLocal();
-                          final diff = date.difference(firstDay).inDays;
-                          final week = (diff / 7).floor() + 1;
-                          
-                          if (week != currentWeek) {
-                            currentWeek = week;
-                            listItems.add('Week $week');
-                          }
-                          listItems.add(occ);
-                        }
-                      }
-
-                      return ListView.builder(
-                        itemCount: listItems.length,
-                        itemBuilder: (context, index) {
-                          final item = listItems[index];
-                          
-                          if (item is String) {
-                            return Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                              child: Text(
-                                item,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            );
-                          }
-
-                          final occ = item as Map<String, dynamic>;
-                          final isUnassigned = occ['assignedUserId'] == null;
-                          final date = DateTime.parse(occ['dueDate']).toLocal();
-                          final dateStr = '${date.day}/${date.month}/${date.year}';
-                          
-                          final difficulty = occ['difficulty'];
-                          final estMinutes = occ['estimatedMinutes'] ?? 0;
-                          
-                          return Material(
-                            type: MaterialType.transparency,
-                            child: ListTile(
-                              title: Text(occ['choreName']),
-                              subtitle: Text('Due: $dateStr • ${_difficultyLabel(difficulty)} • $estMinutes min'),
-                              trailing: isUnassigned
-                                  ? (isManual
-                                      ? ElevatedButton(
-                                          onPressed: () => _showAssignDialog(occ, membersAsync.value ?? []),
-                                          child: const Text('Assign'),
-                                        )
-                                      : const Text('Unassigned', style: TextStyle(color: AppTheme.red)))
-                                  : Chip(label: Text(occ['assignedUserDisplayName'] ?? 'Unknown')),
-                            ),
-                          );
-                        },
-                      );
-                    }
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _loading
-                      ? const CircularProgressIndicator()
-                      : Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _action(false),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.red,
-                                  side: const BorderSide(color: AppTheme.red),
-                                ),
-                                child: const Text('Reject'),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _action(true),
-                                child: const Text('Confirm'),
-                              ),
-                            ),
-                          ],
-                        ),
-                )
-              ],
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Review schedule'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _busy ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
+    body: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (_busy) const LinearProgressIndicator(),
+        if (_error != null)
+          Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        if (_season?['lastRejectionReason'] != null)
+          Text('Last rejection: ${_season!['lastRejectionReason']}'),
+        Text('Revision ${_season?['scheduleRevision'] ?? 0}'),
+        const Text(
+          'All active members must approve the same schedule before the season starts.',
+        ),
+        for (final member in (_summary['members'] as List? ?? []))
+          ListTile(
+            title: Text(member['displayName'] ?? ''),
+            subtitle: Text(
+              '${member['totalAssignedKarma'] ?? 0} Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
             ),
-    );
-  }
+          ),
+        for (final warning in (_summary['warnings'] as List? ?? []))
+          Text(
+            warning.toString(),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        for (final c in (_season?['confirmations'] as List? ?? []))
+          ListTile(
+            title: Text(c['userId'].toString()),
+            subtitle: Text('Confirmation: ${c['status']}'),
+          ),
+        for (final item in _occurrences)
+          Card(
+            child: ListTile(
+              title: Text(item['choreName'] ?? ''),
+              subtitle: Text(
+                '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
+              ),
+              trailing: _draft
+                  ? TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _assign(Map<String, dynamic>.from(item)),
+                      child: const Text('Assign'),
+                    )
+                  : null,
+            ),
+          ),
+        if (_draft) ...[
+          OutlinedButton(
+            onPressed: _busy ? null : _importRoutine,
+            child: const Text('Import reusable routine'),
+          ),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _act('generate-schedule'),
+            child: const Text('Generate / regenerate draft'),
+          ),
+          FilledButton(
+            onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
+                ? null
+                : () => _act('submit-review'),
+            child: const Text('Submit for everyone to review'),
+          ),
+        ],
+        if (_reviewing) ...[
+          FilledButton(
+            onPressed: _busy ? null : () => _act('confirm'),
+            child: const Text('Confirm this revision'),
+          ),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _act('reject'),
+            child: const Text('Reject and return to draft'),
+          ),
+        ],
+      ],
+    ),
+  );
 }

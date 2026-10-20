@@ -26,14 +26,14 @@ public class MemberAvailabilityRepository : IMemberAvailabilityRepository
 
     public async Task<IEnumerable<MemberAvailability>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        return await _context.MemberAvailabilities
+        return await _context.MemberAvailabilities.Include(a => a.Slots)
             .Where(a => a.SeasonId == seasonId)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<MemberAvailability>> GetBySeasonAndUserIdAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _context.MemberAvailabilities
+        return await _context.MemberAvailabilities.Include(a => a.Slots)
             .Where(a => a.SeasonId == seasonId && a.UserId == userId)
             .ToListAsync(cancellationToken);
     }

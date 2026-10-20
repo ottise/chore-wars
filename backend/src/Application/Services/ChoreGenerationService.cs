@@ -14,11 +14,13 @@ namespace ChoreWars.Application.Services;
 
 public class ChoreGenerationService : IChoreGenerationService
 {
+    private readonly TimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ChoreGenerationService> _logger;
 
-    public ChoreGenerationService(IUnitOfWork unitOfWork, ILogger<ChoreGenerationService> logger)
+    public ChoreGenerationService(IUnitOfWork unitOfWork, ILogger<ChoreGenerationService> logger, TimeProvider? clock = null)
     {
+        _clock = clock ?? TimeProvider.System;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -36,7 +38,7 @@ public class ChoreGenerationService : IChoreGenerationService
 
         // House member permission check
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null)
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("You are not a member of this household.");
 
         // Check for duplicates
@@ -44,7 +46,7 @@ public class ChoreGenerationService : IChoreGenerationService
         if (hasOccurrences)
             throw new ConflictException("Occurrences have already been generated for this season.");
 
-        var chores = await _unitOfWork.Chores.GetByHouseIdAsync(season.HouseId, cancellationToken);
+        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(season.Id, cancellationToken);
         if (!chores.Any())
             throw new ConflictException("No chore templates found for this season.");
 
@@ -81,65 +83,13 @@ public class ChoreGenerationService : IChoreGenerationService
 
     private IEnumerable<ChoreOccurrence> GenerateForChore(Chore chore, Guid seasonId, DateTime startDate, DateTime endDate)
     {
-        var occurrences = new List<ChoreOccurrence>();
-        var currentDate = startDate.Date;
-        var end = endDate.Date;
-
-        while (currentDate <= end)
-        {
-            bool shouldGenerate = false;
-
-            switch (chore.FrequencyType)
-            {
-                case FrequencyType.DAILY:
-                    shouldGenerate = true;
-                    break;
-
-                case FrequencyType.EVERY_X_DAYS:
-                    var daysBetween = chore.FrequencyValue ?? 1;
-                    if (daysBetween <= 0) daysBetween = 1;
-                    
-                    var totalDays = (currentDate - startDate.Date).Days;
-                    shouldGenerate = (totalDays % daysBetween) == 0;
-                    break;
-
-                case FrequencyType.WEEKLY:
-                case FrequencyType.SPECIFIC_DAYS:
-                    if (chore.FrequencyDays != null && chore.FrequencyDays.Any())
-                    {
-                        shouldGenerate = chore.FrequencyDays.Any(fd => fd.DayOfWeek == currentDate.DayOfWeek);
-                    }
-                    else if (chore.FrequencyType == FrequencyType.WEEKLY)
-                    {
-                        // Default to start date's day of week if not specified
-                        shouldGenerate = currentDate.DayOfWeek == startDate.DayOfWeek;
-                    }
-                    break;
-                    
-                default:
-                    // Other frequencies not yet fully supported by the engine, skip or handle as once
-                    break;
-            }
-
-            if (shouldGenerate)
-            {
-                occurrences.Add(new ChoreOccurrence
-                {
-                    Id = Guid.NewGuid(),
-                    ChoreId = chore.Id,
-                    SeasonId = seasonId,
-                    DueDate = currentDate.AddHours(23).AddMinutes(59), // End of day
-                    Status = ChoreOccurrenceStatus.ASSIGNED,
-                    AssignedUserId = null, 
-                    SnapshotKarma = chore.KarmaPoints,
-                    IsForcedReassigned = false,
-                    PenaltyCount = 0
-                });
-            }
-
-            currentDate = currentDate.AddDays(1);
-        }
-
-        return occurrences;
+        return RecurrenceCalculator.Dates(chore, DateOnly.FromDateTime(ScheduleTime.Local(startDate)), DateOnly.FromDateTime(ScheduleTime.Local(endDate)))
+            .Select(day => new ChoreOccurrence {
+                Id = Guid.NewGuid(), ChoreId = chore.Id, SeasonId = seasonId,
+                DueDate = ScheduleTime.Utc(day, chore.DeadlineMinutes),
+                Status = ChoreOccurrenceStatus.ASSIGNED, SnapshotKarma = chore.KarmaPoints,
+                SnapshotMinutes = ScheduleTime.Effort(chore.Difficulty),
+                SnapshotDifficulty = chore.Difficulty
+            });
     }
 }

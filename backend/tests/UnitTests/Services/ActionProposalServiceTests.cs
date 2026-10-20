@@ -184,7 +184,7 @@ public class ActionProposalServiceTests
             Chats.Setup(x => x.GetRoomByHouseIdAsync(HouseId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatRoom { Id = RoomId, HouseId = HouseId });
             ActiveMember(CreatorId);
-            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object);
+            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true);
         }
 
         public void ActiveMember(Guid userId) => Members

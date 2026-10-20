@@ -12,12 +12,14 @@ namespace ChoreWars.Application.Services;
 
 public class NotificationService : INotificationService
 {
+    private readonly IAfterCommitActions? _afterCommit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly INotificationRealtimePublisher _realtimePublisher;
 
-    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper, INotificationRealtimePublisher realtimePublisher)
+    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper, INotificationRealtimePublisher realtimePublisher, IAfterCommitActions? afterCommit = null)
     {
+        _afterCommit = afterCommit;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _realtimePublisher = realtimePublisher;
@@ -78,6 +80,8 @@ public class NotificationService : INotificationService
 
     public async Task CreateNotificationAsync(Guid userId, Guid houseId, string title, string message, string type, string? targetType = null, Guid? targetId = null, CancellationToken cancellationToken = default)
     {
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId,userId,cancellationToken);
+        if (member?.Status != ChoreWars.Domain.Enums.HouseMemberStatus.ACTIVE) return;
         var notification = new ChoreWars.Domain.Entities.Notification
         {
             Id = Guid.NewGuid(),
@@ -94,6 +98,8 @@ public class NotificationService : INotificationService
 
         await _unitOfWork.Notifications.AddAsync(notification, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        await _realtimePublisher.PublishAsync(_mapper.Map<NotificationResponse>(notification), cancellationToken);
+        var response = _mapper.Map<NotificationResponse>(notification);
+        if (_afterCommit != null) _afterCommit.Enqueue(() => _realtimePublisher.PublishAsync(response, cancellationToken));
+        else await _realtimePublisher.PublishAsync(response, cancellationToken);
     }
 }

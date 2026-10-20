@@ -8,6 +8,7 @@ namespace ChoreWars.Presentation.Controllers;
 
 [ApiController]
 [Authorize]
+[Route("api")]
 [Route("api/v1")]
 public class ActionProposalController : ControllerBase
 {

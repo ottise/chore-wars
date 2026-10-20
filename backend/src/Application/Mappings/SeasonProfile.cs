@@ -8,6 +8,7 @@ public class SeasonProfile : Profile
 {
     public SeasonProfile()
     {
+        CreateMap<SeasonConfirmation, SeasonConfirmationResponse>();
         CreateMap<ChoreSeason, SeasonResponse>();
         
         CreateMap<SeasonRanking, SeasonRankingResponse>()

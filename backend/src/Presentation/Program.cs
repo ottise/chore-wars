@@ -19,6 +19,7 @@ builder.Services.AddPresentationServices();
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
+builder.Services.AddHealthChecks().AddCheck<ChoreWars.Presentation.Health.DatabaseReadinessCheck>("database",tags:new[]{"ready"});
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
@@ -38,5 +39,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapPresentationEndpoints();
+app.MapHealthChecks("/health/live",new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions{Predicate=_=>false});
+app.MapHealthChecks("/health/ready",new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions{Predicate=check=>check.Tags.Contains("ready")});
 
 app.Run();
+
+public partial class Program { }

@@ -1,5 +1,8 @@
+import '../../../../core/network/api_client.dart';
+
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,7 +39,40 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     final key = (houseId: widget.houseId, occurrenceId: widget.occurrenceId);
     final detail = ref.watch(choreDetailProvider(key));
     return Scaffold(
-      appBar: AppBar(title: const Text('Chore detail')),
+      appBar: AppBar(
+        title: const Text('Chore detail'),
+        actions: [
+          if (detail.asData?.value.occurrence.status ==
+              ChoreStatus.criticalOverdue)
+            IconButton(
+              tooltip: 'Take responsibility without new compensation',
+              icon: const Icon(Icons.volunteer_activism),
+              onPressed: _mutating
+                  ? null
+                  : () async {
+                      setState(() => _mutating = true);
+                      try {
+                        await ref
+                            .read(dioProvider)
+                            .post(
+                              '/occurrences/${widget.occurrenceId}/take-responsibility',
+                            );
+                        _refreshAffectedState();
+                      } catch (error) {
+                        if (context.mounted) {
+                          showAppMessage(
+                            context,
+                            apiErrorMessage(error),
+                            error: true,
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _mutating = false);
+                      }
+                    },
+            ),
+        ],
+      ),
       body: detail.when(
         loading: () => const LoadingView(),
         error: (error, _) => ErrorView(
@@ -46,7 +82,11 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
         data: (item) => _DetailBody(
           detail: item,
           busy: _mutating,
-          onComplete: () => _showCompleteDialog(item),
+          onComplete:
+              item.occurrence.assignedUserId ==
+                  ref.watch(userProfileProvider).asData?.value.id
+              ? () => _showCompleteDialog(item)
+              : null,
           onSkip: () => _skip(item),
           onCreateBounty: _canCreateBounty(item.occurrence)
               ? () => context.push(
@@ -97,7 +137,11 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                 }
               } catch (e) {
                 if (context.mounted) {
-                  showAppMessage(context, 'Không thể chọn ảnh: $e', error: true);
+                  showAppMessage(
+                    context,
+                    'Không thể chọn ảnh: $e',
+                    error: true,
+                  );
                 }
               }
             }
@@ -134,9 +178,8 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                           children: [
                             Text(
                               'Hoàn thành việc nhà',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -159,9 +202,8 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                   const SizedBox(height: 18),
                   Text(
                     'Ảnh minh chứng (tùy chọn)',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
                   if (selectedImageBytes != null) ...[
@@ -183,8 +225,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             backgroundColor: Colors.black54,
                             radius: 18,
                             child: IconButton(
-                              icon: const Icon(Icons.close, size: 18, color: Colors.white),
-                              onPressed: () => setModalState(() => selectedImageBytes = null),
+                              icon: const Icon(
+                                Icons.close,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                              onPressed: () => setModalState(
+                                () => selectedImageBytes = null,
+                              ),
                             ),
                           ),
                         ),
@@ -202,7 +250,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                         const SizedBox(width: 12),
                         TextButton.icon(
                           onPressed: () => pick(ImageSource.gallery),
-                          icon: const Icon(Icons.photo_library_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.photo_library_rounded,
+                            size: 18,
+                          ),
                           label: const Text('Chọn ảnh khác'),
                         ),
                       ],
@@ -211,10 +262,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                          color: Theme.of(context).dividerColor
+                              .withValues(alpha: 0.5),
                         ),
                       ),
                       child: Column(
@@ -227,7 +282,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                           const SizedBox(height: 10),
                           const Text(
                             'Chụp ảnh kết quả để mọi người cùng thấy',
-                            style: TextStyle(fontSize: 13, color: AppTheme.muted),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.muted,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 14),
@@ -236,7 +294,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () => pick(ImageSource.camera),
-                                  icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                                  icon: const Icon(
+                                    Icons.camera_alt_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text('Chụp ảnh'),
                                 ),
                               ),
@@ -244,7 +305,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () => pick(ImageSource.gallery),
-                                  icon: const Icon(Icons.photo_library_rounded, size: 18),
+                                  icon: const Icon(
+                                    Icons.photo_library_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text('Thư viện'),
                                 ),
                               ),
@@ -259,7 +323,8 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     onPressed: () {
                       String? proofUrl;
                       if (selectedImageBytes != null) {
-                        proofUrl = 'data:image/jpeg;base64,${base64Encode(selectedImageBytes!)}';
+                        proofUrl =
+                            'data:image/jpeg;base64,${base64Encode(selectedImageBytes!)}';
                       }
                       Navigator.pop(context, proofUrl ?? '');
                     },
@@ -270,7 +335,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     icon: const Icon(Icons.check_circle_rounded),
                     label: const Text(
                       'Xác nhận hoàn thành',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -295,7 +363,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           .completeChore(widget.occurrenceId, proofImageUrl: proofImageUrl);
       _refreshAffectedState();
       if (mounted) {
-        showAppMessage(context, '+${detail.karmaPoints} Karma earned');
+        showAppMessage(
+          context,
+          'Chore completed. Karma is awarded only when eligible in an open season.',
+        );
       }
     } catch (error) {
       if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
@@ -310,9 +381,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       return false;
     }
     final authState = ref.read(authStateProvider);
-    final userId = authState is AuthAuthenticated ? authState.user.userId : null;
+    final userId = authState is AuthAuthenticated
+        ? authState.user.userId
+        : null;
     if (occurrence.assignedUserId == null) return false;
-    if (userId == null) return true;
+    if (userId == null) {
+      return occurrence.assignedUserId ==
+          ref.read(userProfileProvider).asData?.value.id;
+    }
     return occurrence.assignedUserId!.toLowerCase() == userId.toLowerCase();
   }
 
@@ -370,7 +446,7 @@ class _DetailBody extends StatelessWidget {
 
   final ChoreDetail detail;
   final bool busy;
-  final VoidCallback onComplete;
+  final VoidCallback? onComplete;
   final VoidCallback onSkip;
   final VoidCallback? onCreateBounty;
   final VoidCallback? onEdit;
@@ -394,7 +470,9 @@ class _DetailBody extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => Container(
           height: 120,
           color: Colors.grey.shade200,
-          child: const Center(child: Icon(Icons.broken_image_outlined, size: 36)),
+          child: const Center(
+            child: Icon(Icons.broken_image_outlined, size: 36),
+          ),
         ),
       );
     }
@@ -408,13 +486,16 @@ class _DetailBody extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                const Icon(Icons.verified_rounded, color: AppTheme.green, size: 20),
+                const Icon(
+                  Icons.verified_rounded,
+                  color: AppTheme.green,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Minh chứng hoàn thành',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -427,7 +508,11 @@ class _DetailBody extends StatelessWidget {
                   insetPadding: const EdgeInsets.all(12),
                   child: InteractiveViewer(
                     child: proof.startsWith('data:image')
-                        ? Image.memory(base64Decode(proof.contains(',') ? proof.split(',')[1] : proof))
+                        ? Image.memory(
+                            base64Decode(
+                              proof.contains(',') ? proof.split(',')[1] : proof,
+                            ),
+                          )
                         : Image.network(proof),
                   ),
                 ),
@@ -444,9 +529,10 @@ class _DetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final chore = detail.occurrence;
     final actionable =
-        chore.status == ChoreStatus.assigned ||
-        chore.status == ChoreStatus.overdue ||
-        chore.status == ChoreStatus.criticalOverdue;
+        onComplete != null &&
+        (chore.status == ChoreStatus.assigned ||
+            chore.status == ChoreStatus.overdue ||
+            chore.status == ChoreStatus.criticalOverdue);
     final statusColor = switch (chore.status) {
       ChoreStatus.completed => AppTheme.green,
       ChoreStatus.overdue || ChoreStatus.criticalOverdue => AppTheme.red,
@@ -553,11 +639,11 @@ class _DetailBody extends StatelessWidget {
                 : const Icon(Icons.check_rounded),
             label: const Text('Complete chore'),
           ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: busy ? null : onSkip,
-            icon: const Icon(Icons.skip_next_rounded),
-            label: const Text('Skip chore'),
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              'To transfer this chore, use a claimed Chore Pass from Rewards or post a bounty.',
+            ),
           ),
         ],
         if (onCreateBounty != null) ...[
@@ -569,7 +655,10 @@ class _DetailBody extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.volunteer_activism_rounded),
-            label: const Text('Tạo Bounty (Thuê người làm thay)', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Tạo Bounty (Thuê người làm thay)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
         if (onEdit != null) ...[

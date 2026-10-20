@@ -8,6 +8,9 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IChatRepository
 {
+    Task AddAttachmentAsync(MediaAttachment attachment, CancellationToken ct = default);
+    Task<MediaAttachment?> GetAttachmentAsync(Guid id, CancellationToken ct = default);
+    Task<ChatMessage?> GetMessageByClientIdAsync(Guid roomId, Guid senderId, Guid clientId, CancellationToken ct = default);
     Task<ChatRoom?> GetRoomByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default);
     Task<ChatRoom?> GetRoomByIdAsync(Guid roomId, CancellationToken cancellationToken = default);
     Task AddRoomAsync(ChatRoom room, CancellationToken cancellationToken = default);

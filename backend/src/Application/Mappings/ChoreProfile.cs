@@ -19,9 +19,9 @@ public class ChoreProfile : Profile
                 src.AssignedUser == null ? "Unassigned" : src.AssignedUser.DisplayName))
             .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Chore.Description))
             .ForMember(dest => dest.KarmaPoints, opt => opt.MapFrom(src =>
-                src.SnapshotKarma > 0 ? src.SnapshotKarma : src.Chore.KarmaPoints))
+                src.SnapshotKarma))
             .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Chore.Type))
-            .ForMember(dest => dest.Difficulty, opt => opt.MapFrom(src => src.Chore.Difficulty))
-            .ForMember(dest => dest.EstimatedMinutes, opt => opt.MapFrom(src => src.Chore.EstimatedMinutes));
+            .ForMember(dest => dest.Difficulty, opt => opt.MapFrom(src => src.SnapshotMinutes > 0 ? src.SnapshotDifficulty : src.Chore.Difficulty))
+            .ForMember(dest => dest.EstimatedMinutes, opt => opt.MapFrom(src => src.SnapshotMinutes > 0 ? src.SnapshotMinutes : src.Chore.EstimatedMinutes));
     }
 }

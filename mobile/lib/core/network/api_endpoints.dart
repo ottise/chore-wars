@@ -55,10 +55,14 @@ class ApiEndpoints {
       '/houses/$houseId/bounties/payments/$paymentId';
   static String settlePayment(String houseId, String paymentId) =>
       '/houses/$houseId/bounties/payments/$paymentId/settle';
-  static String housePreferences(String houseId) => '/houses/$houseId/preferences';
-  static String houseConstraints(String houseId) => '/houses/$houseId/constraints';
-  static String seasonAvailability(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/availability';
-  static String seasonWorkloadSummary(String houseId, String seasonId) => '/houses/$houseId/seasons/$seasonId/workload-summary';
+  static String housePreferences(String houseId) =>
+      '/houses/$houseId/preferences';
+  static String houseConstraints(String houseId) =>
+      '/houses/$houseId/constraints';
+  static String seasonAvailability(String houseId, String seasonId) =>
+      '/houses/$houseId/seasons/$seasonId/availability';
+  static String seasonWorkloadSummary(String houseId, String seasonId) =>
+      '/houses/$houseId/seasons/$seasonId/workload-summary';
 
   // Chat
   static String houseChat(String houseId) => '/houses/$houseId/chat';
@@ -70,5 +74,6 @@ class ApiEndpoints {
   static const String notifications = '/notifications';
   static String readNotification(String id) => '/notifications/$id/read';
   static const String readAllNotifications = '/notifications/read-all';
-  static const String notificationsHubUrl = '/notifications'; // SignalR endpoint (/hubs/notifications on backend)
+  static const String notificationsHubUrl =
+      '/notifications'; // SignalR endpoint (/hubs/notifications on backend)
 }

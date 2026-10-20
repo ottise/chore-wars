@@ -17,17 +17,17 @@ public class ChoreOccurrenceConfiguration : IEntityTypeConfiguration<ChoreOccurr
         builder.HasOne(x => x.Chore)
             .WithMany(x => x.Occurrences)
             .HasForeignKey(x => x.ChoreId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.AssignedUser)
             .WithMany()
             .HasForeignKey(x => x.AssignedUserId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Season)
             .WithMany(x => x.Occurrences)
             .HasForeignKey(x => x.SeasonId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

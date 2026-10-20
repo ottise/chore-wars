@@ -1,3 +1,5 @@
+import '../storage/session_provider.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../storage/secure_storage.dart';
 import 'interceptors/auth_interceptor.dart';
 
 final dioProvider = Provider<Dio>((ref) {
+  ref.watch(sessionEpochProvider);
   final dio = Dio(
     BaseOptions(
       baseUrl: AppConstants.apiBaseUrl,
@@ -19,7 +22,17 @@ final dioProvider = Provider<Dio>((ref) {
   );
 
   final secureStorage = ref.watch(secureStorageProvider);
-  dio.interceptors.add(AuthInterceptor(secureStorage: secureStorage, dio: dio));
+  dio.interceptors.add(
+    AuthInterceptor(
+      secureStorage: secureStorage,
+      dio: dio,
+      onSessionExpired: () {
+        ref.read(sessionExpiryProvider.notifier).advance();
+        ref.read(sessionEpochProvider.notifier).advance();
+      },
+    ),
+  );
 
+  ref.onDispose(() => dio.close(force: true));
   return dio;
 });

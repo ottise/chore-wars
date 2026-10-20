@@ -1,3 +1,5 @@
+import '../../../../core/network/api_client.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +10,6 @@ import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
-
 
 class HouseSettingsScreen extends ConsumerStatefulWidget {
   const HouseSettingsScreen({required this.houseId, super.key});
@@ -40,9 +41,50 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
           houseId: widget.houseId,
           leavingHouse: _leavingHouse,
           onLeave: () => _leaveHouse(house),
+          onRotate: () => _adminAction('rotate-invite'),
+          onArchive: () => _adminAction('archive'),
         ),
       ),
     );
+  }
+
+  Future<void> _adminAction(String action) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          action == 'archive'
+              ? 'Archive household?'
+              : 'Rotate invitation code?',
+        ),
+        content: Text(
+          action == 'archive'
+              ? 'History is preserved. Outstanding seasons, work and debts must be resolved first.'
+              : 'The current invitation code and QR will stop working.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _leavingHouse = true);
+    try {
+      await ref.read(dioProvider).post('/houses/${widget.houseId}/$action');
+      refreshHouseState(ref, houseId: widget.houseId);
+      if (mounted) showAppMessage(context, 'Household updated');
+    } catch (error) {
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _leavingHouse = false);
+    }
   }
 
   Future<void> _leaveHouse(House house) async {
@@ -88,12 +130,15 @@ class _SettingsBody extends StatelessWidget {
     required this.houseId,
     required this.leavingHouse,
     required this.onLeave,
+    required this.onRotate,
+    required this.onArchive,
   });
 
   final House house;
   final String houseId;
   final bool leavingHouse;
   final VoidCallback onLeave;
+  final VoidCallback onRotate, onArchive;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +159,26 @@ class _SettingsBody extends StatelessWidget {
           ),
         ),
         const Divider(),
+        if (house.myRole == HouseRole.owner) ...[
+          ListTile(
+            leading: const Icon(Icons.sync_problem_outlined),
+            title: const Text('Xử lý hệ thống'),
+            subtitle: const Text('Theo dõi lỗi và yêu cầu xử lý lại'),
+            onTap: () => context.push('/houses/$houseId/failed-events'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.refresh),
+            title: const Text('Rotate invitation code'),
+            enabled: !leavingHouse,
+            onTap: onRotate,
+          ),
+          ListTile(
+            leading: const Icon(Icons.archive_outlined),
+            title: const Text('Archive household'),
+            enabled: !leavingHouse,
+            onTap: onArchive,
+          ),
+        ],
         _SectionHeader('Invite'),
         ListTile(
           leading: const Icon(Icons.key_rounded, color: AppTheme.purple),
@@ -151,7 +216,7 @@ class _SettingsBody extends StatelessWidget {
           ),
           const Divider(),
         ],
-        
+
         _SectionHeader('Danger zone'),
         ListTile(
           leading: leavingHouse

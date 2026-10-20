@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ChatMessageModel {
 
- String get id; String get roomId; String get senderId; String get senderName; String? get senderAvatar; String get content; DateTime get createdAt; DateTime? get editedAt;
+ String get messageType; String? get attachmentId; String? get clientMessageId; String get id; String get roomId; String get senderId; String get senderName; String? get senderAvatar; String get content; DateTime get createdAt; DateTime? get editedAt;
 /// Create a copy of ChatMessageModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $ChatMessageModelCopyWith<ChatMessageModel> get copyWith => _$ChatMessageModelCo
 @override
 bool operator ==(Object other) {
   final _this = this as ChatMessageModel;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatMessageModel&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.roomId, _this.roomId) || other.roomId == _this.roomId)&&(identical(other.senderId, _this.senderId) || other.senderId == _this.senderId)&&(identical(other.senderName, _this.senderName) || other.senderName == _this.senderName)&&(identical(other.senderAvatar, _this.senderAvatar) || other.senderAvatar == _this.senderAvatar)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.editedAt, _this.editedAt) || other.editedAt == _this.editedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatMessageModel&&(identical(other.messageType, _this.messageType) || other.messageType == _this.messageType)&&(identical(other.attachmentId, _this.attachmentId) || other.attachmentId == _this.attachmentId)&&(identical(other.clientMessageId, _this.clientMessageId) || other.clientMessageId == _this.clientMessageId)&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.roomId, _this.roomId) || other.roomId == _this.roomId)&&(identical(other.senderId, _this.senderId) || other.senderId == _this.senderId)&&(identical(other.senderName, _this.senderName) || other.senderName == _this.senderName)&&(identical(other.senderAvatar, _this.senderAvatar) || other.senderAvatar == _this.senderAvatar)&&(identical(other.content, _this.content) || other.content == _this.content)&&(identical(other.createdAt, _this.createdAt) || other.createdAt == _this.createdAt)&&(identical(other.editedAt, _this.editedAt) || other.editedAt == _this.editedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as ChatMessageModel;
-  return Object.hash(runtimeType,_this.id,_this.roomId,_this.senderId,_this.senderName,_this.senderAvatar,_this.content,_this.createdAt,_this.editedAt);
+  return Object.hash(runtimeType,_this.messageType,_this.attachmentId,_this.clientMessageId,_this.id,_this.roomId,_this.senderId,_this.senderName,_this.senderAvatar,_this.content,_this.createdAt,_this.editedAt);
 }
 
 @override
 String toString() {
   final _this = this as ChatMessageModel;
-  return 'ChatMessageModel(id: ${_this.id}, roomId: ${_this.roomId}, senderId: ${_this.senderId}, senderName: ${_this.senderName}, senderAvatar: ${_this.senderAvatar}, content: ${_this.content}, createdAt: ${_this.createdAt}, editedAt: ${_this.editedAt})';
+  return 'ChatMessageModel(messageType: ${_this.messageType}, attachmentId: ${_this.attachmentId}, clientMessageId: ${_this.clientMessageId}, id: ${_this.id}, roomId: ${_this.roomId}, senderId: ${_this.senderId}, senderName: ${_this.senderName}, senderAvatar: ${_this.senderAvatar}, content: ${_this.content}, createdAt: ${_this.createdAt}, editedAt: ${_this.editedAt})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $ChatMessageModelCopyWith<$Res>  {
   factory $ChatMessageModelCopyWith(ChatMessageModel value, $Res Function(ChatMessageModel) _then) = _$ChatMessageModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String roomId, String senderId, String senderName, String? senderAvatar, String content, DateTime createdAt, DateTime? editedAt
+ String messageType, String? attachmentId, String? clientMessageId, String id, String roomId, String senderId, String senderName, String? senderAvatar, String content, DateTime createdAt, DateTime? editedAt
 });
 
 
@@ -71,9 +71,12 @@ class _$ChatMessageModelCopyWithImpl<$Res>
 
 /// Create a copy of ChatMessageModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? roomId = null,Object? senderId = null,Object? senderName = null,Object? senderAvatar = freezed,Object? content = null,Object? createdAt = null,Object? editedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? messageType = null,Object? attachmentId = freezed,Object? clientMessageId = freezed,Object? id = null,Object? roomId = null,Object? senderId = null,Object? senderName = null,Object? senderAvatar = freezed,Object? content = null,Object? createdAt = null,Object? editedAt = freezed,}) {
   return _then(ChatMessageModel(
-id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+messageType: null == messageType ? _self.messageType : messageType // ignore: cast_nullable_to_non_nullable
+as String,attachmentId: freezed == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as String?,clientMessageId: freezed == clientMessageId ? _self.clientMessageId : clientMessageId // ignore: cast_nullable_to_non_nullable
+as String?,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,roomId: null == roomId ? _self.roomId : roomId // ignore: cast_nullable_to_non_nullable
 as String,senderId: null == senderId ? _self.senderId : senderId // ignore: cast_nullable_to_non_nullable
 as String,senderName: null == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable
@@ -166,10 +169,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String messageType,  String? attachmentId,  String? clientMessageId,  String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChatMessageModel() when $default != null:
-return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
+return $default(_that.messageType,_that.attachmentId,_that.clientMessageId,_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
   return orElse();
 
 }
@@ -187,10 +190,10 @@ return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.send
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String messageType,  String? attachmentId,  String? clientMessageId,  String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)  $default,) {final _that = this;
 switch (_that) {
 case _ChatMessageModel():
-return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
+return $default(_that.messageType,_that.attachmentId,_that.clientMessageId,_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -207,10 +210,10 @@ return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.send
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String messageType,  String? attachmentId,  String? clientMessageId,  String id,  String roomId,  String senderId,  String senderName,  String? senderAvatar,  String content,  DateTime createdAt,  DateTime? editedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _ChatMessageModel() when $default != null:
-return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
+return $default(_that.messageType,_that.attachmentId,_that.clientMessageId,_that.id,_that.roomId,_that.senderId,_that.senderName,_that.senderAvatar,_that.content,_that.createdAt,_that.editedAt);case _:
   return null;
 
 }
@@ -222,9 +225,12 @@ return $default(_that.id,_that.roomId,_that.senderId,_that.senderName,_that.send
 @JsonSerializable()
 
 class _ChatMessageModel implements ChatMessageModel {
-  const _ChatMessageModel({required this.id, required this.roomId, required this.senderId, required this.senderName, this.senderAvatar, required this.content, required this.createdAt, this.editedAt});
+  const _ChatMessageModel({this.messageType = 'TEXT', this.attachmentId, this.clientMessageId, required this.id, required this.roomId, required this.senderId, required this.senderName, this.senderAvatar, required this.content, required this.createdAt, this.editedAt});
   factory _ChatMessageModel.fromJson(Map<String, dynamic> json) => _$ChatMessageModelFromJson(json);
 
+@override@JsonKey() final  String messageType;
+@override final  String? attachmentId;
+@override final  String? clientMessageId;
 @override final  String id;
 @override final  String roomId;
 @override final  String senderId;
@@ -247,18 +253,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatMessageModel&&(identical(other.id, id) || other.id == id)&&(identical(other.roomId, roomId) || other.roomId == roomId)&&(identical(other.senderId, senderId) || other.senderId == senderId)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.senderAvatar, senderAvatar) || other.senderAvatar == senderAvatar)&&(identical(other.content, content) || other.content == content)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.editedAt, editedAt) || other.editedAt == editedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatMessageModel&&(identical(other.messageType, messageType) || other.messageType == messageType)&&(identical(other.attachmentId, attachmentId) || other.attachmentId == attachmentId)&&(identical(other.clientMessageId, clientMessageId) || other.clientMessageId == clientMessageId)&&(identical(other.id, id) || other.id == id)&&(identical(other.roomId, roomId) || other.roomId == roomId)&&(identical(other.senderId, senderId) || other.senderId == senderId)&&(identical(other.senderName, senderName) || other.senderName == senderName)&&(identical(other.senderAvatar, senderAvatar) || other.senderAvatar == senderAvatar)&&(identical(other.content, content) || other.content == content)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.editedAt, editedAt) || other.editedAt == editedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,roomId,senderId,senderName,senderAvatar,content,createdAt,editedAt);
+    return Object.hash(runtimeType,messageType,attachmentId,clientMessageId,id,roomId,senderId,senderName,senderAvatar,content,createdAt,editedAt);
 }
 
 @override
 String toString() {
-    return 'ChatMessageModel(id: $id, roomId: $roomId, senderId: $senderId, senderName: $senderName, senderAvatar: $senderAvatar, content: $content, createdAt: $createdAt, editedAt: $editedAt)';
+    return 'ChatMessageModel(messageType: $messageType, attachmentId: $attachmentId, clientMessageId: $clientMessageId, id: $id, roomId: $roomId, senderId: $senderId, senderName: $senderName, senderAvatar: $senderAvatar, content: $content, createdAt: $createdAt, editedAt: $editedAt)';
 }
 
 
@@ -269,7 +275,7 @@ abstract mixin class _$ChatMessageModelCopyWith<$Res> implements $ChatMessageMod
   factory _$ChatMessageModelCopyWith(_ChatMessageModel value, $Res Function(_ChatMessageModel) _then) = __$ChatMessageModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String roomId, String senderId, String senderName, String? senderAvatar, String content, DateTime createdAt, DateTime? editedAt
+ String messageType, String? attachmentId, String? clientMessageId, String id, String roomId, String senderId, String senderName, String? senderAvatar, String content, DateTime createdAt, DateTime? editedAt
 });
 
 
@@ -286,9 +292,12 @@ class __$ChatMessageModelCopyWithImpl<$Res>
 
 /// Create a copy of ChatMessageModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? roomId = null,Object? senderId = null,Object? senderName = null,Object? senderAvatar = freezed,Object? content = null,Object? createdAt = null,Object? editedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? messageType = null,Object? attachmentId = freezed,Object? clientMessageId = freezed,Object? id = null,Object? roomId = null,Object? senderId = null,Object? senderName = null,Object? senderAvatar = freezed,Object? content = null,Object? createdAt = null,Object? editedAt = freezed,}) {
   return _then(_ChatMessageModel(
-id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+messageType: null == messageType ? _self.messageType : messageType // ignore: cast_nullable_to_non_nullable
+as String,attachmentId: freezed == attachmentId ? _self.attachmentId : attachmentId // ignore: cast_nullable_to_non_nullable
+as String?,clientMessageId: freezed == clientMessageId ? _self.clientMessageId : clientMessageId // ignore: cast_nullable_to_non_nullable
+as String?,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,roomId: null == roomId ? _self.roomId : roomId // ignore: cast_nullable_to_non_nullable
 as String,senderId: null == senderId ? _self.senderId : senderId // ignore: cast_nullable_to_non_nullable
 as String,senderName: null == senderName ? _self.senderName : senderName // ignore: cast_nullable_to_non_nullable

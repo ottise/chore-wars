@@ -4,6 +4,11 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class CreateChoreRequest
 {
+    public bool AsRoutine { get; set; }
+    public Guid? SourceTemplateId { get; set; }
+    public int DeadlineMinutes { get; set; } = 1439;
+    public DateOnly? RecurrenceAnchor { get; set; }
+    public List<DateOnly> CustomDates { get; set; } = new();
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int KarmaPoints { get; set; }

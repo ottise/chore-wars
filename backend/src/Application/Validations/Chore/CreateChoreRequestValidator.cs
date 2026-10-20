@@ -9,6 +9,14 @@ public class CreateChoreRequestValidator : AbstractValidator<CreateChoreRequest>
 {
     public CreateChoreRequestValidator()
     {
+        RuleFor(x => x.Difficulty).IsInEnum();
+        RuleFor(x => x.DeadlineMinutes).InclusiveBetween(0,1439);
+        RuleFor(x => x.CustomDates).NotNull();
+        RuleFor(x => x.CustomDates).NotEmpty().When(x=>x.FrequencyType==FrequencyType.CUSTOM);
+        RuleFor(x => x.FrequencyDays).Must(days=>days==null||days.All(day=>Enum.IsDefined(day))).WithMessage("Invalid weekday.");
+        RuleFor(x => x.FrequencyValue).NotNull().GreaterThan(0).When(x=>x.FrequencyType==FrequencyType.EVERY_X_DAYS||x.FrequencyType==FrequencyType.EVERY_X_MONTHS||x.FrequencyType==FrequencyType.X_TIMES_PER_WEEK);
+        RuleFor(x => x.FrequencyDays).Must(days=>days!=null&&days.Distinct().Count()>0).When(x=>x.FrequencyType==FrequencyType.SPECIFIC_DAYS||x.FrequencyType==FrequencyType.X_TIMES_PER_WEEK);
+        RuleFor(x => x.FrequencyDays).Must((request,days)=>days!=null&&days.Distinct().Count()==request.FrequencyValue).When(x=>x.FrequencyType==FrequencyType.X_TIMES_PER_WEEK);
         RuleFor(x => x.Name)
             .NotEmpty()
             .MaximumLength(100);

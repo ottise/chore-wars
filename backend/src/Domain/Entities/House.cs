@@ -5,6 +5,8 @@ namespace ChoreWars.Domain.Entities;
 
 public class House
 {
+    public bool IsArchived { get; set; }
+    public int InviteVersion { get; set; }
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string InviteCode { get; set; } = string.Empty;

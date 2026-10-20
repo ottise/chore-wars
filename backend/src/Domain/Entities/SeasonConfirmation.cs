@@ -5,6 +5,7 @@ namespace ChoreWars.Domain.Entities;
 
 public class SeasonConfirmation
 {
+    public int ScheduleRevision { get; set; }
     public Guid Id { get; set; }
     public Guid SeasonId { get; set; }
     public Guid UserId { get; set; }

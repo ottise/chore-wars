@@ -17,11 +17,11 @@ public class RewardRedemptionConfiguration : IEntityTypeConfiguration<RewardRede
         builder.HasOne(x => x.Reward)
             .WithMany(x => x.Redemptions)
             .HasForeignKey(x => x.RewardId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.User)
             .WithMany()
             .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

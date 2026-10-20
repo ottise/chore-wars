@@ -5,6 +5,7 @@ namespace ChoreWars.Application.DTOs.Season;
 
 public class WorkloadSummaryResponse
 {
+    public int UnassignedCount { get; set; }
     public List<MemberWorkload> Members { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
 }
@@ -13,6 +14,7 @@ public class MemberWorkload
 {
     public Guid UserId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
+    public int TotalAssignedKarma { get; set; }
     public int TotalChores { get; set; }
     public int TotalEstimatedMinutes { get; set; }
     public int EasyCount { get; set; }

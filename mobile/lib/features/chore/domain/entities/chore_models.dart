@@ -74,18 +74,16 @@ enum ChoreStatus {
 }
 
 enum ChoreEffort {
-  easy(0, 'Easy'),
-  medium(1, 'Medium'),
-  hard(2, 'Hard');
+  easy(1, 'Easy'),
+  medium(2, 'Medium'),
+  hard(3, 'Hard');
 
   const ChoreEffort(this.apiValue, this.label);
   final int apiValue;
   final String label;
 
   static ChoreEffort fromJson(Object? value) {
-    if (value is int && value >= 0 && value < values.length) {
-      return values[value];
-    }
+    if (value is int && value >= 1 && value <= 3) return values[value - 1];
     final normalized = value.toString().toUpperCase();
     return switch (normalized) {
       'EASY' => easy,
@@ -103,12 +101,22 @@ class ChoreTemplate {
     required this.karmaPoints,
     required this.type,
     required this.frequency,
+    this.seasonId,
+    this.asRoutine = false,
+    this.deadlineMinutes = 1439,
+    this.recurrenceAnchor,
+    this.customDates = const [],
     this.frequencyValue,
     this.frequencyDays = const [],
     this.difficulty = ChoreEffort.medium,
     this.estimatedMinutes = 30,
   });
 
+  final String? seasonId;
+  final bool asRoutine;
+  final int deadlineMinutes;
+  final String? recurrenceAnchor;
+  final List<String> customDates;
   final String id;
   final String name;
   final String description;
@@ -121,6 +129,10 @@ class ChoreTemplate {
   final int estimatedMinutes;
 
   factory ChoreTemplate.fromJson(Map<String, dynamic> json) => ChoreTemplate(
+    seasonId: json['seasonId'] as String?,
+    deadlineMinutes: (json['deadlineMinutes'] as num?)?.toInt() ?? 1439,
+    recurrenceAnchor: json['recurrenceAnchor'] as String?,
+    customDates: List<String>.from(json['customDates'] as List? ?? const []),
     id: json['id'].toString(),
     name: json['name']?.toString() ?? '',
     description: json['description']?.toString() ?? '',
@@ -136,15 +148,17 @@ class ChoreTemplate {
   );
 
   Map<String, dynamic> toRequestJson() => {
+    'asRoutine': asRoutine,
+    'deadlineMinutes': deadlineMinutes,
+    'recurrenceAnchor': recurrenceAnchor,
+    'customDates': customDates,
     'name': name.trim(),
     'description': description.trim(),
     'karmaPoints': karmaPoints,
     'type': type.apiValue,
     'frequencyType': frequency.apiValue,
     'frequencyValue': frequencyValue,
-    'frequencyDays': frequency == ChoreFrequency.specificDays
-        ? frequencyDays
-        : null,
+    'frequencyDays': frequencyDays,
     'difficulty': difficulty.apiValue,
     'estimatedMinutes': estimatedMinutes,
   };

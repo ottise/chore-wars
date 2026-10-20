@@ -8,7 +8,6 @@ import '../../../chore/presentation/providers/chore_providers.dart';
 import '../providers/gamification_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class ChorePassScreen extends ConsumerStatefulWidget {
   const ChorePassScreen({
     required this.houseId,

@@ -96,17 +96,24 @@ public class SeasonController : ControllerBase
         return Ok();
     }
 
-    [HttpPost("{seasonId}/confirm")]
-    public async Task<IActionResult> ConfirmSeason(Guid seasonId, CancellationToken cancellationToken)
+    [HttpPost("{seasonId}/submit-review")]
+    public async Task<IActionResult> SubmitReview(Guid seasonId, CancellationToken cancellationToken)
     {
-        await _seasonService.ConfirmSeasonAsync(seasonId, CurrentUserId, cancellationToken);
+        await _seasonService.SubmitReviewAsync(seasonId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("{seasonId}/confirm")]
+    public async Task<IActionResult> ConfirmSeason(Guid seasonId, [FromBody] ConfirmScheduleRequest request, CancellationToken cancellationToken)
+    {
+        await _seasonService.ConfirmSeasonAsync(seasonId, CurrentUserId, cancellationToken, request.ScheduleRevision);
         return Ok();
     }
 
     [HttpPost("{seasonId}/reject")]
-    public async Task<IActionResult> RejectSeason(Guid seasonId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RejectSeason(Guid seasonId, [FromBody] RejectScheduleRequest request, CancellationToken cancellationToken)
     {
-        await _seasonService.RejectSeasonAsync(seasonId, CurrentUserId, cancellationToken);
+        await _seasonService.RejectSeasonAsync(seasonId, CurrentUserId, cancellationToken, request.Reason);
         return Ok();
     }
 
@@ -138,3 +145,6 @@ public class SeasonController : ControllerBase
         return Ok(summary);
     }
 }
+
+public record ConfirmScheduleRequest(int ScheduleRevision);
+public record RejectScheduleRequest(string Reason);

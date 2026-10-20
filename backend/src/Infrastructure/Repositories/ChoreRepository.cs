@@ -21,7 +21,7 @@ public class ChoreRepository : IChoreRepository
 
     public async Task<Chore?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return await _context.Chores.FindAsync(new object[] { id }, cancellationToken);
+        return await _context.Chores.Include(c=>c.FrequencyDays).FirstOrDefaultAsync(c=>c.Id==id,cancellationToken);
     }
 
     public async Task<IEnumerable<Chore>> GetByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default)

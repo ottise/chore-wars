@@ -28,6 +28,7 @@ public class ChoreCompletedConsumer : KafkaConsumerBase<ChoreCompletedEvent>
         // Check for achievements
         await achievementCheckService.CheckAchievementsAsync(@event.HouseId, @event.UserId, AchievementConditionType.CHORES_COMPLETED, cancellationToken);
         await achievementCheckService.CheckAchievementsAsync(@event.HouseId, @event.UserId, AchievementConditionType.KARMA_EARNED, cancellationToken);
+        await achievementCheckService.CheckAchievementsAsync(@event.HouseId, @event.UserId, AchievementConditionType.STREAK_DAYS, cancellationToken);
         
         // Notify the user that they completed a chore (optional, mostly an example)
         await notificationService.CreateNotificationAsync(

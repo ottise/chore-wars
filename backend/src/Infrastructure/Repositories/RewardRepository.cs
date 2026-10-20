@@ -20,6 +20,8 @@ public class RewardRepository : IRewardRepository
         _context = context;
     }
 
+    public async Task<IEnumerable<Reward>> GetByHouseIdAsync(Guid houseId, CancellationToken ct = default) => await _context.Rewards.Where(r => r.HouseId == houseId && r.Type == RewardType.CUSTOM).ToListAsync(ct);
+
     public async Task<Reward?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Rewards.FindAsync(new object[] { id }, cancellationToken);

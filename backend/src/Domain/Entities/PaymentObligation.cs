@@ -5,6 +5,7 @@ namespace ChoreWars.Domain.Entities;
 
 public class PaymentObligation
 {
+    public Guid? ConfirmedByUserId { get; set; }
     public Guid Id { get; set; }
     public Guid HouseId { get; set; }
     public Guid? SeasonId { get; set; }
