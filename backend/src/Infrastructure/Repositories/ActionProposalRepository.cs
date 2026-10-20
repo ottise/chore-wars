@@ -27,7 +27,10 @@ public class ActionProposalRepository : IActionProposalRepository
         await _context.ActionProposals
             .AsNoTracking()
             .Include(x => x.Confirmations)
-            .Where(x => x.RoomId == roomId && x.Status == ProposalStatus.PENDING && (!x.ExpiresAt.HasValue || x.ExpiresAt > now))
+            .Where(x => x.RoomId == roomId &&
+                ((x.Status == ProposalStatus.PENDING && (!x.ExpiresAt.HasValue || x.ExpiresAt > now)) ||
+                 (x.Type == ProposalType.URGENT_EVENT && x.Status == ProposalStatus.APPROVED &&
+                  x.ExpiresAt.HasValue && x.ExpiresAt > now)))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 

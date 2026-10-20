@@ -1,5 +1,9 @@
 # API Specification
 
+> Cập nhật đồng bộ main 20/10/2026: các proposal `URGENT_EVENT` và `CHORE_SWAP` thủ công đã có thể tạo/xác nhận qua `/api/houses/{houseId}/proposals`, `/api/proposals/{proposalId}/respond` (alias `/api/v1` được giữ). Proposal `SEASON_APPROVAL` vẫn không thay đổi lifecycle mùa; dùng season review đúng revision. Các đoạn cũ ghi toàn bộ proposal mutation đang deferred được thay thế bởi phạm vi này. Xem [biên bản hợp nhất](../reports/main-sync-2026-10-20.vi.md).
+
+> Urgent event chỉ tạo việc sau đồng thuận của mọi target và kiểm tra lại active membership, active season/cutoff; trả approved campaign trong active proposals cho tới deadline. Swap chỉ nhận hai việc thường chưa hết hạn trong cùng mùa ACTIVE, không có bounty/payment; kiểm tra lại availability/capacity và chuyển responsibility episode trong giao dịch. Request dựa trên context đã thay đổi trả conflict, không tự áp dụng lịch cũ. Đây là thao tác thủ công, chưa có AI.
+
 The Chore Wars API is a RESTful service. All endpoints expect and return JSON payloads.
 
 ## Authentication

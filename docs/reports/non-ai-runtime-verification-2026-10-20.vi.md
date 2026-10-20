@@ -1,5 +1,7 @@
 # Báo cáo kiểm chứng source non-AI — 20/10/2026
 
+> Đây là snapshot trước khi hợp nhất code nhóm từ `origin/main`. Đọc [biên bản đồng bộ main](main-sync-2026-10-20.vi.md) để xem các thay đổi tiếp theo, phạm vi proposal thủ công và kết quả hồi quy sau merge.
+
 ## Phạm vi đã chốt
 
 Người dùng yêu cầu hoàn thiện non-AI trong ngày, chọn quản trị message lỗi dành cho chủ nhà, sau đó xác nhận **chỉ test source**, chưa cắm điện thoại. Đợt này chạy unit/widget, HTTP/SignalR test server, PostgreSQL thật và Kafka thật; không đóng APK release, không deploy và không tích hợp AI/payOS.

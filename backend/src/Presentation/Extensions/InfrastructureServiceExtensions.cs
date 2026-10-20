@@ -23,8 +23,15 @@ public static class InfrastructureServiceExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var databaseConnectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(databaseConnectionString))
+        {
+            throw new InvalidOperationException(
+                "Connection string 'DefaultConnection' is missing. Configure ConnectionStrings__DefaultConnection or appsettings for the current environment.");
+        }
+
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+            options.UseNpgsql(databaseConnectionString));
 
         services.AddScoped<IAfterCommitActions, ChoreWars.Infrastructure.Concurrency.AfterCommitActions>();
         services.AddSingleton<ChoreWars.Infrastructure.Diagnostics.IRuntimeProbe, ChoreWars.Infrastructure.Diagnostics.NoopRuntimeProbe>();
@@ -59,7 +66,10 @@ public static class InfrastructureServiceExtensions
 
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnStr));
+        var redisOptions = ConfigurationOptions.Parse(redisConnStr);
+        redisOptions.AbortOnConnectFail = false;
+        redisOptions.ConnectTimeout = 2000;
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions));
         services.AddSingleton<ICacheService, RedisCacheService>();
 
         // Kafka

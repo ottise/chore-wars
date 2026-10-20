@@ -11,7 +11,10 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
+import '../../../chat/data/models/action_proposal_model.dart';
+import '../../../chat/providers/action_proposal_providers.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
+import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
@@ -38,6 +41,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
   Widget build(BuildContext context) {
     final key = (houseId: widget.houseId, occurrenceId: widget.occurrenceId);
     final detail = ref.watch(choreDetailProvider(key));
+    final authState = ref.watch(authStateProvider);
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final currentUserId = profile?.id ??
+        (authState is AuthAuthenticated ? authState.user.userId : null);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore detail'),
@@ -88,6 +95,9 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
               ? () => _showCompleteDialog(item)
               : null,
           onSkip: () => _skip(item),
+          onSwap: _canSwap(item.occurrence, currentUserId)
+              ? () => _showSwapDialog(item)
+              : null,
           onCreateBounty: _canCreateBounty(item.occurrence)
               ? () => context.push(
                   '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
@@ -105,6 +115,226 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
         ),
       ),
     );
+  }
+
+  bool _canSwap(ChoreOccurrence occurrence, String? currentUserId) {
+    return occurrence.status == ChoreStatus.assigned &&
+        currentUserId != null &&
+        occurrence.assignedUserId?.toLowerCase() ==
+            currentUserId.toLowerCase();
+  }
+
+  Future<void> _showSwapDialog(ChoreDetail detail) async {
+    setState(() => _mutating = true);
+    try {
+      final authState = ref.read(authStateProvider);
+      final profile = ref.read(userProfileProvider).asData?.value;
+      final currentUserId = profile?.id ??
+          (authState is AuthAuthenticated ? authState.user.userId : null);
+      if (currentUserId == null) {
+        throw StateError('Không xác định được tài khoản hiện tại.');
+      }
+
+      final season = await ref.read(activeSeasonProvider(widget.houseId).future);
+      final seasonId = season?['id']?.toString();
+      if (seasonId == null || seasonId.isEmpty) {
+        throw StateError('Nhà chưa có mùa giải đang hoạt động.');
+      }
+
+      final response = await ref.read(dioProvider).get(
+            '/houses/${widget.houseId}/seasons/$seasonId/occurrences',
+          );
+      final rawItems = response.data is List ? response.data as List : const [];
+      final candidates = rawItems
+          .whereType<Map>()
+          .map((item) => ChoreOccurrence.fromJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .where(
+            (item) =>
+                item.id != detail.occurrence.id &&
+                item.status == ChoreStatus.assigned &&
+                item.assignedUserId != null &&
+                item.assignedUserId!.toLowerCase() !=
+                    currentUserId.toLowerCase(),
+          )
+          .toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+      if (!mounted) return;
+      if (candidates.isEmpty) {
+        showAppMessage(
+          context,
+          'Hiện không có việc đang chờ của thành viên khác để đổi.',
+          error: true,
+        );
+        return;
+      }
+
+      final selection = await _showSwapSelectionDialog(
+        source: detail.occurrence,
+        candidates: candidates,
+      );
+      if (selection == null || !mounted) return;
+
+      await ref.read(actionProposalServiceProvider).createProposal(
+            houseId: widget.houseId,
+            type: ProposalType.choreSwap,
+            title:
+                'Đổi ${detail.occurrence.choreName} với ${selection.occurrence.choreName}',
+            description: selection.note.trim().isEmpty
+                ? '${detail.occurrence.assignedUserDisplayName} đề xuất đổi việc với ${selection.occurrence.assignedUserDisplayName}.'
+                : selection.note.trim(),
+            targetUserIds: [selection.targetUserId],
+            payloadJson: jsonEncode({
+              'sourceOccurrenceId': detail.occurrence.id,
+              'targetOccurrenceId': selection.occurrence.id,
+            }),
+          );
+
+      if (mounted) {
+        showAppMessage(
+          context,
+          'Đã gửi đề xuất đổi việc. Thành viên kia có thể phản hồi trong Chat.',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        showAppMessage(context, apiErrorMessage(error), error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+
+  Future<_SwapSelection?> _showSwapSelectionDialog({
+    required ChoreOccurrence source,
+    required List<ChoreOccurrence> candidates,
+  }) async {
+    final noteController = TextEditingController();
+    final memberNames = <String, String>{};
+    for (final item in candidates) {
+      memberNames[item.assignedUserId!] = item.assignedUserDisplayName;
+    }
+
+    var targetUserId = memberNames.keys.first;
+    var targetOccurrence = candidates.firstWhere(
+      (item) => item.assignedUserId == targetUserId,
+    );
+
+    final result = await showDialog<_SwapSelection>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final memberChores = candidates
+              .where((item) => item.assignedUserId == targetUserId)
+              .toList();
+          return AlertDialog(
+            title: const Text('Đề xuất đổi việc'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Việc của bạn: ${source.choreName}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 18),
+                    DropdownButtonFormField<String>(
+                      initialValue: targetUserId,
+                      decoration: const InputDecoration(
+                        labelText: 'Thành viên muốn đổi',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: memberNames.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          targetUserId = value;
+                          targetOccurrence = candidates.firstWhere(
+                            (item) => item.assignedUserId == value,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(targetUserId),
+                      initialValue: targetOccurrence.id,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Việc muốn nhận',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: memberChores
+                          .map(
+                            (item) => DropdownMenuItem(
+                              value: item.id,
+                              child: Text(
+                                '${item.choreName} · ${DateFormat('dd/MM HH:mm').format(item.dueDate)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          targetOccurrence = memberChores.firstWhere(
+                            (item) => item.id == value,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      maxLength: 1000,
+                      decoration: const InputDecoration(
+                        labelText: 'Ghi chú (không bắt buộc)',
+                        hintText: 'Ví dụ: Tối nay mình bận, bạn đổi giúp nhé.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Hủy'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(
+                  dialogContext,
+                  _SwapSelection(
+                    targetUserId: targetUserId,
+                    occurrence: targetOccurrence,
+                    note: noteController.text,
+                  ),
+                ),
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: const Text('Gửi đề xuất'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    noteController.dispose();
+    return result;
   }
 
   Future<void> _showCompleteDialog(ChoreDetail detail) async {
@@ -440,6 +670,7 @@ class _DetailBody extends StatelessWidget {
     required this.busy,
     required this.onComplete,
     required this.onSkip,
+    required this.onSwap,
     required this.onCreateBounty,
     required this.onEdit,
   });
@@ -448,6 +679,7 @@ class _DetailBody extends StatelessWidget {
   final bool busy;
   final VoidCallback? onComplete;
   final VoidCallback onSkip;
+  final VoidCallback? onSwap;
   final VoidCallback? onCreateBounty;
   final VoidCallback? onEdit;
 
@@ -646,6 +878,14 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ],
+        if (onSwap != null) ...[
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: busy ? null : onSwap,
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text('Đổi việc với thành viên khác'),
+          ),
+        ],
         if (onCreateBounty != null) ...[
           const SizedBox(height: 10),
           ElevatedButton.icon(
@@ -672,6 +912,18 @@ class _DetailBody extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SwapSelection {
+  const _SwapSelection({
+    required this.targetUserId,
+    required this.occurrence,
+    required this.note,
+  });
+
+  final String targetUserId;
+  final ChoreOccurrence occurrence;
+  final String note;
 }
 
 class _InfoRow extends StatelessWidget {

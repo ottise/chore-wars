@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chore_wars/features/chat/data/models/chat_message_model.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/presentation/widgets/interactive_action_card.dart';
@@ -28,17 +29,24 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: InteractiveActionCard(
-            proposal: ActionProposalModel(
-              id: 'p',
-              title: 'Swap',
-              description: 'Existing proposal',
-              status: 'PENDING',
-              type: 'CHORE_SWAP',
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: InteractiveActionCard(
+              proposal: ActionProposalModel(
+                id: 'p',
+                title: 'Swap',
+                description: 'Existing proposal',
+                status: ProposalStatus.pending,
+                houseId: 'h',
+                roomId: 'r',
+                creatorId: 'c',
+                payloadJson: '{}',
+                createdAt: DateTime.utc(2026),
+                type: ProposalType.seasonApproval,
+              ),
+              currentUserId: 'user',
             ),
-            currentUserId: 'user',
           ),
         ),
       ),

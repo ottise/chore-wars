@@ -46,6 +46,7 @@ public class ActionProposalServiceTests
     {
         var fixture = new Fixture();
         var targetId = Guid.NewGuid();
+        fixture.ActiveMember(targetId);
         var proposal = fixture.PendingProposal(targetId, ProposalType.SEASON_APPROVAL, "{}");
         fixture.Proposals.Setup(x => x.GetByIdForUpdateAsync(proposal.Id, It.IsAny<CancellationToken>())).ReturnsAsync(proposal);
 
@@ -73,9 +74,18 @@ public class ActionProposalServiceTests
             SourceOccurrenceId = sourceId,
             TargetOccurrenceId = targetOccurrenceId
         });
+        fixture.ActiveMember(targetId);
         var proposal = fixture.PendingProposal(targetId, ProposalType.CHORE_SWAP, payload);
         var source = fixture.Occurrence(sourceId, fixture.CreatorId);
         var target = fixture.Occurrence(targetOccurrenceId, targetId);
+        var seasonId = Guid.NewGuid(); source.SeasonId = target.SeasonId = seasonId;
+        source.DueDate = target.DueDate = DateTime.UtcNow.AddDays(1);
+        fixture.Seasons.Setup(x => x.GetByIdAsync(seasonId, It.IsAny<CancellationToken>())).ReturnsAsync(new ChoreSeason { Id = seasonId, HouseId = fixture.HouseId, Status = SeasonStatus.ACTIVE, EndDate = DateTime.UtcNow.AddDays(2) });
+        fixture.UnitOfWork.Setup(x => x.PaymentObligations.GetByHouseIdAsync(fixture.HouseId, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<PaymentObligation>());
+        fixture.UnitOfWork.Setup(x => x.ChoreBounties.GetByOccurrenceIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((ChoreBounty?)null);
+        fixture.UnitOfWork.Setup(x => x.MemberConstraints.GetByUserAndHouseIdAsync(It.IsAny<Guid>(), fixture.HouseId, It.IsAny<CancellationToken>())).ReturnsAsync((MemberConstraint?)null);
+        fixture.Occurrences.Setup(x => x.GetBySeasonIdAsync(seasonId, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { source, target });
+        fixture.UnitOfWork.Setup(x => x.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Enumerable.Range(0, 7).Select(d => new MemberAvailability { DayOfWeek = (DayOfWeek)d, IsAvailable = true }));
         fixture.Proposals.Setup(x => x.GetByIdForUpdateAsync(proposal.Id, It.IsAny<CancellationToken>())).ReturnsAsync(proposal);
         fixture.Occurrences.Setup(x => x.GetByIdAsync(sourceId, It.IsAny<CancellationToken>())).ReturnsAsync(source);
         fixture.Occurrences.Setup(x => x.GetByIdAsync(targetOccurrenceId, It.IsAny<CancellationToken>())).ReturnsAsync(target);
@@ -120,6 +130,8 @@ public class ActionProposalServiceTests
             .Callback<ChoreOccurrence, CancellationToken>((occurrence, _) => occurrences.Add(occurrence))
             .Returns(Task.CompletedTask);
 
+        fixture.ActiveMember(targetId);
+        fixture.Seasons.Setup(x => x.GetByIdAsync(seasonId, It.IsAny<CancellationToken>())).ReturnsAsync(new ChoreSeason { Id = seasonId, HouseId = fixture.HouseId, Status = SeasonStatus.ACTIVE, EndDate = DateTime.UtcNow.AddDays(1) });
         var before = DateTime.UtcNow.AddMinutes(29);
         var response = await fixture.Service.RespondProposalAsync(proposal.Id, new RespondProposalRequest
         {
@@ -135,6 +147,16 @@ public class ActionProposalServiceTests
             Assert.True(x.DueDate >= before);
             Assert.Equal(ChoreOccurrenceStatus.ASSIGNED, x.Status);
         });
+        Assert.NotNull(response.ExpiresAt);
+        fixture.Notifications.Verify(x => x.CreateNotificationAsync(
+            It.IsAny<Guid>(),
+            fixture.HouseId,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            nameof(NotificationType.URGENT_EVENT),
+            "ActionProposal",
+            proposal.Id,
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -165,10 +187,22 @@ public class ActionProposalServiceTests
         public Mock<IChoreRepository> Chores { get; } = new();
         public Mock<IChoreSeasonRepository> Seasons { get; } = new();
         public Mock<IActionProposalRealtimePublisher> Realtime { get; } = new();
+        public Mock<INotificationService> Notifications { get; } = new();
         public ActionProposalService Service { get; }
 
         public Fixture()
         {
+            Notifications
+                .Setup(x => x.CreateNotificationAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
             UnitOfWork.SetupGet(x => x.ActionProposals).Returns(Proposals.Object);
             UnitOfWork.SetupGet(x => x.HouseMembers).Returns(Members.Object);
             UnitOfWork.SetupGet(x => x.Chats).Returns(Chats.Object);
@@ -184,7 +218,7 @@ public class ActionProposalServiceTests
             Chats.Setup(x => x.GetRoomByHouseIdAsync(HouseId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatRoom { Id = RoomId, HouseId = HouseId });
             ActiveMember(CreatorId);
-            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true);
+            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true, notificationService: Notifications.Object);
         }
 
         public void ActiveMember(Guid userId) => Members

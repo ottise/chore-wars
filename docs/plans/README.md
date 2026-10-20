@@ -1,5 +1,7 @@
 # Tài liệu triển khai và nghiệm thu Chore Wars
 
+- [Đồng bộ main trước khi triển khai AI — 20/10/2026](../reports/main-sync-2026-10-20.vi.md): quyết định hợp nhất urgent event, swap thủ công, season review, chat và kiểm thử hồi quy. Đọc cùng source hiện tại trước khi triển khai AI.
+
 Nhóm 4 thành viên; yêu cầu môn tối thiểu 12 giao diện, dịch vụ thanh toán, đăng nhập, product hoàn chỉnh và 3 ngoại vi điện thoại.
 
 - [Kế hoạch hiện hành: 10 nhóm không-AI sau pull, hoãn tích hợp thanh toán](non-ai-10-groups-implementation-plan.vi.md): phạm vi đã chốt, payment tracking, baseline sau pull, kiến trúc, manifest file sửa/tạo, migration, kiểm thử và phân công 4 người ×3 màn. payOS/thủ quỹ/settlement đang hoãn để hỏi giảng viên.

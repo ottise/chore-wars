@@ -64,3 +64,4 @@ Desktop.ini
 # Local runtime verification evidence
 /artifacts/
 **/TestResults/
+.data-protection-keys/

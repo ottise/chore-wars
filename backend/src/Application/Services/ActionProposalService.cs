@@ -20,21 +20,39 @@ public class ActionProposalService : IActionProposalService
     private readonly bool _mutationsEnabled;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IActionProposalRealtimePublisher _realtimePublisher;
+    private readonly INotificationService? _notificationService;
+    private readonly IHouseMutationCoordinator? _mutations;
+    private readonly IAfterCommitActions? _afterCommit;
+    private readonly TimeProvider _clock;
 
-    public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher, bool mutationsEnabled = false)
+    public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher, bool mutationsEnabled = false,
+        INotificationService? notificationService = null, IHouseMutationCoordinator? mutationCoordinator = null,
+        IAfterCommitActions? afterCommit = null, TimeProvider? clock = null)
     {
         _mutationsEnabled = mutationsEnabled;
         _unitOfWork = unitOfWork;
         _realtimePublisher = realtimePublisher;
+        _notificationService = notificationService;
+        _mutations = mutationCoordinator;
+        _afterCommit = afterCommit;
+        _clock = clock ?? TimeProvider.System;
     }
 
     public async Task<ActionProposalResponse> CreateProposalAsync(
+        Guid houseId, CreateProposalRequest request, Guid creatorId, CancellationToken cancellationToken = default)
+    {
+        if (_mutations == null) return await CreateProposalCoreAsync(houseId, request, creatorId, cancellationToken);
+        return await _mutations.RunAsync(houseId, () => CreateProposalCoreAsync(houseId, request, creatorId, cancellationToken), cancellationToken);
+    }
+
+    private async Task<ActionProposalResponse> CreateProposalCoreAsync(
         Guid houseId,
         CreateProposalRequest request,
         Guid creatorId,
         CancellationToken cancellationToken = default)
     {
-        EnsureMutationsEnabled();
+        EnsureMutationsEnabled(request.Type);
+        await EnsureHouseWritableAsync(houseId, cancellationToken);
         ValidateCreateRequest(request, creatorId);
         await EnsureActiveMemberAsync(houseId, creatorId, cancellationToken);
 
@@ -82,17 +100,26 @@ public class ActionProposalService : IActionProposalService
         }
 
         var response = Map(proposal);
-        await _realtimePublisher.ProposalCreatedAsync(response, cancellationToken);
+        if (_afterCommit != null) _afterCommit.Enqueue(() => _realtimePublisher.ProposalCreatedAsync(response, cancellationToken));
+        else await _realtimePublisher.ProposalCreatedAsync(response, cancellationToken);
         return response;
     }
 
     public async Task<ActionProposalResponse> RespondProposalAsync(
+        Guid proposalId, RespondProposalRequest request, Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (_mutations == null) return await RespondProposalCoreAsync(proposalId, request, userId, cancellationToken);
+        var context = await _unitOfWork.ActionProposals.GetByIdAsync(proposalId, cancellationToken)
+            ?? throw new NotFoundException(nameof(ActionProposal), proposalId);
+        return await _mutations.RunAsync(context.HouseId, () => RespondProposalCoreAsync(proposalId, request, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task<ActionProposalResponse> RespondProposalCoreAsync(
         Guid proposalId,
         RespondProposalRequest request,
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        EnsureMutationsEnabled();
         if (request.Status is not (ConfirmationStatus.CONFIRMED or ConfirmationStatus.REJECTED))
             throw new DomainException("A response must be CONFIRMED or REJECTED.");
 
@@ -102,6 +129,10 @@ public class ActionProposalService : IActionProposalService
         {
             proposal = await _unitOfWork.ActionProposals.GetByIdForUpdateAsync(proposalId, cancellationToken)
                 ?? throw new NotFoundException(nameof(ActionProposal), proposalId);
+            EnsureMutationsEnabled(proposal.Type);
+            await EnsureHouseWritableAsync(proposal.HouseId, cancellationToken);
+            await EnsureActiveMemberAsync(proposal.HouseId, userId, cancellationToken);
+            await EnsureActiveMemberAsync(proposal.HouseId, proposal.CreatorId, cancellationToken);
 
             if (proposal.Status != ProposalStatus.PENDING)
                 throw new ConflictException("This proposal is no longer pending.");
@@ -123,6 +154,13 @@ public class ActionProposalService : IActionProposalService
             }
             else if (proposal.Confirmations.All(x => x.Status == ConfirmationStatus.CONFIRMED))
             {
+                if (proposal.Type == ProposalType.URGENT_EVENT)
+                {
+                    foreach (var participant in proposal.Confirmations)
+                        await EnsureActiveMemberAsync(proposal.HouseId, participant.TargetUserId, cancellationToken);
+                    await ValidatePayloadAsync(proposal.HouseId, proposal.CreatorId, proposal.Type, proposal.PayloadJson,
+                        proposal.Confirmations.Select(x => x.TargetUserId).ToList(), cancellationToken);
+                }
                 await ExecuteApprovedProposalAsync(proposal, cancellationToken);
                 proposal.Status = ProposalStatus.APPROVED;
             }
@@ -138,7 +176,28 @@ public class ActionProposalService : IActionProposalService
         }
 
         var response = Map(proposal);
-        await _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken);
+        if (_afterCommit != null) _afterCommit.Enqueue(() => _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken));
+        else await _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken);
+
+        if (_notificationService != null && proposal.Type == ProposalType.URGENT_EVENT && proposal.Status == ProposalStatus.APPROVED)
+        {
+            var participantIds = proposal.Confirmations
+                .Select(x => x.TargetUserId)
+                .Append(proposal.CreatorId)
+                .Distinct();
+            foreach (var participantId in participantIds)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    participantId,
+                    proposal.HouseId,
+                    "Chiến dịch khẩn cấp đã bắt đầu!",
+                    $"{proposal.Title} đã được 100% thành viên đồng ý. Đồng hồ đang đếm ngược.",
+                    nameof(NotificationType.URGENT_EVENT),
+                    "ActionProposal",
+                    proposal.Id,
+                    cancellationToken);
+            }
+        }
         return response;
     }
 
@@ -154,9 +213,16 @@ public class ActionProposalService : IActionProposalService
         return proposals.Select(Map).ToList();
     }
 
-    private void EnsureMutationsEnabled()
+    private async Task EnsureHouseWritableAsync(Guid houseId, CancellationToken ct)
     {
-        if (!_mutationsEnabled)
+        if (_mutations == null) return;
+        var house = await _unitOfWork.Houses.GetByIdAsync(houseId, ct) ?? throw new NotFoundException("Household not found.");
+        if (house.IsArchived) throw new ConflictException("Archived households are read-only.");
+    }
+
+    private void EnsureMutationsEnabled(ProposalType type)
+    {
+        if (!_mutationsEnabled && type == ProposalType.SEASON_APPROVAL)
             throw new ConflictException("Proposal actions are deferred. Use season review for season approvals.");
     }
 
@@ -202,20 +268,27 @@ public class ActionProposalService : IActionProposalService
                     throw new ForbiddenException("The swap occurrences must belong to the creator and target member.");
                 if (source.Status != ChoreOccurrenceStatus.ASSIGNED || target.Status != ChoreOccurrenceStatus.ASSIGNED)
                     throw new ConflictException("Only assigned chores can be swapped.");
+                await ValidateSwapAsync(source, target, cancellationToken);
                 break;
 
             case ProposalType.URGENT_EVENT:
                 var urgent = Deserialize<UrgentEventPayload>(payloadJson);
                 if (urgent.DeadlineMinutes is < 1 or > 1440)
                     throw new DomainException("Urgent event deadline must be between 1 and 1440 minutes.");
-                if (urgent.Chores.Count == 0)
+                if (urgent.Chores == null || urgent.Chores.Count == 0 || urgent.Chores.Count > 20)
                     throw new DomainException("An urgent event must contain at least one chore.");
-                if (urgent.Chores.Any(x => x.Name.Trim().Length > 100 || (x.Description?.Trim().Length ?? 0) > 500 || x.KarmaPoints < 0))
+                if (urgent.Chores.Any(x => x == null || string.IsNullOrWhiteSpace(x.Name) || x.Name.Trim().Length > 100 || (x.Description?.Trim().Length ?? 0) > 500 || x.KarmaPoints < 0 || !Enum.IsDefined(x.Difficulty)))
                     throw new DomainException("Urgent chore name, description, or karma value is invalid.");
                 var season = await _unitOfWork.Seasons.GetByIdAsync(urgent.SeasonId, cancellationToken)
                     ?? throw new NotFoundException(nameof(ChoreSeason), urgent.SeasonId);
                 if (season.HouseId != houseId)
                     throw new ForbiddenException("The selected season does not belong to this house.");
+                if (season.Status != SeasonStatus.ACTIVE)
+                    throw new ConflictException("Urgent events can only be created during an active season.");
+                if (_clock.GetUtcNow().UtcDateTime >= season.EndDate)
+                    throw new ConflictException("This season has reached its cutoff.");
+                if (_clock.GetUtcNow().UtcDateTime.AddMinutes(urgent.DeadlineMinutes) > season.EndDate)
+                    throw new ConflictException("The urgent deadline must fit inside the active season.");
                 var participants = targetIds.Append(creatorId).ToHashSet();
                 if (urgent.Chores.Any(x => string.IsNullOrWhiteSpace(x.Name) || !participants.Contains(x.AssignedUserId)))
                     throw new DomainException("Every urgent chore needs a name and an assignee participating in the event.");
@@ -243,14 +316,28 @@ public class ActionProposalService : IActionProposalService
                     throw new ConflictException("Chore assignments changed after this swap was proposed.");
                 if (source.Status != ChoreOccurrenceStatus.ASSIGNED || target.Status != ChoreOccurrenceStatus.ASSIGNED)
                     throw new ConflictException("Only assigned chores can be swapped.");
-                (source.AssignedUserId, target.AssignedUserId) = (target.AssignedUserId, source.AssignedUserId);
+                await EnsureActiveMemberAsync(proposal.HouseId, targetUserId, cancellationToken);
+                await ValidateSwapAsync(source, target, cancellationToken);
+                var sourceStart = await SwapStartAsync(source, target, targetUserId, cancellationToken);
+                var targetStart = await SwapStartAsync(target, source, proposal.CreatorId, cancellationToken);
+                await ChoreResponsibilityService.AssignAsync(_unitOfWork, source, targetUserId, "SWAP", source.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+                await ChoreResponsibilityService.AssignAsync(_unitOfWork, target, proposal.CreatorId, "SWAP", target.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+                source.PlannedStartAt = sourceStart;
+                target.PlannedStartAt = targetStart;
                 _unitOfWork.ChoreOccurrences.Update(source);
                 _unitOfWork.ChoreOccurrences.Update(target);
                 break;
 
             case ProposalType.URGENT_EVENT:
                 var urgent = Deserialize<UrgentEventPayload>(proposal.PayloadJson);
-                var dueDate = DateTime.UtcNow.AddMinutes(urgent.DeadlineMinutes);
+                var now = _clock.GetUtcNow().UtcDateTime;
+                var dueDate = now.AddMinutes(urgent.DeadlineMinutes);
+                var urgentSeason = await _unitOfWork.Seasons.GetByIdAsync(urgent.SeasonId, cancellationToken)
+                    ?? throw new NotFoundException(nameof(ChoreSeason), urgent.SeasonId);
+                if (dueDate > urgentSeason.EndDate) throw new ConflictException("The urgent deadline must fit inside the active season.");
+                // Once approved, ExpiresAt becomes the campaign deadline so
+                // clients can keep showing the active countdown banner.
+                proposal.ExpiresAt = dueDate;
                 foreach (var item in urgent.Chores)
                 {
                     var chore = new Chore
@@ -263,7 +350,8 @@ public class ActionProposalService : IActionProposalService
                         KarmaPoints = item.KarmaPoints,
                         Type = ChoreType.NORMAL,
                         FrequencyType = FrequencyType.CUSTOM,
-                        Difficulty = item.Difficulty
+                        Difficulty = item.Difficulty,
+                        EstimatedMinutes = ScheduleTime.Effort(item.Difficulty)
                     };
                     await _unitOfWork.Chores.AddAsync(chore, cancellationToken);
                     await _unitOfWork.ChoreOccurrences.AddAsync(new ChoreOccurrence
@@ -274,7 +362,9 @@ public class ActionProposalService : IActionProposalService
                         AssignedUserId = item.AssignedUserId,
                         DueDate = dueDate,
                         Status = ChoreOccurrenceStatus.ASSIGNED,
-                        SnapshotKarma = item.KarmaPoints
+                        SnapshotKarma = item.KarmaPoints,
+                        SnapshotMinutes = ScheduleTime.Effort(item.Difficulty),
+                        SnapshotDifficulty = item.Difficulty
                     }, cancellationToken);
                 }
                 break;
@@ -292,6 +382,39 @@ public class ActionProposalService : IActionProposalService
         if (occurrence.Chore.HouseId != houseId)
             throw new ForbiddenException("The chore occurrence does not belong to this house.");
         return occurrence;
+    }
+
+    private async Task ValidateSwapAsync(ChoreOccurrence source, ChoreOccurrence target, CancellationToken ct)
+    {
+        var now = _clock.GetUtcNow().UtcDateTime;
+        if (source.SeasonId != target.SeasonId || source.Chore.Type != ChoreType.NORMAL || target.Chore.Type != ChoreType.NORMAL ||
+            source.DueDate <= now || target.DueDate <= now || source.IsForcedReassigned || target.IsForcedReassigned)
+            throw new ConflictException("Swap requires two unexpired normal chores in the same active season.");
+        var season = await _unitOfWork.Seasons.GetByIdAsync(source.SeasonId, ct);
+        if (season?.Status != SeasonStatus.ACTIVE || season.EndDate <= now)
+            throw new ConflictException("Swaps require an active season before its cutoff.");
+        var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(source.Chore.HouseId, ct);
+        foreach (var occurrence in new[] { source, target })
+            if (await _unitOfWork.ChoreBounties.GetByOccurrenceIdAsync(occurrence.Id, ct) != null || payments.Any(p => p.OccurrenceId == occurrence.Id))
+                throw new ConflictException("Chores linked to a bounty or payment cannot be swapped.");
+        await SwapStartAsync(source, target, target.AssignedUserId!.Value, ct);
+        await SwapStartAsync(target, source, source.AssignedUserId!.Value, ct);
+    }
+
+    private async Task<DateTime> SwapStartAsync(ChoreOccurrence incoming, ChoreOccurrence outgoing, Guid assignee, CancellationToken ct)
+    {
+        var assigned = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(incoming.SeasonId, ct))
+            .Where(o => o.AssignedUserId == assignee && o.Id != outgoing.Id && o.Id != incoming.Id && o.Chore.Type == ChoreType.NORMAL).ToList();
+        var limit = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(assignee, incoming.Chore.HouseId, ct);
+        var day = ScheduleTime.Local(incoming.DueDate);
+        var week = System.Globalization.ISOWeek.GetWeekOfYear(day);
+        var year = System.Globalization.ISOWeek.GetYear(day);
+        if (assigned.Count(o => System.Globalization.ISOWeek.GetYear(ScheduleTime.Local(o.DueDate)) == year && System.Globalization.ISOWeek.GetWeekOfYear(ScheduleTime.Local(o.DueDate)) == week) >= (limit?.MaxChoresPerWeek ?? 20) ||
+            assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == day.Date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(incoming) > (limit?.MaxEffortMinutesPerDay ?? 120))
+            throw new ConflictException("The proposed swap exceeds workload limits.");
+        var available = (await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(incoming.SeasonId, assignee, ct)).FirstOrDefault(a => a.DayOfWeek == day.DayOfWeek);
+        return AllocationEligibilityService.FindStart(incoming, available, assigned)
+            ?? throw new ConflictException("The proposed swap does not fit declared availability.");
     }
 
     private async Task EnsureActiveMemberAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)

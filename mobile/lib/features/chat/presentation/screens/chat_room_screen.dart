@@ -2,6 +2,11 @@ import '../widgets/voice_note_recorder.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:chore_wars/core/utils/api_error_message.dart';
+
+import '../widgets/urgent_event_banner.dart';
+
 import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
@@ -52,9 +57,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingRoom = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load chat room: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
       }
     }
   }
@@ -87,10 +91,24 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         title: const Text('House Chat'),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Phát động nhiệm vụ khẩn cấp',
+            icon: const Icon(Icons.bolt_rounded),
+            onPressed: () =>
+                context.push('/houses/${widget.houseId}/urgent-event'),
+          ),
+        ],
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
+          if (ref
+                  .watch(activeUrgentEventForHouseProvider(widget.houseId))
+                  .asData
+                  ?.value
+              case final urgent?)
+            UrgentEventBanner(proposal: urgent),
           Expanded(
             child: ListenableBuilder(
               listenable: chatNotifier,

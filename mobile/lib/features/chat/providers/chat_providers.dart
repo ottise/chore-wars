@@ -121,7 +121,10 @@ class ChatMessagesNotifier extends ChangeNotifier {
   }
 
   Future<void> sendMessage(String content) async {
-    await _repo.sendMessage(_roomId, content);
+    final message = await _repo.sendMessage(_roomId, content);
+    if (_disposed) return;
+    _messages = [message, ..._messages.where((m) => m.id != message.id)];
+    notifyListeners();
   }
 
   Future<void> sendImage(List<int> bytes, String filename) async {

@@ -48,13 +48,15 @@ public partial class ChoreService : IChoreService
         var houseContext = await _unitOfWork.Houses.GetByIdAsync(houseId,cancellationToken) ?? throw new NotFoundException("Household not found.");
         if (houseContext.IsArchived) throw new ConflictException("Archived households are read-only.");
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
-            throw new ForbiddenException("Only house members can create chores.");
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can create chores.");
 
         var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (!request.AsRoutine && activeSeason == null)
+            throw new ConflictException("Create a season before adding chores.");
 
         if (!request.AsRoutine && activeSeason != null && activeSeason.Status != SeasonStatus.DRAFT)
-            throw new ConflictException("Chore definitions are locked outside draft.");
+            throw new ConflictException("Chore definitions are locked outside DRAFT.");
         if (!request.AsRoutine && activeSeason != null) {
             if (await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(activeSeason.Id,cancellationToken))
                 await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(activeSeason.Id,cancellationToken);
@@ -251,8 +253,8 @@ public partial class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
-            throw new ForbiddenException("Only house members can update chores.");
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can update chores.");
 
         await EnsureDraftChoreAsync(chore, cancellationToken);
         chore.DeadlineMinutes = request.DeadlineMinutes;
@@ -315,8 +317,8 @@ public partial class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
-            throw new ForbiddenException("Only house members can delete chores.");
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can delete chores.");
 
         await EnsureDraftChoreAsync(chore, cancellationToken);
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -336,7 +338,9 @@ public partial class ChoreService : IChoreService
 
     public async Task<IEnumerable<ChoreResponse>> GetChoresByHouseAsync(Guid houseId, CancellationToken cancellationToken = default)
     {
-        var chores = await _unitOfWork.Chores.GetByHouseIdAsync(houseId, cancellationToken);
+        var season = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (season == null) return Array.Empty<ChoreResponse>();
+        var chores = await _unitOfWork.Chores.GetBySeasonIdAsync(season.Id, cancellationToken);
         return _mapper.Map<IEnumerable<ChoreResponse>>(chores);
     }
 
@@ -354,8 +358,8 @@ public partial class ChoreService : IChoreService
             throw new NotFoundException(nameof(Chore), choreId);
 
         var requestor = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, userId, cancellationToken);
-        if (requestor == null || requestor.Status != HouseMemberStatus.ACTIVE)
-            throw new ForbiddenException("Only house members can manually assign chores.");
+        if (requestor == null || requestor.Status != HouseMemberStatus.ACTIVE || requestor.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can manually assign chores.");
 
         var assignee = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId, request.UserId, cancellationToken);
         if (assignee == null || assignee.Status != HouseMemberStatus.ACTIVE)

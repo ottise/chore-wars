@@ -28,9 +28,9 @@ public class SeasonController : ControllerBase
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrentSeason(Guid houseId, CancellationToken cancellationToken)
     {
-        var activeSeason = await _seasonService.GetActiveSeasonAsync(houseId, CurrentUserId, cancellationToken);
-        if (activeSeason == null) return Ok((SeasonResponse?)null);
-        return Ok(activeSeason);
+        var currentSeason = await _seasonService.GetActiveSeasonAsync(houseId, CurrentUserId, cancellationToken);
+        if (currentSeason == null) return Ok((SeasonResponse?)null);
+        return Ok(currentSeason);
     }
 
     [HttpGet]

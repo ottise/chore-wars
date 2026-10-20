@@ -57,7 +57,7 @@ public class ChoreAllocationService : IChoreAllocationService
                 var date = ScheduleTime.Local(occurrence.DueDate).Date;
                 var week = System.Globalization.ISOWeek.GetWeekOfYear(date);
                 var year = System.Globalization.ISOWeek.GetYear(date);
-                var candidates = new List<(Guid UserId, int Karma, int Preference, int Count, DateTime Start)>();
+                var candidates = new List<(Guid UserId, int Karma, int Rotation, int Preference, int Count, DateTime Start)>();
                 foreach (var member in members) {
                     var assigned = occurrences.Where(o => o.AssignedUserId == member.UserId).ToList();
                     var limit = constraints[member.UserId];
@@ -66,10 +66,12 @@ public class ChoreAllocationService : IChoreAllocationService
                     var start = AllocationEligibilityService.FindStart(occurrence, availability.FirstOrDefault(a => a.UserId == member.UserId && a.DayOfWeek == date.DayOfWeek), assigned);
                     if (start == null) continue;
                     var pref = preferences[member.UserId].FirstOrDefault(p => p.ChoreId == occurrence.ChoreId)?.Type;
-                    candidates.Add((member.UserId, assigned.Sum(o => o.SnapshotKarma), pref == PreferenceType.PREFERRED ? -1 : pref == PreferenceType.DISLIKED ? 1 : 0, assigned.Count, start.Value));
+                    var previousMonday = date.AddDays(-((int)date.DayOfWeek + 6) % 7 - 7);
+                    var rotation = assigned.Any(o => o.ChoreId == occurrence.ChoreId && ScheduleTime.Local(o.DueDate).Date >= previousMonday && ScheduleTime.Local(o.DueDate).Date < previousMonday.AddDays(7)) ? 1 : 0;
+                    candidates.Add((member.UserId, assigned.Sum(o => o.SnapshotKarma), rotation, pref == PreferenceType.PREFERRED ? -1 : pref == PreferenceType.DISLIKED ? 1 : 0, assigned.Count, start.Value));
                 }
                 if (candidates.Count == 0) continue; // Keep unassigned; never override a hard constraint.
-                var selected = candidates.OrderBy(x => x.Karma).ThenBy(x => x.Preference).ThenBy(x => x.Count).ThenBy(x => x.UserId).First();
+                var selected = candidates.OrderBy(x => x.Karma).ThenBy(x => x.Rotation).ThenBy(x => x.Preference).ThenBy(x => x.Count).ThenBy(x => x.UserId).First();
                 occurrence.AssignedUserId = selected.UserId;
                 occurrence.PlannedStartAt = selected.Start;
                 _unitOfWork.ChoreOccurrences.Update(occurrence);
@@ -96,8 +98,8 @@ public class ChoreAllocationService : IChoreAllocationService
             throw new NotFoundException(nameof(ChoreSeason), seasonId);
 
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
-        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
-            throw new ForbiddenException("Only house members can manually allocate chores.");
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can manually allocate chores.");
 
         var occurrence = await _unitOfWork.ChoreOccurrences.GetByIdAsync(occurrenceId, cancellationToken);
         if (occurrence == null)
@@ -178,6 +180,7 @@ public class ChoreAllocationService : IChoreAllocationService
                 TotalChores = memberOccs.Count,
                 TotalEstimatedMinutes = memberOccs.Sum(AllocationEligibilityService.Minutes),
                 TotalAssignedKarma = memberOccs.Sum(o => o.SnapshotKarma),
+                TotalKarma = memberOccs.Sum(o => o.SnapshotKarma),
                 EasyCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.EASY),
                 MediumCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.MEDIUM),
                 HardCount = memberOccs.Count(o => o.Chore.Difficulty == ChoreEffort.HARD),
@@ -187,6 +190,10 @@ public class ChoreAllocationService : IChoreAllocationService
         if (response.Members.Count >= 2)
         {
             var karmaGap = response.Members.Max(m => m.TotalAssignedKarma) - response.Members.Min(m => m.TotalAssignedKarma);
+            var averageKarma = response.Members.Average(m => m.TotalAssignedKarma);
+            response.KarmaVariancePercentage = averageKarma > 0 ? Math.Round(karmaGap / averageKarma * 100, 2) : 0;
+            if (response.KarmaVariancePercentage > 20)
+                response.Warnings.Add($"Karma gap: variance of {response.KarmaVariancePercentage:F1}% exceeds 20% fairness threshold. Consider rebalancing.");
             if (karmaGap > 0) response.Warnings.Add($"Assigned Karma gap: {karmaGap}. Review the distribution before approval.");
             var maxMinutes = response.Members.Max(m => m.TotalEstimatedMinutes);
             var minMinutes = response.Members.Min(m => m.TotalEstimatedMinutes);

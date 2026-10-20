@@ -272,40 +272,40 @@ Mục này mô tả chính xác hành trình của người dùng trên toàn b�
 ### 👨‍💻 DEVELOPER 1: PHÁT (Backend Core, Thuật Toán Phân Bổ & Season Life-Cycle)
 
 #### 1. Code Implementation Checklists
-- [ ] Mở `backend/src/Application/DTOs/Chore/CreateChoreRequest.cs`:
-  - [ ] Đặt giá trị mặc định: `public int EstimatedMinutes { get; set; } = 30;`
-  - [ ] Thêm static method `GetDefaultMinutes(ChoreEffort difficulty)`: Easy $\rightarrow$ 15, Medium $\rightarrow$ 30, Hard $\rightarrow$ 45.
-- [ ] Mở `backend/src/Application/DTOs/Season/WorkloadSummaryResponse.cs`:
-  - [ ] Bổ sung trường `public int TotalKarma { get; set; }` vào class `MemberWorkload`.
-  - [ ] Bổ sung trường `public double KarmaVariancePercentage { get; set; }`.
-- [ ] Mở `backend/src/Application/Services/ChoreAllocationService.cs`:
-  - [ ] Refactor `AllocateSeasonAsync`:
-    - [ ] Sắp xếp danh sách chore chưa gán theo `KarmaPoints` giảm dần, tiếp theo là `Difficulty` giảm dần.
-    - [ ] Tạo bảng theo dõi `Dictionary<Guid, int> memberKarmaSum` để tích lũy Karma gán trong mùa.
-    - [ ] Áp dụng **Chore Rotation Penalty**: Phạt $+50$ điểm cost nếu gán việc X cho người đã làm việc X ở tuần liền trước.
-    - [ ] Ưu tiên chọn người rảnh lịch VÀ đang có `memberKarmaSum` thấp nhất để cân bằng Karma.
-    - [ ] Bổ sung cảnh báo chi tiết vào `response.Warnings` khi vi phạm ràng buộc (thay vì gán ngầm).
-  - [ ] Refactor `GetWorkloadSummaryAsync`:
-    - [ ] Tính `TotalKarma = memberOccurrences.Sum(o => o.Chore.KarmaPoints)`.
-- [ ] Mở `backend/src/Application/Services/SeasonService.cs`:
-  - [ ] Refactor `ConfirmSeasonAsync`: Kiểm tra điều kiện `allConfirmations.All(c => c.Status == ConfirmationStatus.CONFIRMED)` mới cho chuyển sang `SeasonStatus.ACTIVE`. Nếu chưa đủ 100% thì giữ nguyên `REVIEWING`.
-  - [ ] Refactor `RejectSeasonAsync`: Đổi confirmation của user thành `REJECTED`, đồng thời rollback `season.Status = SeasonStatus.DRAFT;`.
-- [ ] Mở `backend/src/Application/Services/HouseService.cs`:
-  - [ ] Trong `JoinHouseAsync`: Đếm số active members, nếu $\ge 6$ thì `throw new ConflictException("Nhà đã đạt giới hạn tối đa 6 người.");`.
+- [x] Mở `backend/src/Application/DTOs/Chore/CreateChoreRequest.cs`:
+  - [x] Đặt giá trị mặc định: `public int EstimatedMinutes { get; set; } = 30;`
+  - [x] Thêm static method `GetDefaultMinutes(ChoreEffort difficulty)`: Easy $\rightarrow$ 15, Medium $\rightarrow$ 30, Hard $\rightarrow$ 45.
+- [x] Mở `backend/src/Application/DTOs/Season/WorkloadSummaryResponse.cs`:
+  - [x] Bổ sung trường `public int TotalKarma { get; set; }` vào class `MemberWorkload`.
+  - [x] Bổ sung trường `public double KarmaVariancePercentage { get; set; }`.
+- [x] Mở `backend/src/Application/Services/ChoreAllocationService.cs`:
+  - [x] Refactor `AllocateSeasonAsync`:
+    - [x] Sắp xếp danh sách chore chưa gán theo `KarmaPoints` giảm dần, tiếp theo là `Difficulty` giảm dần.
+    - [x] Tạo bảng theo dõi `Dictionary<Guid, int> memberKarmaSum` để tích lũy Karma gán trong mùa.
+    - [x] Áp dụng **Chore Rotation Penalty**: Phạt $+50$ điểm cost nếu gán việc X cho người đã làm việc X ở tuần liền trước.
+    - [x] Ưu tiên chọn người rảnh lịch VÀ đang có `memberKarmaSum` thấp nhất để cân bằng Karma.
+    - [x] Bổ sung cảnh báo chi tiết vào `response.Warnings` khi vi phạm ràng buộc (thay vì gán ngầm).
+  - [x] Refactor `GetWorkloadSummaryAsync`:
+    - [x] Tính `TotalKarma = memberOccurrences.Sum(o => o.Chore.KarmaPoints)`.
+- [x] Mở `backend/src/Application/Services/SeasonService.cs`:
+  - [x] Refactor `ConfirmSeasonAsync`: Kiểm tra điều kiện `allConfirmations.All(c => c.Status == ConfirmationStatus.CONFIRMED)` mới cho chuyển sang `SeasonStatus.ACTIVE`. Nếu chưa đủ 100% thì giữ nguyên `REVIEWING`.
+  - [x] Refactor `RejectSeasonAsync`: Đổi confirmation của user thành `REJECTED`, đồng thời rollback `season.Status = SeasonStatus.DRAFT;`.
+- [x] Mở `backend/src/Application/Services/HouseService.cs`:
+  - [x] Trong `JoinHouseAsync`: Đếm số active members, nếu $\ge 6$ thì `throw new ConflictException("Nhà đã đạt giới hạn tối đa 6 người.");`.
 
 #### 2. Test Implementation Checklists (xUnit & Moq)
-- [ ] Tạo file `backend/tests/UnitTests/Services/ChoreAllocationKarmaTests.cs`:
-  - [ ] Test 1: `AllocateSeasonAsync_ShouldBalanceKarma_AcrossAllMembers` (Độ lệch chuẩn Karma giữa các thành viên $\le 20\%$).
-  - [ ] Test 2: `AllocateSeasonAsync_ShouldAvoidAssigningSameChore_InConsecutiveWeeks` (Kiểm tra quy tắc xoay vòng việc).
-  - [ ] Test 3: `AllocateSeasonAsync_ShouldPopulateWarnings_WhenConstraintConflictsOccur`.
-  - [ ] Test 4: `GetWorkloadSummaryAsync_ShouldReturnAccurateTotalKarma`.
-- [ ] Tạo file `backend/tests/UnitTests/Services/SeasonConfirmationLockTests.cs`:
-  - [ ] Test 1: `ConfirmSeasonAsync_WhenPartialConfirmed_ShouldStayReviewing`.
-  - [ ] Test 2: `ConfirmSeasonAsync_WhenAllConfirmed_ShouldBecomeActive`.
-  - [ ] Test 3: `RejectSeasonAsync_WhenOneRejects_ShouldRollbackToDraft`.
-- [ ] Tạo file `backend/tests/UnitTests/Services/HouseCapacityTests.cs`:
-  - [ ] Test 1: `JoinHouseAsync_When6ActiveMembers_ShouldThrowConflictException`.
-  - [ ] Test 2: `JoinHouseAsync_WhenUnder6ActiveMembers_ShouldAddMemberSuccessfully`.
+- [x] Tạo file `backend/tests/UnitTests/Services/ChoreAllocationKarmaTests.cs`:
+  - [x] Test 1: `AllocateSeasonAsync_ShouldBalanceKarma_AcrossAllMembers` (Độ lệch chuẩn Karma giữa các thành viên $\le 20\%$).
+  - [x] Test 2: `AllocateSeasonAsync_ShouldAvoidAssigningSameChore_InConsecutiveWeeks` (Kiểm tra quy tắc xoay vòng việc).
+  - [x] Test 3: `AllocateSeasonAsync_ShouldPopulateWarnings_WhenConstraintConflictsOccur`.
+  - [x] Test 4: `GetWorkloadSummaryAsync_ShouldReturnAccurateTotalKarma`.
+- [x] Tạo file `backend/tests/UnitTests/Services/SeasonConfirmationLockTests.cs`:
+  - [x] Test 1: `ConfirmSeasonAsync_WhenPartialConfirmed_ShouldStayReviewing`.
+  - [x] Test 2: `ConfirmSeasonAsync_WhenAllConfirmed_ShouldBecomeActive`.
+  - [x] Test 3: `RejectSeasonAsync_WhenOneRejects_ShouldRollbackToDraft`.
+- [x] Tạo file `backend/tests/UnitTests/Services/HouseCapacityTests.cs`:
+  - [x] Test 1: `JoinHouseAsync_When6ActiveMembers_ShouldThrowConflictException`.
+  - [x] Test 2: `JoinHouseAsync_WhenUnder6ActiveMembers_ShouldAddMemberSuccessfully`.
 
 ---
 

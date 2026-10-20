@@ -23,7 +23,8 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
     protected KafkaConsumerBase(string topic, IOptions<KafkaOptions> options, IServiceScopeFactory scopeFactory, ILogger logger)
     { _topic = topic; _options = options.Value; _scopeFactory = scopeFactory; _logger = logger; }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.Run(() => ConsumeLoop(stoppingToken),stoppingToken);
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.Factory.StartNew(
+        () => ConsumeLoop(stoppingToken), stoppingToken, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
 
     private async Task ConsumeLoop(CancellationToken ct)
     {

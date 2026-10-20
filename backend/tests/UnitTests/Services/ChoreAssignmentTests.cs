@@ -20,7 +20,7 @@ public class ChoreAssignmentTests
         var chore = new Chore { Id = Guid.NewGuid(), HouseId = season.HouseId, SeasonId = season.Id, Type = ChoreType.NORMAL };
         var uow = new Mock<IUnitOfWork>();
         uow.Setup(x => x.Chores.GetByIdAsync(chore.Id,It.IsAny<CancellationToken>())).ReturnsAsync(chore);
-        uow.Setup(x => x.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId,user,It.IsAny<CancellationToken>())).ReturnsAsync(new HouseMember { UserId = user, Status = HouseMemberStatus.ACTIVE });
+        uow.Setup(x => x.HouseMembers.GetByHouseAndUserIdAsync(chore.HouseId,user,It.IsAny<CancellationToken>())).ReturnsAsync(new HouseMember { UserId = user, Status = HouseMemberStatus.ACTIVE, Role = HouseRole.OWNER });
         uow.Setup(x => x.Seasons.GetCurrentSeasonByHouseIdAsync(chore.HouseId,It.IsAny<CancellationToken>())).ReturnsAsync(season);
         return (new ChoreService(uow.Object,Mock.Of<IMapper>(),Mock.Of<IEventPublisher>(),Mock.Of<IKarmaService>()),uow,chore,season,user);
     }

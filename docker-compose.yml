@@ -42,6 +42,21 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
+  kafka-init:
+    image: apache/kafka:3.7.0
+    depends_on:
+      - kafka
+    command:
+      - /bin/bash
+      - -c
+      - |
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
+          sleep 2
+        done
+        for topic in chore.completed bounty.created bounty.accepted chore.overdue bounty.expired season.ended chore.deadline_reminder; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic $$topic --partitions 1 --replication-factor 1
+        done
+
   backend:
     build:
       context: ./backend
@@ -49,9 +64,12 @@ services:
     container_name: chorewars-backend
     restart: always
     depends_on:
-      - postgres
-      - redis
-      - kafka
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-chorewars};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}

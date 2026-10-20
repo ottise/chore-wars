@@ -100,7 +100,7 @@ public partial class HouseService : IHouseService
         if (existingMember?.Status == HouseMemberStatus.BANNED) throw new ForbiddenException("Banned members cannot rejoin by invitation.");
         if (existingMember?.Status == HouseMemberStatus.ACTIVE) throw new ConflictException("Already a member.");
         var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(house.Id, cancellationToken)).Count(m => m.Status == HouseMemberStatus.ACTIVE);
-        if (activeMembers >= 6) throw new ConflictException("A household supports at most six active members.");
+        if (activeMembers >= ChoreWars.Domain.Common.Constants.HouseConstants.MaxMembersPerHouse) throw new ConflictException("A household supports at most six active members.");
 
         var member = existingMember ?? new HouseMember
         {

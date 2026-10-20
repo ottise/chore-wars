@@ -23,12 +23,30 @@ namespace Infrastructure.Migrations
                 oldClrType: typeof(Guid),
                 oldType: "uuid");
 
+            // Add the column as nullable first so existing occurrences can be
+            // linked to the same season as their chore before enforcing the FK.
             migrationBuilder.AddColumn<Guid>(
                 name: "SeasonId",
                 table: "ChoreOccurrences",
                 type: "uuid",
+                nullable: true);
+
+            migrationBuilder.Sql(
+                """
+                UPDATE "ChoreOccurrences" AS occurrence
+                SET "SeasonId" = chore."SeasonId"
+                FROM "Chores" AS chore
+                WHERE occurrence."ChoreId" = chore."Id";
+                """);
+
+            migrationBuilder.AlterColumn<Guid>(
+                name: "SeasonId",
+                table: "ChoreOccurrences",
+                type: "uuid",
                 nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+                oldClrType: typeof(Guid),
+                oldType: "uuid",
+                oldNullable: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChoreOccurrences_SeasonId",

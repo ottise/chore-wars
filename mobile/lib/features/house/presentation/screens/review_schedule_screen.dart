@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../providers/house_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../domain/entities/house_models.dart';
 
 class ReviewScheduleScreen extends ConsumerStatefulWidget {
   final String houseId, seasonId;
@@ -25,6 +27,18 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   List<dynamic> _occurrences = [];
   String get _base => '/houses/${widget.houseId}/seasons/${widget.seasonId}';
   bool get _draft => _season?['status'] == 0 || _season?['status'] == 'DRAFT';
+  bool get _owner =>
+      ref.watch(houseDetailProvider(widget.houseId)).asData?.value.myRole ==
+      HouseRole.owner;
+  bool get _confirmed {
+    final user = ref.watch(userProfileProvider).asData?.value.id;
+    return (_season?['confirmations'] as List? ?? []).any(
+      (c) =>
+          c['userId'] == user &&
+          (c['status'] == 1 || c['status'] == 'CONFIRMED'),
+    );
+  }
+
   bool get _reviewing =>
       _season?['status'] == 1 || _season?['status'] == 'REVIEWING';
   @override
@@ -238,7 +252,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
               subtitle: Text(
                 '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
               ),
-              trailing: _draft
+              trailing: _draft && _owner
                   ? TextButton(
                       onPressed: _busy
                           ? null
@@ -248,7 +262,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   : null,
             ),
           ),
-        if (_draft) ...[
+        if (_draft && _owner) ...[
           OutlinedButton(
             onPressed: _busy ? null : _importRoutine,
             child: const Text('Import reusable routine'),
@@ -266,8 +280,12 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
         ],
         if (_reviewing) ...[
           FilledButton(
-            onPressed: _busy ? null : () => _act('confirm'),
-            child: const Text('Confirm this revision'),
+            onPressed: _busy || _confirmed ? null : () => _act('confirm'),
+            child: Text(
+              _confirmed
+                  ? 'Confirmed — waiting for other members'
+                  : 'Confirm this revision',
+            ),
           ),
           OutlinedButton(
             onPressed: _busy ? null : () => _act('reject'),

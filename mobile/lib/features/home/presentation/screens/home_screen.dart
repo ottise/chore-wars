@@ -9,6 +9,8 @@ import '../../domain/entities/home_dashboard.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../../../house/presentation/providers/current_house_provider.dart';
 import '../../../notifications/presentation/widgets/notification_bell.dart';
+import '../../../chat/providers/action_proposal_providers.dart';
+import '../../../chat/presentation/widgets/urgent_event_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -46,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
     }
 
     final dashboard = ref.watch(homeDashboardProvider(houseId));
+    final urgentEvent = ref.watch(activeUrgentEventForHouseProvider(houseId));
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore Wars'),
@@ -71,7 +74,11 @@ class HomeScreen extends ConsumerWidget {
             Text('House: ${data.houseName}', style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 20),
             _KarmaCard(data: data),
-            if (data.rank == null) ...[
+            if (urgentEvent.asData?.value != null) ...[
+              const SizedBox(height: 16),
+              UrgentEventBanner(proposal: urgentEvent.asData!.value!),
+            ],
+            if (data.seasonId == null && data.isOwner) ...[
               const SizedBox(height: 16),
               Center(
                 child: FilledButton.tonalIcon(
@@ -86,9 +93,22 @@ class HomeScreen extends ConsumerWidget {
               Card(
                 color: Theme.of(context).colorScheme.tertiaryContainer,
                 child: ListTile(
-                  leading: const Icon(Icons.rate_review_rounded),
-                  title: const Text('Schedule awaiting your confirmation'),
-                  subtitle: const Text('Tap to review and confirm the generated schedule'),
+                  leading: Icon(
+                    data.currentUserConfirmationStatus == 1
+                        ? Icons.hourglass_top_rounded
+                        : Icons.rate_review_rounded,
+                  ),
+                  title: Text(
+                    data.currentUserConfirmationStatus == 1
+                        ? 'You confirmed this schedule'
+                        : 'Schedule awaiting your confirmation',
+                  ),
+                  subtitle: Text(
+                    data.currentUserConfirmationStatus == 1
+                        ? 'Waiting for the other members '
+                              '(${data.confirmedCount}/${data.requiredConfirmationCount} confirmed)'
+                        : 'Tap to review and confirm the generated schedule',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(
                     '/houses/${data.houseId}/seasons/${data.seasonId}/review',
