@@ -19,6 +19,9 @@ import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../ai/presentation/ai_evidence_screen.dart';
+import '../../../ai/presentation/ai_planning_screen.dart';
+import '../../../ai/presentation/ai_observed_view.dart';
 
 class ChoreDetailScreen extends ConsumerStatefulWidget {
   const ChoreDetailScreen({
@@ -43,12 +46,46 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     final detail = ref.watch(choreDetailProvider(key));
     final authState = ref.watch(authStateProvider);
     final profile = ref.watch(userProfileProvider).asData?.value;
-    final currentUserId = profile?.id ??
+    final currentUserId =
+        profile?.id ??
         (authState is AuthAuthenticated ? authState.user.userId : null);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore detail'),
         actions: [
+          if (detail.asData?.value.occurrence.assignedUserId == currentUserId &&
+              detail.asData?.value.occurrence.status == ChoreStatus.assigned)
+            IconButton(
+              tooltip: 'AI gợi ý đổi việc',
+              icon: const Icon(Icons.auto_awesome_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => AiPlanningScreen(
+                    houseId: widget.houseId,
+                    kind: 'SWAP',
+                    sourceOccurrenceId: widget.occurrenceId,
+                  ),
+                ),
+              ),
+            ),
+          if (detail.asData?.value.occurrence.evidenceId != null ||
+              detail.asData?.value.occurrence.assignedUserId == currentUserId)
+            IconButton(
+              tooltip: 'Ảnh minh chứng và nhận xét AI',
+              icon: const Icon(Icons.add_a_photo_outlined),
+              onPressed: () => Navigator.of(context)
+                  .push<bool>(
+                    MaterialPageRoute(
+                      builder: (context) => AiEvidenceScreen(
+                        occurrenceId: widget.occurrenceId,
+                        evidenceId: detail.asData?.value.occurrence.evidenceId,
+                      ),
+                    ),
+                  )
+                  .then((changed) {
+                    if (changed == true && mounted) _refreshAffectedState();
+                  }),
+            ),
           if (detail.asData?.value.occurrence.status ==
               ChoreStatus.criticalOverdue)
             IconButton(
@@ -86,32 +123,37 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           error: error,
           onRetry: () => ref.invalidate(choreDetailProvider(key)),
         ),
-        data: (item) => _DetailBody(
-          detail: item,
-          busy: _mutating,
-          onComplete:
-              item.occurrence.assignedUserId ==
-                  ref.watch(userProfileProvider).asData?.value.id
-              ? () => _showCompleteDialog(item)
-              : null,
-          onSkip: () => _skip(item),
-          onSwap: _canSwap(item.occurrence, currentUserId)
-              ? () => _showSwapDialog(item)
-              : null,
-          onCreateBounty: _canCreateBounty(item.occurrence)
-              ? () => context.push(
-                  '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
-                  '&occurrenceId=${Uri.encodeComponent(item.occurrence.id)}'
-                  '&choreName=${Uri.encodeComponent(item.occurrence.choreName)}'
-                  '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(item.occurrence.dueDate))}',
-                )
-              : null,
-          onEdit: item.template == null
-              ? null
-              : () => context.push(
-                  '/houses/${widget.houseId}/chores/templates/${item.template!.id}/edit',
-                  extra: item.template,
-                ),
+        data: (item) => AiObservedView(
+          house: widget.houseId,
+          entity: widget.occurrenceId,
+          kind: AiObservedView.taskOpened,
+          child: _DetailBody(
+            detail: item,
+            busy: _mutating,
+            onComplete:
+                item.occurrence.assignedUserId ==
+                    ref.watch(userProfileProvider).asData?.value.id
+                ? () => _showCompleteDialog(item)
+                : null,
+            onSkip: () => _skip(item),
+            onSwap: _canSwap(item.occurrence, currentUserId)
+                ? () => _showSwapDialog(item)
+                : null,
+            onCreateBounty: _canCreateBounty(item.occurrence)
+                ? () => context.push(
+                    '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
+                    '&occurrenceId=${Uri.encodeComponent(item.occurrence.id)}'
+                    '&choreName=${Uri.encodeComponent(item.occurrence.choreName)}'
+                    '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(item.occurrence.dueDate))}',
+                  )
+                : null,
+            onEdit: item.template == null
+                ? null
+                : () => context.push(
+                    '/houses/${widget.houseId}/chores/templates/${item.template!.id}/edit',
+                    extra: item.template,
+                  ),
+          ),
         ),
       ),
     );
@@ -120,8 +162,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
   bool _canSwap(ChoreOccurrence occurrence, String? currentUserId) {
     return occurrence.status == ChoreStatus.assigned &&
         currentUserId != null &&
-        occurrence.assignedUserId?.toLowerCase() ==
-            currentUserId.toLowerCase();
+        occurrence.assignedUserId?.toLowerCase() == currentUserId.toLowerCase();
   }
 
   Future<void> _showSwapDialog(ChoreDetail detail) async {
@@ -129,37 +170,42 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     try {
       final authState = ref.read(authStateProvider);
       final profile = ref.read(userProfileProvider).asData?.value;
-      final currentUserId = profile?.id ??
+      final currentUserId =
+          profile?.id ??
           (authState is AuthAuthenticated ? authState.user.userId : null);
       if (currentUserId == null) {
         throw StateError('Không xác định được tài khoản hiện tại.');
       }
 
-      final season = await ref.read(activeSeasonProvider(widget.houseId).future);
+      final season = await ref.read(
+        activeSeasonProvider(widget.houseId).future,
+      );
       final seasonId = season?['id']?.toString();
       if (seasonId == null || seasonId.isEmpty) {
         throw StateError('Nhà chưa có mùa giải đang hoạt động.');
       }
 
-      final response = await ref.read(dioProvider).get(
-            '/houses/${widget.houseId}/seasons/$seasonId/occurrences',
-          );
+      final response = await ref
+          .read(dioProvider)
+          .get('/houses/${widget.houseId}/seasons/$seasonId/occurrences');
       final rawItems = response.data is List ? response.data as List : const [];
-      final candidates = rawItems
-          .whereType<Map>()
-          .map((item) => ChoreOccurrence.fromJson(
-                Map<String, dynamic>.from(item),
-              ))
-          .where(
-            (item) =>
-                item.id != detail.occurrence.id &&
-                item.status == ChoreStatus.assigned &&
-                item.assignedUserId != null &&
-                item.assignedUserId!.toLowerCase() !=
-                    currentUserId.toLowerCase(),
-          )
-          .toList()
-        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      final candidates =
+          rawItems
+              .whereType<Map>()
+              .map(
+                (item) =>
+                    ChoreOccurrence.fromJson(Map<String, dynamic>.from(item)),
+              )
+              .where(
+                (item) =>
+                    item.id != detail.occurrence.id &&
+                    item.status == ChoreStatus.assigned &&
+                    item.assignedUserId != null &&
+                    item.assignedUserId!.toLowerCase() !=
+                        currentUserId.toLowerCase(),
+              )
+              .toList()
+            ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
       if (!mounted) return;
       if (candidates.isEmpty) {
@@ -177,7 +223,9 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       );
       if (selection == null || !mounted) return;
 
-      await ref.read(actionProposalServiceProvider).createProposal(
+      await ref
+          .read(actionProposalServiceProvider)
+          .createProposal(
             houseId: widget.houseId,
             type: ProposalType.choreSwap,
             title:

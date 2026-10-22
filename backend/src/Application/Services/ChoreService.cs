@@ -25,8 +25,9 @@ public partial class ChoreService : IChoreService
     private readonly IEventPublisher _eventPublisher;
     private readonly IOverduePenaltyService? _penalties;
     private readonly IKarmaService _karmaService;
+    private readonly IEvidenceService? _evidence;
 
-    public ChoreService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IKarmaService karmaService, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null, IOverduePenaltyService? penalties = null)
+    public ChoreService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IKarmaService karmaService, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null, IOverduePenaltyService? penalties = null, IEvidenceService? evidence = null)
     {
         _clock = clock ?? TimeProvider.System; _penalties = penalties;
         _mutations = mutationCoordinator;
@@ -34,6 +35,7 @@ public partial class ChoreService : IChoreService
         _mapper = mapper;
         _eventPublisher = eventPublisher;
         _karmaService = karmaService;
+        _evidence = evidence;
     }
 
     public async Task<ChoreResponse> CreateChoreAsync(Guid houseId, CreateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -127,6 +129,7 @@ public partial class ChoreService : IChoreService
 
         await EnsureEditableOccurrenceAsync(occurrence, userId, cancellationToken);
         if (occurrence.Status == ChoreOccurrenceStatus.COMPLETED && occurrence.CompletedByUserId == userId) return;
+        if (request?.EvidenceId.HasValue==true && !string.IsNullOrWhiteSpace(request.ProofImageUrl)) throw new DomainException("Send EvidenceId or legacy proof, not both.");
         if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED &&
             occurrence.Status != ChoreOccurrenceStatus.OVERDUE &&
             occurrence.Status != ChoreOccurrenceStatus.CRITICAL_OVERDUE)
@@ -173,6 +176,10 @@ public partial class ChoreService : IChoreService
         try
         {
             var responsibility = await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+            if (request?.EvidenceId.HasValue==true) {
+                if (_evidence==null) throw new ConflictException("Evidence storage is not configured.");
+                await _evidence.AttachAsync(occurrenceId,request.EvidenceId.Value,userId,cancellationToken);
+            }
             responsibility.EndedAt = _clock.GetUtcNow().UtcDateTime;
             responsibility.CompletedByUserId = userId;
             _unitOfWork.ChoreOccurrences.Update(occurrence);

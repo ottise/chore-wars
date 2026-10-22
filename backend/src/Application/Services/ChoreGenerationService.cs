@@ -16,11 +16,13 @@ public class ChoreGenerationService : IChoreGenerationService
 {
     private readonly TimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IChoreOccurrenceIdentity? _identities;
     private readonly ILogger<ChoreGenerationService> _logger;
 
-    public ChoreGenerationService(IUnitOfWork unitOfWork, ILogger<ChoreGenerationService> logger, TimeProvider? clock = null)
+    public ChoreGenerationService(IUnitOfWork unitOfWork, ILogger<ChoreGenerationService> logger, TimeProvider? clock = null, IChoreOccurrenceIdentity? identities = null)
     {
         _clock = clock ?? TimeProvider.System;
+        _identities = identities;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -85,7 +87,7 @@ public class ChoreGenerationService : IChoreGenerationService
     {
         return RecurrenceCalculator.Dates(chore, DateOnly.FromDateTime(ScheduleTime.Local(startDate)), DateOnly.FromDateTime(ScheduleTime.Local(endDate)))
             .Select(day => new ChoreOccurrence {
-                Id = Guid.NewGuid(), ChoreId = chore.Id, SeasonId = seasonId,
+                Id = _identities?.ForDate(chore.SourceTemplateId ?? chore.Id,day) ?? Guid.NewGuid(), ChoreId = chore.Id, SeasonId = seasonId,
                 DueDate = ScheduleTime.Utc(day, chore.DeadlineMinutes),
                 Status = ChoreOccurrenceStatus.ASSIGNED, SnapshotKarma = chore.KarmaPoints,
                 SnapshotMinutes = ScheduleTime.Effort(chore.Difficulty),

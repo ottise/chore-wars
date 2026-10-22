@@ -178,6 +178,7 @@ class ChoreOccurrence {
     this.type = ChoreType.normal,
     this.penaltyCount = 0,
     this.proofImageUrl,
+    this.evidenceId,
   });
 
   final String id;
@@ -192,6 +193,7 @@ class ChoreOccurrence {
   final ChoreType type;
   final int penaltyCount;
   final String? proofImageUrl;
+  final String? evidenceId;
 
   factory ChoreOccurrence.fromJson(Map<String, dynamic> json) =>
       ChoreOccurrence(
@@ -211,6 +213,7 @@ class ChoreOccurrence {
         type: ChoreType.fromJson(json['type']),
         penaltyCount: (json['penaltyCount'] as num?)?.toInt() ?? 0,
         proofImageUrl: json['proofImageUrl']?.toString(),
+        evidenceId: json['evidenceId']?.toString(),
       );
 }
 

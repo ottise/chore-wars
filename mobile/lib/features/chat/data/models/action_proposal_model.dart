@@ -1,7 +1,8 @@
 enum ProposalType {
   choreSwap,
   urgentEvent,
-  seasonApproval;
+  seasonApproval,
+  scheduleReplan;
 
   static ProposalType fromString(String? val) {
     switch (val?.toUpperCase()) {
@@ -14,6 +15,9 @@ enum ProposalType {
       case 'SEASON_APPROVAL':
       case '2':
         return ProposalType.seasonApproval;
+      case 'SCHEDULE_REPLAN':
+      case '3':
+        return ProposalType.scheduleReplan;
       default:
         return ProposalType.choreSwap;
     }
@@ -27,6 +31,8 @@ enum ProposalType {
         return 'URGENT_EVENT';
       case ProposalType.seasonApproval:
         return 'SEASON_APPROVAL';
+      case ProposalType.scheduleReplan:
+        return 'SCHEDULE_REPLAN';
     }
   }
 }
@@ -164,10 +170,16 @@ class ActionProposalModel {
       confirmations.any((c) => c.targetUserId == userId);
 
   bool hasUserConfirmed(String userId) => confirmations.any(
-      (c) => c.targetUserId == userId && c.status == ProposalConfirmationStatus.confirmed);
+    (c) =>
+        c.targetUserId == userId &&
+        c.status == ProposalConfirmationStatus.confirmed,
+  );
 
   bool hasUserResponded(String userId) => confirmations.any(
-      (c) => c.targetUserId == userId && c.status != ProposalConfirmationStatus.pending);
+    (c) =>
+        c.targetUserId == userId &&
+        c.status != ProposalConfirmationStatus.pending,
+  );
 
   ProposalConfirmationModel? confirmationFor(String userId) {
     try {
@@ -186,7 +198,8 @@ class ActionProposalModel {
           parsedConfirmations.add(ProposalConfirmationModel.fromJson(item));
         } else if (item is Map) {
           parsedConfirmations.add(
-              ProposalConfirmationModel.fromJson(Map<String, dynamic>.from(item)));
+            ProposalConfirmationModel.fromJson(Map<String, dynamic>.from(item)),
+          );
         }
       }
     }

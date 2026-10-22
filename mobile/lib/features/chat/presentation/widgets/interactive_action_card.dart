@@ -33,6 +33,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         return Icons.bolt_rounded;
       case ProposalType.seasonApproval:
         return Icons.assignment_turned_in_rounded;
+      case ProposalType.scheduleReplan:
+        return Icons.calendar_month_outlined;
     }
   }
 
@@ -44,6 +46,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         return Colors.deepOrange;
       case ProposalType.seasonApproval:
         return Colors.blue;
+      case ProposalType.scheduleReplan:
+        return AppTheme.purple;
     }
   }
 
@@ -55,6 +59,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         return 'NHIỆM VỤ KHẨN CẤP';
       case ProposalType.seasonApproval:
         return 'PHÊ DUYỆT MÙA GIẢI';
+      case ProposalType.scheduleReplan:
+        return 'Đề xuất sắp lại lịch';
     }
   }
 
@@ -269,6 +275,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           ],
           if (proposal.type == ProposalType.urgentEvent)
             _buildUrgentEventDetails(context, proposal),
+          if (proposal.type == ProposalType.scheduleReplan)
+            _buildReplanDetails(proposal),
           const SizedBox(height: 12),
 
           // Confirmations list
@@ -434,14 +442,48 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
     );
   }
 
+  Widget _buildReplanDetails(ActionProposalModel proposal) {
+    try {
+      final payload = jsonDecode(proposal.payloadJson) as Map<String, dynamic>;
+      final changes = (payload['Changes'] ?? payload['changes']) as List? ?? [];
+      final availability =
+          (payload['AvailabilityChanges'] ?? payload['availabilityChanges'])
+              as List? ??
+          [];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Chủ nhà và mọi người bị thay đổi phải đồng ý. Một người từ chối thì giữ nguyên toàn bộ lịch.',
+          ),
+          for (final change in availability)
+            Text(
+              'Lịch rảnh mới của ${change['UserId'] ?? change['userId']} ngày ${change['LocalDate'] ?? change['localDate']}: ${change['Slots'] ?? change['slots']}',
+            ),
+          for (final change in changes)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '${change['Name'] ?? change['name']}\n${change['PreviousUserId'] ?? change['previousUserId']} → ${change['AssignedUserId'] ?? change['assignedUserId']}\n${change['PlannedStartAt'] ?? change['plannedStartAt']}',
+              ),
+            ),
+        ],
+      );
+    } on FormatException {
+      return const Text('Không đọc được chi tiết. Tải lại trước khi xác nhận.');
+    }
+  }
+
   Widget _buildUrgentEventDetails(
     BuildContext context,
     ActionProposalModel proposal,
   ) {
     try {
       final payload = jsonDecode(proposal.payloadJson) as Map<String, dynamic>;
-      final deadline = payload['deadlineMinutes'];
-      final chores = payload['chores'] as List<dynamic>? ?? const [];
+      final deadline = payload['DeadlineMinutes'] ?? payload['deadlineMinutes'];
+      final chores =
+          (payload['Chores'] ?? payload['chores']) as List<dynamic>? ??
+          const [];
       return Container(
         width: double.infinity,
         margin: const EdgeInsets.only(top: 12),
@@ -463,7 +505,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
               return Padding(
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(
-                  '• ${chore['name']} (+${chore['karmaPoints']} Karma)',
+                  '• ${chore['Name'] ?? chore['name']} (+${chore['KarmaPoints'] ?? chore['karmaPoints']} Karma)\nBắt đầu +${chore['PlannedOffsetMinutes'] ?? chore['plannedOffsetMinutes'] ?? 0} phút · Phụ thuộc: ${chore['DependsOn'] ?? chore['dependsOn'] ?? []} · Nguồn lực: ${chore['Resources'] ?? chore['resources'] ?? []}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               );

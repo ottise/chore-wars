@@ -11,6 +11,11 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IAIContextBuilder, ChoreWars.Application.Services.AI.AIContextBuilder>();
+        services.AddScoped<IAIHousekeeperService, ChoreWars.Application.Services.AI.AIHousekeeperService>();
+        services.AddScoped<IScheduleChangeService, ChoreWars.Application.Services.AI.ScheduleChangeService>();
+        services.AddScoped<IEvidenceService, ChoreWars.Application.Services.AI.EvidenceService>();
+        services.AddScoped<IUrgentPlanValidation, ChoreWars.Application.Services.AI.UrgentPlanValidation>();
         // AutoMapper
         services.AddAutoMapper(typeof(AuthService).Assembly);
 

@@ -33,6 +33,14 @@ public static class InfrastructureServiceExtensions
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(databaseConnectionString));
 
+        services.Configure<ChoreWars.Infrastructure.AI.AIOptions>(configuration.GetSection("AI"));
+        services.AddScoped<IAIStateRepository, AIStateRepository>();
+        services.AddHostedService<ChoreWars.Infrastructure.AI.AIChatInsightWorker>();
+        services.AddHttpClient<IAIHousekeeperClient, ChoreWars.Infrastructure.AI.AIHousekeeperHttpClient>(http => {
+            http.BaseAddress = new Uri(configuration["AI:BaseUrl"] ?? "http://ai-api:8000");
+            http.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:RequestTimeoutSeconds") ?? 30);
+        });
+
         services.AddScoped<IAfterCommitActions, ChoreWars.Infrastructure.Concurrency.AfterCommitActions>();
         services.AddSingleton<ChoreWars.Infrastructure.Diagnostics.IRuntimeProbe, ChoreWars.Infrastructure.Diagnostics.NoopRuntimeProbe>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

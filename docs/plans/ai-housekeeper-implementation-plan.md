@@ -1,4 +1,7 @@
 # KẾ HOẠCH TỔNG THỂ (MASTER PLAN): TRIỂN KHAI TOÀN BỘ HỆ THỐNG AI HOUSEKEEPER
+
+> **Tài liệu lịch sử.** Kiến trúc/file/model/flow trong bản này được thay thế bởi [plan Python hiện hành, cập nhật 20/10/2026 theo main 0e55613](ai-python-full-implementation-plan.vi.md). Bản hiện hành ưu tiên hồ sơ đóng góp có bằng chứng, bounty là nguồn dữ liệu; chưa triển khai timer/model thời lượng hay dự đoán người nhận bounty. Baseline, ngưỡng cải thiện, consent/replan/chat và manifest hiện hành nằm trong bản mới. Không dùng bản này để viết lại swap/urgent hoặc publisher đã có.
+
 ## Dịch Vụ Quản Gia Trí Tuệ Nhân Tạo (Python FastAPI + Scikit-Learn ML + Gemini 2.5 Flash + Mobile On-Device Voice)
 
 ---

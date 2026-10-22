@@ -1,5 +1,7 @@
 # Kế hoạch code AI giao việc cho Chore Wars
 
+> **Tài liệu lịch sử/MVP cũ.** Dùng [plan Python đầy đủ, cập nhật 20/10/2026 theo main 0e55613](ai-python-full-implementation-plan.vi.md) khi triển khai. Phạm vi hiện hành gồm toàn bộ A–K, trọng tâm hồ sơ đóng góp có bằng chứng và baseline/ngưỡng cải thiện rõ ràng; không tăng quota theo lịch sử nhận bounty. Chưa triển khai timer/model thời lượng hoặc dự đoán người nhận bounty. Source non-AI và các điểm nối đã thay đổi sau bản này.
+
 Ngày lập: 18/10/2026. Cơ sở: source hiện tại, tài liệu trong `docs/`, hai tài liệu đính kèm của người dùng.
 
 ## 1. Mục tiêu và phạm vi

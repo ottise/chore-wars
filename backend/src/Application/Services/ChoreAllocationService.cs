@@ -44,6 +44,7 @@ public class ChoreAllocationService : IChoreAllocationService
         var occurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL).ToList();
         var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
         var availability = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
+        var dateExceptions=await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(seasonId,cancellationToken) ?? [];
         var constraints = new Dictionary<Guid, MemberConstraint>();
         var preferences = new Dictionary<Guid, List<MemberPreference>>();
         foreach (var member in members) {
@@ -63,7 +64,8 @@ public class ChoreAllocationService : IChoreAllocationService
                     var limit = constraints[member.UserId];
                     if (assigned.Count(o => { var d = ScheduleTime.Local(o.DueDate); return System.Globalization.ISOWeek.GetYear(d) == year && System.Globalization.ISOWeek.GetWeekOfYear(d) == week; }) >= limit.MaxChoresPerWeek) continue;
                     if (assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(occurrence) > limit.MaxEffortMinutesPerDay) continue;
-                    var start = AllocationEligibilityService.FindStart(occurrence, availability.FirstOrDefault(a => a.UserId == member.UserId && a.DayOfWeek == date.DayOfWeek), assigned);
+                    var effective=AllocationEligibilityService.Effective(availability.FirstOrDefault(a=>a.UserId==member.UserId && a.DayOfWeek==date.DayOfWeek),member.UserId,DateOnly.FromDateTime(date),dateExceptions);
+                    var start = AllocationEligibilityService.FindStart(occurrence,effective,assigned);
                     if (start == null) continue;
                     var pref = preferences[member.UserId].FirstOrDefault(p => p.ChoreId == occurrence.ChoreId)?.Type;
                     var previousMonday = date.AddDays(-((int)date.DayOfWeek + 6) % 7 - 7);

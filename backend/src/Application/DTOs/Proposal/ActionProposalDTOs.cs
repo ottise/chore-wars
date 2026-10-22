@@ -57,6 +57,7 @@ public class ChoreSwapPayload
 
 public class UrgentEventPayload
 {
+    public string? PlanVersion { get; set; }
     public Guid SeasonId { get; set; }
     public int DeadlineMinutes { get; set; }
     public List<UrgentChoreItem> Chores { get; set; } = new();
@@ -64,6 +65,10 @@ public class UrgentEventPayload
 
 public class UrgentChoreItem
 {
+    public string? PlanKey { get; set; }
+    public int PlannedOffsetMinutes { get; set; }
+    public List<string> DependsOn { get; set; } = [];
+    public List<string> Resources { get; set; } = [];
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int KarmaPoints { get; set; }

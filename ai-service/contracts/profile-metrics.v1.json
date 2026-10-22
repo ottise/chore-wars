@@ -1,0 +1,57 @@
+{
+  "definition_version": "contribution-metrics-v1",
+  "coverage_scope": "OBSERVED_TELEMETRY_ONLY",
+  "zero_denominator": "NULL_INSUFFICIENT_DATA",
+  "metrics": {
+    "completed_count": {
+      "lineage_group": "completion",
+      "denominator_field": null,
+      "unit": "count"
+    },
+    "standard_minutes": {
+      "lineage_group": "completion",
+      "denominator_field": null,
+      "unit": "standard_minutes"
+    },
+    "snapshot_karma": {
+      "lineage_group": "completion",
+      "denominator_field": null,
+      "unit": "karma"
+    },
+    "responsibility_count": {
+      "lineage_group": "responsibility",
+      "denominator_field": null,
+      "unit": "count"
+    },
+    "on_time_episode_rate": {
+      "lineage_group": "episode_outcome",
+      "denominator_field": "on_time_episode_denominator",
+      "unit": "ratio"
+    },
+    "bounty_claim_count": {
+      "lineage_group": "bounty_claim",
+      "denominator_field": null,
+      "unit": "count"
+    },
+    "bounty_occurrence_count": {
+      "lineage_group": "bounty_outcome",
+      "denominator_field": null,
+      "unit": "count"
+    },
+    "bounty_self_completion_rate": {
+      "lineage_group": "bounty_outcome",
+      "denominator_field": "bounty_outcome_denominator",
+      "unit": "ratio"
+    },
+    "bounty_posted_count": {
+      "lineage_group": "bounty_posted",
+      "denominator_field": null,
+      "unit": "count"
+    },
+    "mean_normalized_rank": {
+      "lineage_group": "ranking",
+      "denominator_field": "normalized_rank_count",
+      "unit": "ratio"
+    }
+  }
+}

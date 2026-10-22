@@ -8,6 +8,7 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IMemberAvailabilityRepository
 {
+    Task<IEnumerable<MemberAvailabilityException>> GetExceptionsBySeasonAsync(Guid seasonId, CancellationToken cancellationToken = default);
     Task<MemberAvailability?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<MemberAvailability>> GetBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default);
     Task<IEnumerable<MemberAvailability>> GetBySeasonAndUserIdAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default);

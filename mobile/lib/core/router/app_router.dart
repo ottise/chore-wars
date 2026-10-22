@@ -57,6 +57,8 @@ import '../../features/house/presentation/screens/qr_join_screen.dart';
 import '../../features/house/presentation/screens/review_schedule_screen.dart';
 import '../../features/chat/presentation/screens/chat_room_screen.dart';
 import '../../features/chat/presentation/screens/create_urgent_event_screen.dart';
+import '../../features/ai/presentation/ai_housekeeper_screen.dart';
+import '../../features/ai/presentation/ai_evaluation_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
@@ -214,6 +216,21 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => HouseSettingsScreen(
                   houseId: state.pathParameters['houseId']!,
                 ),
+              ),
+              GoRoute(
+                path: 'ai',
+                builder: (context, state) => AiHousekeeperScreen(
+                  houseId: state.pathParameters['houseId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'evaluations/:runId',
+                    builder: (context, state) => AiEvaluationRunScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      runId: state.pathParameters['runId']!,
+                    ),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'failed-events',

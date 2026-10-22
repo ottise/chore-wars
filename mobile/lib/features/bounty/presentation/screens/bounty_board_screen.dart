@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../ai/presentation/ai_insights_screen.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
@@ -285,6 +286,17 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       appBar: AppBar(
         title: const Text('Bounties & Công nợ'),
         actions: [
+          if (widget.houseId != null)
+            IconButton(
+              tooltip: 'Gợi ý bounty tự nguyện',
+              icon: const Icon(Icons.auto_awesome_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      AiInsightsScreen(houseId: widget.houseId!),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Tạo Bounty mới',
             onPressed: () => _openCreateBounty(context),

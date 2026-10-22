@@ -5,6 +5,7 @@ using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Enums;
+using ChoreWars.Application.DTOs.AI;
 using ChoreWars.Domain.Exceptions;
 
 namespace ChoreWars.Application.Services;
@@ -25,9 +26,11 @@ public class ActionProposalService : IActionProposalService
     private readonly IAfterCommitActions? _afterCommit;
     private readonly TimeProvider _clock;
 
+    private readonly IScheduleChangeService? _scheduleChanges;
+    private readonly IUrgentPlanValidation? _urgentPlanValidation;
     public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher, bool mutationsEnabled = false,
         INotificationService? notificationService = null, IHouseMutationCoordinator? mutationCoordinator = null,
-        IAfterCommitActions? afterCommit = null, TimeProvider? clock = null)
+        IAfterCommitActions? afterCommit = null, TimeProvider? clock = null, IScheduleChangeService? scheduleChanges = null, IUrgentPlanValidation? urgentPlanValidation = null)
     {
         _mutationsEnabled = mutationsEnabled;
         _unitOfWork = unitOfWork;
@@ -36,6 +39,8 @@ public class ActionProposalService : IActionProposalService
         _mutations = mutationCoordinator;
         _afterCommit = afterCommit;
         _clock = clock ?? TimeProvider.System;
+        _scheduleChanges = scheduleChanges;
+        _urgentPlanValidation = urgentPlanValidation;
     }
 
     public async Task<ActionProposalResponse> CreateProposalAsync(
@@ -76,7 +81,7 @@ public class ActionProposalService : IActionProposalService
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             PayloadJson = request.PayloadJson,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = _clock.GetUtcNow().UtcDateTime,
             ExpiresAt = request.ExpiresAt,
             Confirmations = targetIds.Select(targetId => new ProposalConfirmation
             {
@@ -90,6 +95,10 @@ public class ActionProposalService : IActionProposalService
         try
         {
             await _unitOfWork.ActionProposals.AddAsync(proposal, cancellationToken);
+            if (proposal.Type==ProposalType.SCHEDULE_REPLAN && targetIds.Count==0) {
+                await ExecuteApprovedProposalAsync(proposal,cancellationToken);
+                proposal.Status=ProposalStatus.APPROVED;
+            }
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
@@ -136,7 +145,7 @@ public class ActionProposalService : IActionProposalService
 
             if (proposal.Status != ProposalStatus.PENDING)
                 throw new ConflictException("This proposal is no longer pending.");
-            if (proposal.ExpiresAt.HasValue && proposal.ExpiresAt <= DateTime.UtcNow)
+            if (proposal.ExpiresAt.HasValue && proposal.ExpiresAt <= _clock.GetUtcNow().UtcDateTime)
                 throw new ConflictException("This proposal has expired.");
 
             var confirmation = proposal.Confirmations.SingleOrDefault(x => x.TargetUserId == userId)
@@ -146,7 +155,7 @@ public class ActionProposalService : IActionProposalService
 
             confirmation.Status = request.Status;
             confirmation.Reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
-            confirmation.RespondedAt = DateTime.UtcNow;
+            confirmation.RespondedAt = _clock.GetUtcNow().UtcDateTime;
 
             if (request.Status == ConfirmationStatus.REJECTED)
             {
@@ -154,7 +163,7 @@ public class ActionProposalService : IActionProposalService
             }
             else if (proposal.Confirmations.All(x => x.Status == ConfirmationStatus.CONFIRMED))
             {
-                if (proposal.Type == ProposalType.URGENT_EVENT)
+                if (proposal.Type is ProposalType.URGENT_EVENT or ProposalType.SCHEDULE_REPLAN)
                 {
                     foreach (var participant in proposal.Confirmations)
                         await EnsureActiveMemberAsync(proposal.HouseId, participant.TargetUserId, cancellationToken);
@@ -209,7 +218,7 @@ public class ActionProposalService : IActionProposalService
         var room = await _unitOfWork.Chats.GetRoomByIdAsync(roomId, cancellationToken)
             ?? throw new NotFoundException(nameof(ChatRoom), roomId);
         await EnsureActiveMemberAsync(room.HouseId, userId, cancellationToken);
-        var proposals = await _unitOfWork.ActionProposals.GetActiveByRoomIdAsync(roomId, DateTime.UtcNow, cancellationToken);
+        var proposals = await _unitOfWork.ActionProposals.GetActiveByRoomIdAsync(roomId, _clock.GetUtcNow().UtcDateTime, cancellationToken);
         return proposals.Select(Map).ToList();
     }
 
@@ -226,7 +235,7 @@ public class ActionProposalService : IActionProposalService
             throw new ConflictException("Proposal actions are deferred. Use season review for season approvals.");
     }
 
-    private static void ValidateCreateRequest(CreateProposalRequest request, Guid creatorId)
+    private void ValidateCreateRequest(CreateProposalRequest request, Guid creatorId)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new DomainException("Proposal title is required.");
@@ -234,13 +243,13 @@ public class ActionProposalService : IActionProposalService
             throw new DomainException("Proposal title cannot exceed 150 characters.");
         if (request.Description?.Trim().Length > 1000)
             throw new DomainException("Proposal description cannot exceed 1000 characters.");
-        if (request.TargetUserIds.Count == 0)
+        if (request.TargetUserIds.Count == 0 && request.Type != ProposalType.SCHEDULE_REPLAN)
             throw new DomainException("At least one target member is required.");
         if (request.TargetUserIds.Contains(creatorId))
             throw new DomainException("The proposal creator cannot also be a target.");
         if (request.TargetUserIds.Count != request.TargetUserIds.Distinct().Count())
             throw new DomainException("Target members must be unique.");
-        if (request.ExpiresAt.HasValue && request.ExpiresAt <= DateTime.UtcNow)
+        if (request.ExpiresAt.HasValue && request.ExpiresAt <= _clock.GetUtcNow().UtcDateTime)
             throw new DomainException("Proposal expiration must be in the future.");
         if (string.IsNullOrWhiteSpace(request.PayloadJson))
             throw new DomainException("Proposal payload is required.");
@@ -256,6 +265,13 @@ public class ActionProposalService : IActionProposalService
     {
         switch (type)
         {
+            case ProposalType.SCHEDULE_REPLAN:
+                if (_scheduleChanges==null) throw new ConflictException("Schedule replan is not configured.");
+                var replan=Deserialize<ScheduleChangePayload>(payloadJson);
+                var approvers=await _scheduleChanges.ValidateAsync(houseId,replan,cancellationToken);
+                if (!targetIds.ToHashSet().SetEquals(approvers.Where(id=>id!=creatorId)))
+                    throw new DomainException("Replan must be approved by the owner and every old/new assignee.");
+                break;
             case ProposalType.CHORE_SWAP:
                 if (targetIds.Count != 1)
                     throw new DomainException("A chore swap must have exactly one target member.");
@@ -292,6 +308,10 @@ public class ActionProposalService : IActionProposalService
                 var participants = targetIds.Append(creatorId).ToHashSet();
                 if (urgent.Chores.Any(x => string.IsNullOrWhiteSpace(x.Name) || !participants.Contains(x.AssignedUserId)))
                     throw new DomainException("Every urgent chore needs a name and an assignee participating in the event.");
+                if(urgent.PlanVersion!=null) {
+                    if(_urgentPlanValidation==null)throw new ConflictException("Urgent timeline validation is unavailable.");
+                    await _urgentPlanValidation.ValidateAsync(houseId,urgent,cancellationToken);
+                }
                 break;
 
             case ProposalType.SEASON_APPROVAL:
@@ -307,6 +327,10 @@ public class ActionProposalService : IActionProposalService
     {
         switch (proposal.Type)
         {
+            case ProposalType.SCHEDULE_REPLAN:
+                if (_scheduleChanges==null) throw new ConflictException("Schedule replan is not configured.");
+                await _scheduleChanges.ApplyAsync(proposal.HouseId,Deserialize<ScheduleChangePayload>(proposal.PayloadJson),cancellationToken);
+                break;
             case ProposalType.CHORE_SWAP:
                 var swap = Deserialize<ChoreSwapPayload>(proposal.PayloadJson);
                 var source = await GetHouseOccurrenceAsync(swap.SourceOccurrenceId, proposal.HouseId, cancellationToken);
@@ -331,6 +355,10 @@ public class ActionProposalService : IActionProposalService
             case ProposalType.URGENT_EVENT:
                 var urgent = Deserialize<UrgentEventPayload>(proposal.PayloadJson);
                 var now = _clock.GetUtcNow().UtcDateTime;
+                if(urgent.PlanVersion!=null) {
+                    if(_urgentPlanValidation==null)throw new ConflictException("Urgent timeline validation is unavailable.");
+                    await _urgentPlanValidation.ValidateAsync(proposal.HouseId,urgent,cancellationToken);
+                }
                 var dueDate = now.AddMinutes(urgent.DeadlineMinutes);
                 var urgentSeason = await _unitOfWork.Seasons.GetByIdAsync(urgent.SeasonId, cancellationToken)
                     ?? throw new NotFoundException(nameof(ChoreSeason), urgent.SeasonId);
@@ -360,6 +388,7 @@ public class ActionProposalService : IActionProposalService
                         ChoreId = chore.Id,
                         SeasonId = urgent.SeasonId,
                         AssignedUserId = item.AssignedUserId,
+                        PlannedStartAt = urgent.PlanVersion==null?null:now.AddMinutes(item.PlannedOffsetMinutes),
                         DueDate = dueDate,
                         Status = ChoreOccurrenceStatus.ASSIGNED,
                         SnapshotKarma = item.KarmaPoints,
@@ -413,7 +442,9 @@ public class ActionProposalService : IActionProposalService
             assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == day.Date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(incoming) > (limit?.MaxEffortMinutesPerDay ?? 120))
             throw new ConflictException("The proposed swap exceeds workload limits.");
         var available = (await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(incoming.SeasonId, assignee, ct)).FirstOrDefault(a => a.DayOfWeek == day.DayOfWeek);
-        return AllocationEligibilityService.FindStart(incoming, available, assigned)
+        var exceptions=await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(incoming.SeasonId,ct) ?? [];
+        available=AllocationEligibilityService.Effective(available,assignee,DateOnly.FromDateTime(day),exceptions);
+        return AllocationEligibilityService.FindStart(incoming, available, assigned, _clock.GetUtcNow().UtcDateTime)
             ?? throw new ConflictException("The proposed swap does not fit declared availability.");
     }
 

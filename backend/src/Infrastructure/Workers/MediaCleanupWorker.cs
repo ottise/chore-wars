@@ -21,6 +21,14 @@ public sealed class MediaCleanupWorker(IServiceScopeFactory scopes, ILogger<Medi
                         await storage.DeleteAsync(media.StorageKey,ct);db.MediaAttachments.Remove(media);
                     },ct);
                 }
+                var evidence=await db.ChoreEvidence.AsNoTracking().Where(e=>e.AttachedAt==null && e.CreatedAt<cutoff).Take(100).ToListAsync(ct);
+                foreach(var candidate in evidence) {
+                    await mutations.RunAsync(candidate.HouseId,async()=> {
+                        var current=await db.ChoreEvidence.SingleOrDefaultAsync(e=>e.Id==candidate.Id,ct);
+                        if(current==null || current.AttachedAt!=null || current.CreatedAt>=cutoff)return;
+                        await storage.DeleteAsync(current.StorageKey,ct);db.ChoreEvidence.Remove(current);
+                    },ct);
+                }
             } catch(OperationCanceledException)when(ct.IsCancellationRequested){break;}
             catch(Exception ex){logger.LogWarning(ex,"Media cleanup failed; will retry.");}
             try { await Task.Delay(TimeSpan.FromHours(1),ct); } catch(OperationCanceledException)when(ct.IsCancellationRequested){break;}

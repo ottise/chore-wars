@@ -15,11 +15,13 @@ public class ChatService : IChatService
 {
     private readonly IHouseMutationCoordinator? _mutations;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly TimeProvider _clock;
 
-    public ChatService(IUnitOfWork unitOfWork,IHouseMutationCoordinator? mutations=null)
+    public ChatService(IUnitOfWork unitOfWork,IHouseMutationCoordinator? mutations=null,TimeProvider? clock=null)
     {
         _mutations=mutations;
         _unitOfWork = unitOfWork;
+        _clock=clock ?? TimeProvider.System;
     }
 
     public async Task<ChatRoomResponse> GetHouseRoomAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
@@ -41,7 +43,7 @@ public class ChatService : IChatService
                 Id = Guid.NewGuid(),
                 HouseId = houseId,
                 Name = $"{house.Name} Chat",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = _clock.GetUtcNow().UtcDateTime
             };
             await _unitOfWork.Chats.AddRoomAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -116,7 +118,7 @@ public class ChatService : IChatService
             RoomId = roomId,
             SenderId = userId,
             Content = content,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = _clock.GetUtcNow().UtcDateTime
         };
 
         await _unitOfWork.Chats.AddMessageAsync(message, cancellationToken);

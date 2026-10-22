@@ -12,6 +12,8 @@ namespace ChoreWars.Infrastructure.Repositories;
 
 public class MemberAvailabilityRepository : IMemberAvailabilityRepository
 {
+    public async Task<IEnumerable<MemberAvailabilityException>> GetExceptionsBySeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
+        => await _context.MemberAvailabilityExceptions.AsNoTracking().Where(x=>x.SeasonId==seasonId).ToListAsync(cancellationToken);
     private readonly AppDbContext _context;
 
     public MemberAvailabilityRepository(AppDbContext context)

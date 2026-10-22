@@ -18,4 +18,5 @@ public class ChoreOccurrenceResponse
     public ChoreEffort Difficulty { get; set; }
     public int EstimatedMinutes { get; set; }
     public string? ProofImageUrl { get; set; }
+    public Guid? EvidenceId { get; set; }
 }

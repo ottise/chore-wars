@@ -10,6 +10,7 @@ import '../../../home/presentation/providers/home_dashboard_provider.dart';
 import '../../../payment/presentation/providers/payment_providers.dart';
 import '../../domain/entities/bounty.dart';
 import '../providers/bounty_providers.dart';
+import '../../../ai/presentation/ai_observed_view.dart';
 
 class BountyDetailScreen extends ConsumerWidget {
   final String? houseId;
@@ -91,80 +92,85 @@ class BountyDetailScreen extends ConsumerWidget {
             decimalDigits: 0,
           );
           final isExpired = bounty.status == BountyStatus.expired;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                bounty.choreName,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 24),
-              _DetailRow(
-                label: 'Original assignee',
-                value: bounty.postedByDisplayName,
-              ),
-              _DetailRow(
-                label: 'Bounty',
-                value: currency.format(bounty.amount),
-              ),
-              _DetailRow(
-                label: 'Due',
-                value: DateFormat('dd/MM HH:mm').format(bounty.expiresAt),
-              ),
-              if (isExpired) ...[
-                const SizedBox(height: 12),
-                Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bounty Expired',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          bounty.forcedCompensationAmount != null
-                              ? 'A forced compensation was recorded. Check obligations for its current status.'
-                              : 'Bounty expired. The household may need to resolve this assignment.',
-                        ),
-                        if (bounty.newAssigneeDisplayName != null)
-                          _DetailRow(
-                            label: 'New assignee',
-                            value: bounty.newAssigneeDisplayName!,
+          return AiObservedView(
+            house: houseId!,
+            entity: bountyId,
+            kind: AiObservedView.bountyOpened,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  bounty.choreName,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 24),
+                _DetailRow(
+                  label: 'Original assignee',
+                  value: bounty.postedByDisplayName,
+                ),
+                _DetailRow(
+                  label: 'Bounty',
+                  value: currency.format(bounty.amount),
+                ),
+                _DetailRow(
+                  label: 'Due',
+                  value: DateFormat('dd/MM HH:mm').format(bounty.expiresAt),
+                ),
+                if (isExpired) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bounty Expired',
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                        if (bounty.forcedCompensationAmount != null)
-                          _DetailRow(
-                            label: 'Compensation',
-                            value: currency.format(
-                              bounty.forcedCompensationAmount,
+                          const SizedBox(height: 8),
+                          Text(
+                            bounty.forcedCompensationAmount != null
+                                ? 'A forced compensation was recorded. Check obligations for its current status.'
+                                : 'Bounty expired. The household may need to resolve this assignment.',
+                          ),
+                          if (bounty.newAssigneeDisplayName != null)
+                            _DetailRow(
+                              label: 'New assignee',
+                              value: bounty.newAssigneeDisplayName!,
                             ),
+                          if (bounty.forcedCompensationAmount != null)
+                            _DetailRow(
+                              label: 'Compensation',
+                              value: currency.format(
+                                bounty.forcedCompensationAmount,
+                              ),
+                            ),
+                          TextButton(
+                            onPressed: () => context.push(
+                              '/payments?houseId=${Uri.encodeComponent(houseId!)}',
+                            ),
+                            child: const Text('View payment obligations'),
                           ),
-                        TextButton(
-                          onPressed: () => context.push(
-                            '/payments?houseId=${Uri.encodeComponent(houseId!)}',
-                          ),
-                          child: const Text('View payment obligations'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: bounty.status == BountyStatus.open
+                        ? () => _accept(context, ref, bounty)
+                        : null,
+                    icon: const Icon(Icons.volunteer_activism),
+                    label: const Text('ACCEPT BOUNTY'),
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: bounty.status == BountyStatus.open
-                      ? () => _accept(context, ref, bounty)
-                      : null,
-                  icon: const Icon(Icons.volunteer_activism),
-                  label: const Text('ACCEPT BOUNTY'),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

@@ -5,6 +5,8 @@ namespace ChoreWars.Domain.Entities;
 
 public class House
 {
+    public long AiTelemetrySequence { get; set; }
+    public string AiDataSource { get; set; } = "REAL";
     public bool IsArchived { get; set; }
     public int InviteVersion { get; set; }
     public Guid Id { get; set; }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using ChoreWars.Application.DTOs.Notification;
 using ChoreWars.Application.DTOs.Proposal;
 using ChoreWars.Application.Interfaces.Services;
+using ChoreWars.Application.Services;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Enums;
 using ChoreWars.Domain.Exceptions;
@@ -95,6 +96,8 @@ public class UrgentProposalTests
         await using (var create = f.Services.CreateAsyncScope()) {
             var db = create.ServiceProvider.GetRequiredService<AppDbContext>();
             var source = await db.ChoreOccurrences.SingleAsync();
+            var tomorrow=DateOnly.FromDateTime(ScheduleTime.Local(DateTime.UtcNow)).AddDays(1);
+            source.DueDate=ScheduleTime.Utc(tomorrow,1260);
             db.ChoreOccurrences.Add(new ChoreOccurrence { Id = otherId, ChoreId = source.ChoreId, SeasonId = data.SeasonId,
                 AssignedUserId = data.Users[1], Status = ChoreOccurrenceStatus.ASSIGNED, DueDate = source.DueDate.AddDays(1), SnapshotKarma = 10, SnapshotMinutes = 30 });
             db.ChatRooms.Add(new ChatRoom { Id = Guid.NewGuid(), HouseId = data.HouseId });

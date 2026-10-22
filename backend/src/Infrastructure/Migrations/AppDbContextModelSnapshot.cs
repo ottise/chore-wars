@@ -23,6 +23,197 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIChatInsight", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConsentVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseId");
+
+                    b.HasIndex("MessageId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("AIChatInsights");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BountyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("OccurrenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurrenceId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("HouseId", "UserId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("AIObservations");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIRecommendation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AvailabilityChangesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContextHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("ProposalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseId", "ActorId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("AIRecommendations");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIResponsibilityContextSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContextHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EpisodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("PredictionTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("SourceSequence")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EpisodeId")
+                        .IsUnique();
+
+                    b.HasIndex("HouseId");
+
+                    b.ToTable("AIResponsibilityContextSnapshots");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.Achievement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -288,6 +479,53 @@ namespace Infrastructure.Migrations
                     b.ToTable("ChoreBounties");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ChoreEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AttachedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OccurrenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VisionJson")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurrenceId", "UploadedByUserId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("ChoreEvidence");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChoreFrequencyDay", b =>
                 {
                     b.Property<Guid>("Id")
@@ -329,6 +567,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("EvidenceId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsForcedReassigned")
                         .HasColumnType("boolean");
 
@@ -365,6 +606,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("AssignedUserId");
 
                     b.HasIndex("ChoreId");
+
+                    b.HasIndex("EvidenceId");
 
                     b.HasIndex("SeasonId");
 
@@ -557,6 +800,16 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AiDataSource")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasDefaultValue("REAL");
+
+                    b.Property<long>("AiTelemetrySequence")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("AvatarUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -585,7 +838,29 @@ namespace Infrastructure.Migrations
                     b.HasIndex("InviteCode")
                         .IsUnique();
 
-                    b.ToTable("Houses");
+                    b.ToTable("Houses", t =>
+                        {
+                            t.HasCheckConstraint("CK_House_AiDataSource", "\"AiDataSource\" IN ('REAL','DEMO_SYNTHETIC')");
+                        });
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.HouseAiSettings", b =>
+                {
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ChatAutoInsightsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("HouseId");
+
+                    b.ToTable("HouseAiSettings");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.HouseMember", b =>
@@ -717,6 +992,28 @@ namespace Infrastructure.Migrations
                     b.ToTable("MediaAttachments");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.MemberAiConsent", b =>
+                {
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ChatAnalysisEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("HouseId", "UserId");
+
+                    b.ToTable("MemberAiConsents");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.MemberAvailability", b =>
                 {
                     b.Property<Guid>("Id")
@@ -748,6 +1045,33 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("MemberAvailabilities");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.MemberAvailabilityException", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SlotsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeasonId", "UserId", "LocalDate")
+                        .IsUnique();
+
+                    b.ToTable("MemberAvailabilityExceptions");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.MemberAvailabilitySlot", b =>
@@ -1265,6 +1589,54 @@ namespace Infrastructure.Migrations
                     b.ToTable("UserAchievements");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIChatInsight", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.ChatMessage", null)
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIObservation", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIRecommendation", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIResponsibilityContextSnapshot", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.Achievement", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.House", "House")
@@ -1380,6 +1752,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("PostedByUser");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ChoreEvidence", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.ChoreOccurrence", null)
+                        .WithMany()
+                        .HasForeignKey("OccurrenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChoreFrequencyDay", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.Chore", "Chore")
@@ -1403,6 +1784,11 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("ChoreId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.ChoreEvidence", null)
+                        .WithMany()
+                        .HasForeignKey("EvidenceId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ChoreWars.Domain.Entities.ChoreSeason", "Season")
                         .WithMany("Occurrences")
@@ -1460,6 +1846,15 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.HouseAiSettings", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.HouseMember", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.House", "House")
@@ -1510,6 +1905,15 @@ namespace Infrastructure.Migrations
                     b.HasOne("ChoreWars.Domain.Entities.ChatRoom", null)
                         .WithMany()
                         .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.MemberAiConsent", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

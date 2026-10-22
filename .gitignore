@@ -65,3 +65,11 @@ Desktop.ini
 /artifacts/
 **/TestResults/
 .data-protection-keys/
+
+# AI local runtime, private data and trusted model artifacts
+ai-service/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.egg-info/
+ai-service/artifacts/
+ai-service/*.db

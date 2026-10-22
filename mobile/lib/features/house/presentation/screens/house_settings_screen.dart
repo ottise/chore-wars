@@ -159,6 +159,15 @@ class _SettingsBody extends StatelessWidget {
           ),
         ),
         const Divider(),
+        ListTile(
+          leading: const Icon(
+            Icons.auto_awesome_outlined,
+            color: AppTheme.purple,
+          ),
+          title: const Text('Quản gia AI'),
+          subtitle: const Text('Đóng góp, đề xuất lịch và đánh giá'),
+          onTap: () => context.push('/houses/$houseId/ai'),
+        ),
         if (house.myRole == HouseRole.owner) ...[
           ListTile(
             leading: const Icon(Icons.sync_problem_outlined),

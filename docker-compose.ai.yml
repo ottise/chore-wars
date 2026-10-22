@@ -1,0 +1,89 @@
+services:
+  backend:
+    environment:
+      - AI__Enabled=true
+      - AI__BaseUrl=http://ai-api:8000
+      - AI__ServiceKey=${AI_SERVICE_KEY:?Set a random AI_SERVICE_KEY of at least 32 characters}
+    depends_on:
+      ai-api:
+        condition: service_healthy
+
+  ai-postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chorewars_ai
+      POSTGRES_PASSWORD: ${AI_POSTGRES_PASSWORD:?Set AI_POSTGRES_PASSWORD}
+      POSTGRES_DB: chorewars_ai
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U chorewars_ai -d chorewars_ai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql/data
+
+  ai-migrate:
+    build: ./ai-service
+    command: [python, -m, app.cli, migrate]
+    environment:
+      AI_DATABASE_URL: postgresql+psycopg://chorewars_ai:${AI_POSTGRES_PASSWORD}@ai-postgres/chorewars_ai
+    depends_on:
+      ai-postgres:
+        condition: service_healthy
+
+  ai-api:
+    build: ./ai-service
+    restart: unless-stopped
+    environment: &ai-environment
+      AI_DATABASE_URL: postgresql+psycopg://chorewars_ai:${AI_POSTGRES_PASSWORD}@ai-postgres/chorewars_ai
+      AI_SERVICE_KEY: ${AI_SERVICE_KEY}
+      AI_KAFKA_SERVERS: kafka:9092
+      AI_GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AI_GEMINI_TEXT_MODEL: ${GEMINI_TEXT_MODEL:-gemini-3.5-flash-lite}
+      AI_GEMINI_VISION_MODEL: ${GEMINI_VISION_MODEL:-gemini-3.8-flash}
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ai_artifacts:/artifacts
+
+  ai-topic-init:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    command: [/opt/kafka/bin/kafka-topics.sh, --bootstrap-server, kafka:9092, --create, --if-not-exists, --topic, ai.telemetry.v1, --partitions, '1', --replication-factor, '1']
+
+  ai-trainer:
+    build: ./ai-service
+    restart: unless-stopped
+    command: [python, -m, app.trainer]
+    environment: *ai-environment
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ai_artifacts:/artifacts
+
+  ai-worker:
+    build: ./ai-service
+    restart: unless-stopped
+    command: [python, -m, app.worker]
+    environment: *ai-environment
+    depends_on:
+      ai-migrate:
+        condition: service_completed_successfully
+      ai-topic-init:
+        condition: service_completed_successfully
+    volumes:
+      - ai_artifacts:/artifacts
+
+volumes:
+  ai_postgres_data:
+  ai_artifacts:
