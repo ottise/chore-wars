@@ -12,7 +12,7 @@ class WebPreviewFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!AppConstants.uiPreview) return child;
     return ColoredBox(
-      color: const Color(0xFFEDEBF7),
+      color: AppTheme.surfaceContainer,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),

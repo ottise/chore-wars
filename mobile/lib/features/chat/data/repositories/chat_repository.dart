@@ -28,8 +28,12 @@ class ChatRepository {
     _signalRService.fork,
   )).connect(roomId, onMessageReceived, onProposalsChanged: onProposalsChanged);
 
-  Future<ChatMessageModel> sendMessage(String roomId, String content) =>
-      _rooms[roomId]?.sendMessage(roomId, content) ??
+  Future<ChatMessageModel> sendMessage(
+    String roomId,
+    String content,
+    String clientMessageId,
+  ) =>
+      _rooms[roomId]?.sendMessage(roomId, content, clientMessageId) ??
       Future.error(StateError('Chat is disconnected'));
 
   Future<ChatMessageModel> sendMedia(

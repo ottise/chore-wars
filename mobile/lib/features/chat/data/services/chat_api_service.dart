@@ -44,7 +44,10 @@ class ChatApiService {
         '/media',
         data: FormData.fromMap({
           'roomId': roomId,
-          'file': MultipartFile.fromBytes(bytes, filename: filename),
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename.trim().isEmpty ? 'attachment' : filename,
+          ),
         }),
       );
       _uploadedByClientId[clientMessageId] = upload.data['id'].toString();

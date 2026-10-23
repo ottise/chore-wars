@@ -64,4 +64,4 @@ final aiDataProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>, AiQuery>((ref, query) {
       ref.watch(sessionEpochProvider);
       return ref.watch(aiRepositoryProvider).get(query.house, query.path);
-    });
+    }, retry: (retryCount, error) => null);

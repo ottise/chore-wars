@@ -1,4 +1,5 @@
 import 'audio_message_bubble.dart';
+import '../../domain/chat_mentions.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -10,8 +11,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 class MessageBubble extends StatelessWidget {
   final ChatMessageModel message;
   final bool isMe;
+  final Map<String, String> memberNames;
 
-  const MessageBubble({super.key, required this.message, required this.isMe});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    this.memberNames = const {},
+  });
 
   String _resolveImageUrl(String path) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -63,7 +70,7 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     message.senderName,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTheme.muted,
+                      color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -71,7 +78,10 @@ class MessageBubble extends StatelessWidget {
                 ],
                 if (message.messageType == 'AUDIO' &&
                     message.attachmentId != null)
-                  AudioMessageBubble(attachmentId: message.attachmentId!)
+                  AudioMessageBubble(
+                    attachmentId: message.attachmentId!,
+                    isMe: isMe,
+                  )
                 else if (message.messageType == 'IMAGE' &&
                     message.attachmentId != null)
                   PrivateImageBubble(attachmentId: message.attachmentId!)
@@ -149,12 +159,14 @@ class MessageBubble extends StatelessWidget {
                       vertical: 12.0,
                     ),
                     decoration: BoxDecoration(
-                      color: isMe ? AppTheme.purple : theme.colorScheme.surface,
+                      color: isMe
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceContainerLowest,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(20),
                         topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(isMe ? 20 : 0),
-                        bottomRight: Radius.circular(isMe ? 0 : 20),
+                        bottomLeft: Radius.circular(isMe ? 20 : 4),
+                        bottomRight: Radius.circular(isMe ? 4 : 20),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -165,9 +177,11 @@ class MessageBubble extends StatelessWidget {
                       ],
                     ),
                     child: Text(
-                      message.content,
+                      displayChatMentions(message.content, memberNames),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isMe ? Colors.white : AppTheme.ink,
+                        color: isMe
+                            ? theme.colorScheme.onPrimary
+                            : theme.colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -175,7 +189,7 @@ class MessageBubble extends StatelessWidget {
                 Text(
                   timeFormat.format(message.createdAt.toLocal()),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppTheme.muted,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],

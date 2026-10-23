@@ -13,32 +13,32 @@ class AiProfileDetails extends StatelessWidget {
   final Map<String, dynamic> profile;
 
   static const _labels = {
-    'completed_count': 'Công việc hoàn thành',
-    'standard_minutes': 'Khối lượng chuẩn',
-    'snapshot_karma': 'Karma của việc đã hoàn thành',
-    'responsibility_count': 'Lượt nhận trách nhiệm',
-    'on_time_episode_rate': 'Hoàn thành đúng hạn',
-    'bounty_claim_count': 'Lượt nhận qua bounty',
-    'bounty_occurrence_count': 'Việc khác nhau nhận qua bounty',
-    'bounty_self_completion_rate': 'Tự hoàn thành việc nhận qua bounty',
-    'bounty_posted_count': 'Bounty đã đăng',
-    'mean_normalized_rank': 'Thứ hạng chuẩn hóa trung bình',
+    'completed_count': 'Completed Chores',
+    'standard_minutes': 'Standard Workload',
+    'snapshot_karma': 'Karma from Completed Chores',
+    'responsibility_count': 'Responsibility Episodes',
+    'on_time_episode_rate': 'On-Time Completion',
+    'bounty_claim_count': 'Bounty Acceptances',
+    'bounty_occurrence_count': 'Distinct Bounty Chores Accepted',
+    'bounty_self_completion_rate': 'Self-Completed Bounty Chores',
+    'bounty_posted_count': 'Bounties Posted',
+    'mean_normalized_rank': 'Mean Normalized Rank',
   };
 
   String _value(Map metric) {
     final value = metric['value'];
-    if (value == null) return 'Chưa đủ mẫu';
+    if (value == null) return 'Insufficient Samples';
     if (metric['unit'] == 'ratio' && value is num) {
       return '${(value * 100).toStringAsFixed(1)}%';
     }
-    return '$value${metric['unit'] == 'standard_minutes' ? ' phút chuẩn' : ''}';
+    return '$value${metric['unit'] == 'standard_minutes' ? ' standard minutes' : ''}';
   }
 
   List<Widget> _evidence(BuildContext context, List ids) => [
     for (final id in ids.take(20))
       ListTile(
         dense: true,
-        title: const Text('Xem bằng chứng của chỉ số'),
+        title: const Text('View Metric Evidence'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
@@ -49,7 +49,7 @@ class AiProfileDetails extends StatelessWidget {
           ),
         ),
       ),
-    if (ids.length > 20) Text('Hiển thị 20 / ${ids.length} bằng chứng.'),
+    if (ids.length > 20) Text('Showing 20 / ${ids.length} evidence.'),
   ];
 
   @override
@@ -60,25 +60,25 @@ class AiProfileDetails extends StatelessWidget {
       children: [
         if (metrics.isNotEmpty)
           ExpansionTile(
-            title: const Text('Nguồn và mẫu của từng chỉ số'),
+            title: const Text('Metric Sources & Samples'),
             children: [
               const Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(
-                  'Chỉ tính dữ liệu ứng dụng đã ghi nhận. Phút chuẩn không phải thời gian lao động đo được.',
+                  'Only recorded application data is counted. Standard minutes are not measured working time.',
                 ),
               ),
               for (final entry in metrics.entries)
                 ExpansionTile(
                   title: Text(_labels[entry.key] ?? entry.key.toString()),
                   subtitle: Text(
-                    '${_value(entry.value as Map)} · ${entry.value['sample_count']} mẫu'
+                    '${_value(entry.value as Map)} · ${entry.value['sample_count']} samples'
                     '${entry.value['denominator'] == null ? '' : ' · ${entry.value['numerator']}/${entry.value['denominator']}'}',
                   ),
                   children: [
                     if (entry.value['quality'] == 'NO_OBSERVATIONS')
                       const Text(
-                        'Chưa có bằng chứng cho chỉ số trong khoảng này.',
+                        'No evidence for this metric in the selected period.',
                       ),
                     ..._evidence(
                       context,
@@ -90,34 +90,34 @@ class AiProfileDetails extends StatelessWidget {
           ),
         if (preferences != null && preferences.isNotEmpty)
           ExpansionTile(
-            title: const Text('Sở thích bạn đã khai báo'),
+            title: const Text('Your Declared Preferences'),
             children: [
               const Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(
-                  'Lưu lại cùng một lựa chọn không tăng số mẫu. Việc đã làm và lượt mở bounty không được tính là thích hoặc không thích.',
+                  'Saving the same choice does not increase the sample count. Completions and bounty views are not counted as preferences.',
                 ),
               ),
               for (final item in preferences)
                 ExpansionTile(
-                  title: Text(item['chore_name']?.toString() ?? 'Công việc'),
+                  title: Text(item['chore_name']?.toString() ?? 'Chore'),
                   subtitle: Text(switch (item['current_declared']) {
-                    'PREFERRED' => 'Hiện khai báo: thích',
-                    'DISLIKED' => 'Hiện khai báo: không thích',
-                    _ => 'Đã xóa khai báo',
+                    'PREFERRED' => 'Currently preferred',
+                    'DISLIKED' => 'Currently disliked',
+                    _ => 'Preference Removed',
                   }),
                   children: [
                     ListTile(
                       title: Text(
-                        'Ghi nhận thích ${item['positive_count']} · Không thích ${item['negative_count']}',
+                        'Preferred records ${item['positive_count']} · Disliked ${item['negative_count']}',
                       ),
                       subtitle: Text(
                         item['history_scope'] ==
                                 'HOUSE_DECLARATIONS_NOT_SEASON_SCOPED'
-                            ? 'Khai báo theo nhà, không gán lịch sử này vào một mùa. Trạng thái hiện tại được hiển thị riêng.'
+                            ? 'Preferences belong to the household, not a season. Current status is shown separately.'
                             : item['smoothed_positive_score'] == null
-                            ? 'Chưa có thay đổi khai báo trong khoảng đã chọn.'
-                            : 'Điểm làm trơn: ${((item['smoothed_positive_score'] as num) * 100).toStringAsFixed(1)}% trên ${item['sample_count']} mẫu. Đây không phải độ tin cậy hay xác suất nhận việc.',
+                            ? 'No preference changes in the selected period.'
+                            : 'Smoothed score: ${((item['smoothed_positive_score'] as num) * 100).toStringAsFixed(1)}% across ${item['sample_count']} samples. This is not confidence or acceptance probability.',
                       ),
                     ),
                     ..._evidence(context, item['evidence_ids'] as List? ?? []),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/house_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/house_models.dart';
@@ -48,6 +49,10 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final results = await Future.wait([
@@ -201,98 +206,439 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Review schedule'),
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: _busy ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
+  bool _signed(String id) => (_season?['confirmations'] as List? ?? []).any(
+    (row) =>
+        row['userId'] == id &&
+        (row['status'] == 1 || row['status'] == 'CONFIRMED'),
+  );
+
+  bool _rejected(String id) => (_season?['confirmations'] as List? ?? []).any(
+    (row) =>
+        row['userId'] == id &&
+        (row['status'] == 2 || row['status'] == 'REJECTED'),
+  );
+
+  Widget _panel(Widget child) => Card(
+    margin: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+      side: BorderSide(
+        color: Theme.of(context).colorScheme.outlineVariant
+            .withValues(alpha: .35),
+      ),
     ),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (_busy) const LinearProgressIndicator(),
-        if (_error != null)
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        if (_season?['lastRejectionReason'] != null)
-          Text('Last rejection: ${_season!['lastRejectionReason']}'),
-        Text('Revision ${_season?['scheduleRevision'] ?? 0}'),
-        const Text(
-          'All active members must approve the same schedule before the season starts.',
-        ),
-        for (final member in (_summary['members'] as List? ?? []))
-          ListTile(
-            title: Text(member['displayName'] ?? ''),
-            subtitle: Text(
-              '${member['totalAssignedKarma'] ?? 0} Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
-            ),
-          ),
-        for (final warning in (_summary['warnings'] as List? ?? []))
-          Text(
-            warning.toString(),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        for (final c in (_season?['confirmations'] as List? ?? []))
-          ListTile(
-            title: Text(c['userId'].toString()),
-            subtitle: Text('Confirmation: ${c['status']}'),
-          ),
-        for (final item in _occurrences)
-          Card(
-            child: ListTile(
-              title: Text(item['choreName'] ?? ''),
-              subtitle: Text(
-                '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
-              ),
-              trailing: _draft && _owner
-                  ? TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _assign(Map<String, dynamic>.from(item)),
-                      child: const Text('Assign'),
-                    )
-                  : null,
-            ),
-          ),
-        if (_draft && _owner) ...[
-          OutlinedButton(
-            onPressed: _busy ? null : _importRoutine,
-            child: const Text('Import reusable routine'),
-          ),
-          OutlinedButton(
-            onPressed: _busy ? null : () => _act('generate-schedule'),
-            child: const Text('Generate / regenerate draft'),
-          ),
-          FilledButton(
-            onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
-                ? null
-                : () => _act('submit-review'),
-            child: const Text('Submit for everyone to review'),
-          ),
-        ],
-        if (_reviewing) ...[
-          FilledButton(
-            onPressed: _busy || _confirmed ? null : () => _act('confirm'),
-            child: Text(
-              _confirmed
-                  ? 'Confirmed — waiting for other members'
-                  : 'Confirm this revision',
-            ),
-          ),
-          OutlinedButton(
-            onPressed: _busy ? null : () => _act('reject'),
-            child: const Text('Reject and return to draft'),
-          ),
-        ],
-      ],
+    child: Padding(padding: const EdgeInsets.all(16), child: child),
+  );
+
+  Widget _status(String label, bool signed) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: label == 'Rejected'
+          ? Theme.of(context).colorScheme.errorContainer
+          : signed
+          ? AppTheme.successContainer
+          : Theme.of(context).colorScheme.tertiaryFixed,
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: label == 'Rejected'
+            ? Theme.of(context).colorScheme.onErrorContainer
+            : signed
+            ? AppTheme.green
+            : Theme.of(context).colorScheme.onTertiaryFixedVariant,
+      ),
     ),
   );
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final me = ref.watch(userProfileProvider).asData?.value.id;
+    final members = _summary['members'] as List? ?? [];
+    final totalKarma = members.fold<num>(
+      0,
+      (total, row) => total + ((row['totalAssignedKarma'] as num?) ?? 0),
+    );
+    final amounts =
+        members.map((row) => (row['totalAssignedKarma'] as num?) ?? 0).toList()
+          ..sort();
+    final gap = amounts.isEmpty ? 0 : amounts.last - amounts.first;
+    final signedCount = members
+        .where((row) => _signed(row['userId'].toString()))
+        .length;
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          'Review Schedule',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _busy ? null : _load,
+            icon: const Icon(Icons.refresh_rounded, size: 21),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          if (_busy) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(_error!, style: TextStyle(color: colors.error)),
+            ),
+          if (_season != null) ...[
+            _panel(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      Chip(
+                        label: Text(
+                          '${_season!['name'] ?? 'Season'} · Revision ${_season!['scheduleRevision'] ?? 0}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: colors.onPrimaryFixedVariant,
+                          ),
+                        ),
+                        backgroundColor: colors.primaryFixed,
+                      ),
+                      _status(
+                        '$signedCount/${members.length} approvals',
+                        signedCount == members.length && members.isNotEmpty,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'All active members must approve the same schedule revision before the season starts.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  if (_season!['lastRejectionReason'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Revision requested: ${_season!['lastRejectionReason']}',
+                        style: TextStyle(color: colors.error, fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'MEMBER WORKLOAD & KARMA',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${members.length} members',
+                  style: TextStyle(fontSize: 10, color: colors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (final member in members)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _panel(
+                  Builder(
+                    builder: (context) {
+                      final id = member['userId'].toString();
+                      final name =
+                          member['displayName']?.toString() ?? 'Member';
+                      final karma = (member['totalAssignedKarma'] as num?) ?? 0;
+                      final share = totalKarma > 0 ? karma / totalKarma : 0.0;
+                      final signed = _signed(id);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: id == me
+                                      ? colors.primaryContainer
+                                      : colors.tertiaryFixed,
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Text(
+                                  name.isEmpty
+                                      ? '?'
+                                      : name.characters.first.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: id == me
+                                        ? colors.onPrimaryContainer
+                                        : colors.onTertiaryFixedVariant,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$name${id == me ? ' · You' : ''}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '$karma Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              _status(
+                                signed
+                                    ? 'Approved'
+                                    : _rejected(id)
+                                    ? 'Rejected'
+                                    : 'Pending',
+                                signed,
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 26),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Chore Share ${(share * 100).toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${member['totalChores'] ?? 0} tasks',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: share.clamp(0.0, 1.0).toDouble(),
+                              minHeight: 6,
+                              color: id == me
+                                  ? colors.primaryContainer
+                                  : colors.tertiary,
+                              backgroundColor: colors.surfaceContainerHigh,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            if (members.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.errorContainer.withValues(alpha: .25),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colors.error.withValues(alpha: .2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Assigned Karma Gap: $gap Karma',
+                        style: TextStyle(
+                          color: colors.error,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      for (final warning in _summary['warnings'] as List? ?? [])
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            warning.toString(),
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 11,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            _panel(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'MEMBER CONFIRMATIONS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$signedCount/${members.length}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  for (final member in members)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                member['displayName']?.toString() ?? 'Member',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            _status(
+                              _signed(member['userId'].toString())
+                                  ? 'Confirmed'
+                                  : _rejected(member['userId'].toString())
+                                  ? 'Rejected'
+                                  : 'Awaiting',
+                              _signed(member['userId'].toString()),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_reviewing) ...[
+              FilledButton.icon(
+                onPressed: _busy || _confirmed || _error != null
+                    ? null
+                    : () => _act('confirm'),
+                icon: const Icon(Icons.done_all_rounded, size: 18),
+                label: Text(
+                  _confirmed
+                      ? 'Confirmed · Waiting for Everyone'
+                      : 'Confirm & Approve Schedule',
+                ),
+              ),
+              TextButton(
+                onPressed: _busy ? null : () => _act('reject'),
+                child: const Text('Request Changes & Return to Draft'),
+              ),
+            ],
+            if (_draft && _owner) ...[
+              OutlinedButton(
+                onPressed: _busy ? null : _importRoutine,
+                child: const Text('Import reusable routine'),
+              ),
+              OutlinedButton(
+                onPressed: _busy ? null : () => _act('generate-schedule'),
+                child: const Text('Generate / regenerate draft'),
+              ),
+              FilledButton(
+                onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
+                    ? null
+                    : () => _act('submit-review'),
+                child: const Text('Submit for everyone to review'),
+              ),
+            ],
+            const SizedBox(height: 12),
+            _panel(
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                initiallyExpanded: _draft,
+                title: Text(
+                  'Assignment Details (${_occurrences.length})',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                children: [
+                  for (final item in _occurrences)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        item['choreName'] ?? '',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      trailing: _draft && _owner
+                          ? TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _assign(
+                                      Map<String, dynamic>.from(item),
+                                    ),
+                              child: const Text('Assign'),
+                            )
+                          : null,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

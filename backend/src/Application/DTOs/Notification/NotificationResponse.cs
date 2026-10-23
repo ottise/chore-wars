@@ -8,6 +8,7 @@ public class NotificationResponse
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
+    public Guid HouseId { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public NotificationType Type { get; set; }
     public string Title { get; set; } = string.Empty;

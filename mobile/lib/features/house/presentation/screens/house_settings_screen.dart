@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
@@ -29,7 +30,12 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
     final houseAsync = ref.watch(houseDetailProvider(widget.houseId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('House settings')),
+      appBar: AppBar(
+        title: const Text(
+          'House Settings',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
       body: houseAsync.when(
         loading: () => const LoadingView(),
         error: (error, _) => ErrorView(
@@ -142,105 +148,196 @@ class _SettingsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final owner = house.myRole == HouseRole.owner;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
       children: [
-        _SectionHeader('House info'),
-        ListTile(
-          leading: const Icon(Icons.home_work_outlined),
-          title: const Text('Name'),
-          subtitle: Text(house.name),
-        ),
-        ListTile(
-          leading: const Icon(Icons.calendar_today_outlined),
-          title: const Text('Created'),
-          subtitle: Text(
-            '${house.createdAt.day}/${house.createdAt.month}/${house.createdAt.year}',
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _SettingsRow(
+                icon: Icons.home_rounded,
+                title: house.name,
+                subtitle: 'Name',
+              ),
+              const Divider(height: 1, indent: 64),
+              _SettingsRow(
+                icon: Icons.calendar_month_outlined,
+                title: DateFormat.yMMMd('en_US').format(house.createdAt),
+                subtitle: 'Created',
+              ),
+            ],
           ),
         ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(
-            Icons.auto_awesome_outlined,
-            color: AppTheme.purple,
-          ),
-          title: const Text('Quản gia AI'),
-          subtitle: const Text('Đóng góp, đề xuất lịch và đánh giá'),
-          onTap: () => context.push('/houses/$houseId/ai'),
-        ),
-        if (house.myRole == HouseRole.owner) ...[
-          ListTile(
-            leading: const Icon(Icons.sync_problem_outlined),
-            title: const Text('Xử lý hệ thống'),
-            subtitle: const Text('Theo dõi lỗi và yêu cầu xử lý lại'),
-            onTap: () => context.push('/houses/$houseId/failed-events'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Rotate invitation code'),
-            enabled: !leavingHouse,
-            onTap: onRotate,
-          ),
-          ListTile(
-            leading: const Icon(Icons.archive_outlined),
-            title: const Text('Archive household'),
-            enabled: !leavingHouse,
-            onTap: onArchive,
-          ),
-        ],
-        _SectionHeader('Invite'),
-        ListTile(
-          leading: const Icon(Icons.key_rounded, color: AppTheme.purple),
-          title: const Text('Invite code'),
-          subtitle: Text(
-            house.inviteCode,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-              fontSize: 18,
-            ),
-          ),
-          trailing: IconButton(
-            tooltip: 'Copy code',
-            icon: const Icon(Icons.copy_rounded),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: house.inviteCode));
-              showAppMessage(context, 'Invite code copied!');
-            },
+        const _SectionHeader('Automation & Governance'),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _SettingsRow(
+                icon: Icons.auto_awesome_outlined,
+                title: 'AI Housekeeper',
+                subtitle: 'Contributions & schedule suggestions',
+                onTap: () => context.push('/houses/$houseId/ai'),
+              ),
+              if (owner) ...[
+                const Divider(height: 1, indent: 64),
+                _SettingsRow(
+                  icon: Icons.sync_rounded,
+                  title: 'System Recovery',
+                  subtitle: 'Track failures & request retries',
+                  onTap: () => context.push('/houses/$houseId/failed-events'),
+                ),
+                const Divider(height: 1, indent: 64),
+                _SettingsRow(
+                  icon: Icons.key_rounded,
+                  title: 'Rotate Invitation Code',
+                  subtitle: 'Replace the current invite link & QR',
+                  onTap: leavingHouse ? null : onRotate,
+                ),
+              ],
+            ],
           ),
         ),
-        ListTile(
-          leading: const Icon(Icons.qr_code_rounded, color: AppTheme.purple),
-          title: const Text('Show QR code'),
-          onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
+        const _SectionHeader('Household Invitation'),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                leading: Icon(
+                  Icons.key_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text(
+                  'Invite Code',
+                  style: TextStyle(fontSize: 11, color: AppTheme.muted),
+                ),
+                subtitle: Text(
+                  house.inviteCode,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                    fontSize: 16,
+                  ),
+                ),
+                trailing: IconButton(
+                  tooltip: 'Copy code',
+                  icon: const Icon(Icons.copy_rounded, size: 20),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: house.inviteCode));
+                    showAppMessage(context, 'Invite code copied!');
+                  },
+                ),
+              ),
+              const Divider(height: 1, indent: 64),
+              _SettingsRow(
+                icon: Icons.qr_code_rounded,
+                title: 'Show QR Code',
+                onTap: () =>
+                    context.push('/houses/$houseId/qr-invite', extra: house),
+              ),
+            ],
+          ),
         ),
-        const Divider(),
-        ...[
-          _SectionHeader('Members'),
-          ListTile(
-            leading: const Icon(Icons.manage_accounts_outlined),
-            title: const Text('Manage members'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => context.push('/houses/$houseId/members'),
+        const _SectionHeader('Membership & Permissions'),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _SettingsRow(
+                icon: Icons.manage_accounts_outlined,
+                title: owner
+                    ? 'Transfer Ownership & Members'
+                    : 'Household Members',
+                subtitle: owner
+                    ? 'Manage access & choose the next owner'
+                    : 'View your household members',
+                onTap: () => context.push('/houses/$houseId/members'),
+              ),
+              if (owner) ...[
+                const Divider(height: 1, indent: 64),
+                _SettingsRow(
+                  icon: Icons.archive_outlined,
+                  title: 'Archive Household',
+                  subtitle: 'Preserve household history',
+                  onTap: leavingHouse ? null : onArchive,
+                ),
+              ],
+              const Divider(height: 1, indent: 64),
+              _SettingsRow(
+                icon: Icons.logout_rounded,
+                title: leavingHouse ? 'Updating…' : 'Leave Household',
+                subtitle: 'Revoke your access to this household',
+                destructive: true,
+                onTap: leavingHouse ? null : onLeave,
+              ),
+            ],
           ),
-          const Divider(),
-        ],
-
-        _SectionHeader('Danger zone'),
-        ListTile(
-          leading: leavingHouse
-              ? const SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.exit_to_app_rounded, color: AppTheme.red),
-          title: const Text(
-            'Leave house',
-            style: TextStyle(color: AppTheme.red),
-          ),
-          onTap: leavingHouse ? null : onLeave,
         ),
       ],
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.destructive = false,
+  });
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool destructive;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final accent = destructive ? colors.error : colors.primary;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Icon(icon, size: 21, color: accent),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: destructive ? colors.error : colors.onSurface,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: TextStyle(
+                fontSize: 11,
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+      trailing: onTap == null
+          ? null
+          : Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: destructive ? colors.error : colors.onSurfaceVariant,
+            ),
+      onTap: onTap,
     );
   }
 }
@@ -248,16 +345,15 @@ class _SettingsBody extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.text);
   final String text;
-
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
     child: Text(
       text,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        fontWeight: FontWeight.w800,
-        fontSize: 12,
-        letterSpacing: 0.8,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     ),
   );

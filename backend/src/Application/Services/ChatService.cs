@@ -8,20 +8,45 @@ using ChoreWars.Domain.Exceptions;
 using ChoreWars.Application.Interfaces.Repositories;
 using ChoreWars.Application.Interfaces.Services;
 using ChoreWars.Domain.Entities;
+using ChoreWars.Application.Interfaces;
+using ChoreWars.Application.Events;
+using ChoreWars.Domain.Common.Constants;
 
 namespace ChoreWars.Application.Services;
 
 public class ChatService : IChatService
 {
+    private const string TextMessageType = "TEXT";
     private readonly IHouseMutationCoordinator? _mutations;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _clock;
+    private readonly IEventPublisher? _events;
 
-    public ChatService(IUnitOfWork unitOfWork,IHouseMutationCoordinator? mutations=null,TimeProvider? clock=null)
+    public ChatService(IUnitOfWork unitOfWork,IHouseMutationCoordinator? mutations=null,TimeProvider? clock=null,IEventPublisher? events=null)
     {
         _mutations=mutations;
         _unitOfWork = unitOfWork;
         _clock=clock ?? TimeProvider.System;
+        _events=events;
+    }
+
+    public async Task<bool> GetNotificationsEnabledAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var member = await ValidateHouseMembershipAsync(houseId, userId, cancellationToken);
+        return !member.ChatNotificationsMuted;
+    }
+
+    public async Task SetNotificationsEnabledAsync(Guid houseId, Guid userId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        async Task Update()
+        {
+            var member = await ValidateHouseMembershipAsync(houseId, userId, cancellationToken);
+            member.ChatNotificationsMuted = !enabled;
+            _unitOfWork.HouseMembers.Update(member);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        if (_mutations != null) await _mutations.RunAsync(houseId, Update, cancellationToken);
+        else await Update();
     }
 
     public async Task<ChatRoomResponse> GetHouseRoomAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
@@ -94,9 +119,17 @@ public class ChatService : IChatService
         var room=await _unitOfWork.Chats.GetRoomByIdAsync(roomId,cancellationToken)??throw new NotFoundException("Room not found.");
         return _mutations!=null?await _mutations.RunAsync(room.HouseId,()=>CreateMessageCoreAsync(roomId,userId,content,cancellationToken),cancellationToken):await CreateMessageCoreAsync(roomId,userId,content,cancellationToken);
     }
-    private async Task<ChatMessageResponse> CreateMessageCoreAsync(Guid roomId, Guid userId, string content, CancellationToken cancellationToken)
+    public async Task<ChatMessageResponse> CreateTextMessageAsync(Guid roomId, Guid userId, string content, Guid clientMessageId, CancellationToken cancellationToken = default)
     {
-        if (content?.Length > 4000) throw new DomainException("Messages cannot exceed 4000 characters.");
+        if (clientMessageId == Guid.Empty) throw new DomainException("A client message ID is required.");
+        var room = await _unitOfWork.Chats.GetRoomByIdAsync(roomId, cancellationToken) ?? throw new NotFoundException("Room not found.");
+        return _mutations != null
+            ? await _mutations.RunAsync(room.HouseId, () => CreateMessageCoreAsync(roomId, userId, content, cancellationToken, clientMessageId), cancellationToken)
+            : await CreateMessageCoreAsync(roomId, userId, content, cancellationToken, clientMessageId);
+    }
+    private async Task<ChatMessageResponse> CreateMessageCoreAsync(Guid roomId, Guid userId, string content, CancellationToken cancellationToken, Guid? clientMessageId = null)
+    {
+        if (content?.Length > ChatConstants.MaxMessageLength) throw new DomainException($"Messages cannot exceed {ChatConstants.MaxMessageLength} characters.");
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new DomainException("Message content cannot be empty.");
@@ -112,17 +145,34 @@ public class ChatService : IChatService
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken)
             ?? throw new NotFoundException($"User {userId} not found");
 
+        if (clientMessageId.HasValue) {
+            var prior = await _unitOfWork.Chats.GetMessageByClientIdAsync(roomId, userId, clientMessageId.Value, cancellationToken);
+            if (prior != null) {
+                if (prior.Content != content || prior.MessageType != TextMessageType) throw new ConflictException("Client message ID was used for different content.");
+                return new ChatMessageResponse { Id = prior.Id, RoomId = prior.RoomId, SenderId = prior.SenderId, SenderName = user.DisplayName, SenderAvatar = user.AvatarUrl, Content = prior.Content, CreatedAt = prior.CreatedAt, ClientMessageId = prior.ClientMessageId };
+            }
+        }
+
+        var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(room.HouseId, cancellationToken))
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE).Select(m => m.UserId).ToHashSet();
+        var mentions = ChatMentions.Resolve(content, activeMembers).Where(id => id != userId).ToArray();
+
         var message = new ChatMessage
         {
             Id = Guid.NewGuid(),
             RoomId = roomId,
             SenderId = userId,
             Content = content,
+            ClientMessageId = clientMessageId,
             CreatedAt = _clock.GetUtcNow().UtcDateTime
         };
 
         await _unitOfWork.Chats.AddMessageAsync(message, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (_events != null)
+            await _events.PublishAsync(new ChatMessageCreatedEvent(message.Id, room.HouseId,
+                activeMembers.Where(id => id != userId).ToArray(), mentions), cancellationToken);
 
         return new ChatMessageResponse
         {
@@ -132,6 +182,7 @@ public class ChatService : IChatService
             SenderName = user.DisplayName,
             SenderAvatar = user.AvatarUrl,
             Content = message.Content,
+            ClientMessageId = message.ClientMessageId,
             CreatedAt = message.CreatedAt,
             EditedAt = message.EditedAt
         };
@@ -144,12 +195,13 @@ public class ChatService : IChatService
         await ValidateHouseMembershipAsync(room.HouseId, userId, cancellationToken);
     }
 
-    private async Task ValidateHouseMembershipAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
+    private async Task<HouseMember> ValidateHouseMembershipAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)
     {
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
         {
             throw new ForbiddenException("You are not a member of this house.");
         }
+        return member;
     }
 }

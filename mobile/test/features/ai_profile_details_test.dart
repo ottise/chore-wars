@@ -29,10 +29,13 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Nguồn và mẫu của từng chỉ số'));
+      await tester.tap(find.text('Metric Sources & Samples'));
       await tester.pumpAndSettle();
-      expect(find.text('Chưa đủ mẫu · 0 mẫu · 0/0'), findsOneWidget);
-      expect(find.text('Sở thích bạn đã khai báo'), findsNothing);
+      expect(
+        find.text('Insufficient Samples · 0 samples · 0/0'),
+        findsOneWidget,
+      );
+      expect(find.text('Your Declared Preferences'), findsNothing);
     },
   );
 
@@ -61,9 +64,9 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('Sở thích bạn đã khai báo'));
+    await tester.tap(find.text('Your Declared Preferences'));
     await tester.pumpAndSettle();
-    expect(find.text('Đã xóa khai báo'), findsOneWidget);
-    expect(find.text('Hiện khai báo: không thích'), findsNothing);
+    expect(find.text('Preference Removed'), findsOneWidget);
+    expect(find.text('Currently disliked'), findsNothing);
   });
 }

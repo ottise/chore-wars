@@ -7,6 +7,14 @@ using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration
+        .AddJsonFile("appsettings.AI.local.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables()
+        .AddCommandLine(args);
+}
+
 // The Windows Event Log provider requires elevated permissions and can throw
 // while handling an otherwise normal API error, which aborts the HTTP response.
 builder.Logging.ClearProviders();

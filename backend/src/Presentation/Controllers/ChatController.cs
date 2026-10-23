@@ -22,6 +22,17 @@ public class ChatController : ControllerBase
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+    [HttpGet("api/houses/{houseId}/chat/notification-settings")]
+    public async Task<IActionResult> GetNotificationSettings(Guid houseId, CancellationToken cancellationToken)
+        => Ok(new { enabled = await _chatService.GetNotificationsEnabledAsync(houseId, CurrentUserId, cancellationToken) });
+
+    [HttpPut("api/houses/{houseId}/chat/notification-settings")]
+    public async Task<IActionResult> SetNotificationSettings(Guid houseId, ChatNotificationSettingsRequest request, CancellationToken cancellationToken)
+    {
+        await _chatService.SetNotificationsEnabledAsync(houseId, CurrentUserId, request.Enabled!.Value, cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("api/houses/{houseId}/chat")]
     public async Task<IActionResult> GetRoom(Guid houseId, CancellationToken cancellationToken)
     {

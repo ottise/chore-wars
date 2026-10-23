@@ -1,3 +1,6 @@
+import '../../../chat/providers/action_proposal_providers.dart';
+import '../../../chat/presentation/widgets/urgent_event_banner.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +12,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../house/domain/entities/house_models.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
+import '../../domain/entities/routine_preset.dart';
 import '../providers/chore_providers.dart';
-import '../../../notifications/presentation/widgets/notification_bell.dart';
 
 enum _Tab { routines, mine, team }
 
@@ -31,6 +34,9 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _Tab.values.length, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -70,6 +76,10 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
   @override
   Widget build(BuildContext context) {
     final activeSeason = ref.watch(activeSeasonProvider(widget.houseId));
+    final urgent = ref
+        .watch(activeUrgentEventForHouseProvider(widget.houseId))
+        .asData
+        ?.value;
     final templates = ref.watch(choreTemplatesProvider(widget.houseId));
     final house = ref.watch(houseDetailProvider(widget.houseId));
 
@@ -81,10 +91,62 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chores'),
-        actions: const [
-          NotificationBell(),
-          SizedBox(width: 8),
+        leadingWidth: 48,
+        leading: IconButton.filledTonal(
+          style: IconButton.styleFrom(
+            backgroundColor: Theme.of(context)
+                .colorScheme
+                .surfaceContainerLowest,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+          ),
+          tooltip: 'Back to Overview',
+          onPressed: () => context.go('/houses/${widget.houseId}'),
+          icon: const Icon(Icons.arrow_back_rounded, size: 20),
+        ),
+        titleSpacing: 0,
+        title: const Text(
+          'Chores',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        actions: [
+          if (seasonStatus == 2)
+            TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                textStyle: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+                shape: const StadiumBorder(),
+              ),
+              onPressed: () =>
+                  context.push('/houses/${widget.houseId}/urgent-event'),
+              child: const Text('Urgent'),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                textStyle: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                backgroundColor: Theme.of(context).colorScheme.tertiaryFixed,
+                foregroundColor: Theme.of(context)
+                    .colorScheme
+                    .onTertiaryFixedVariant,
+                shape: const StadiumBorder(),
+              ),
+              onPressed: () =>
+                  context.push('/houses/${widget.houseId}/unresolved-chores'),
+              child: const Text('Needs Review'),
+            ),
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -96,58 +158,77 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
         ),
       ),
       floatingActionButton:
-          _tabController.index == _Tab.routines.index && isOwner && isDraft
+          _tabController.index == _Tab.routines.index &&
+              isOwner &&
+              (templates.asData?.value.isNotEmpty == true)
           ? FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push('/houses/${widget.houseId}/chores/new'),
+              onPressed: () => context.push(
+                '/houses/${widget.houseId}/chores/new?routine=true',
+              ),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Add chore'),
+              label: const Text('Add Routine'),
             )
           : null,
-      body: activeSeason.isLoading || house.isLoading
-          ? const LoadingView()
-          : activeSeason.hasError
-              ? ErrorView(
-                  error: activeSeason.error!,
-                  onRetry: () =>
-                      ref.invalidate(activeSeasonProvider(widget.houseId)),
-                )
-              : house.hasError
-                  ? ErrorView(
-                      error: house.error!,
-                      onRetry: () =>
-                          ref.invalidate(houseDetailProvider(widget.houseId)),
-                    )
-                  : TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _RoutinesTab(
-            houseId: widget.houseId,
-            seasonId: seasonId,
-            isDraft: isDraft,
-            hasGenerated: hasGenerated,
-            templates: templates,
-            generating: _generating,
-            onGenerate: seasonId != null && isOwner
-                ? () => _generateSchedule(seasonId)
-                : null,
-            tabController: _tabController,
+          if (urgent != null)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 112),
+              child: SingleChildScrollView(
+                child: UrgentEventBanner(proposal: urgent),
+              ),
+            ),
+          Expanded(
+            child: activeSeason.isLoading || house.isLoading
+                ? const LoadingView()
+                : activeSeason.hasError
+                ? ErrorView(
+                    error: activeSeason.error!,
+                    onRetry: () =>
+                        ref.invalidate(activeSeasonProvider(widget.houseId)),
+                  )
+                : house.hasError
+                ? ErrorView(
+                    error: house.error!,
+                    onRetry: () =>
+                        ref.invalidate(houseDetailProvider(widget.houseId)),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _RoutinesTab(
+                        houseId: widget.houseId,
+                        seasonId: seasonId,
+                        isDraft: isDraft,
+                        canCreate: isOwner,
+                        hasGenerated: hasGenerated,
+                        templates: templates,
+                        generating: _generating,
+                        onGenerate: seasonId != null && isOwner
+                            ? () => _generateSchedule(seasonId)
+                            : null,
+                        tabController: _tabController,
+                      ),
+                      _MyChoresTab(houseId: widget.houseId, seasonId: seasonId),
+                      _TeamScheduleTab(
+                        houseId: widget.houseId,
+                        seasonId: seasonId,
+                      ),
+                    ],
+                  ),
           ),
-          _MyChoresTab(houseId: widget.houseId, seasonId: seasonId),
-          _TeamScheduleTab(houseId: widget.houseId, seasonId: seasonId),
         ],
-                    ),
+      ),
     );
   }
 }
-
-// â”€â”€â”€ Routines Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _RoutinesTab extends ConsumerWidget {
   const _RoutinesTab({
     required this.houseId,
     required this.seasonId,
     required this.isDraft,
+    required this.canCreate,
     required this.hasGenerated,
     required this.templates,
     required this.generating,
@@ -158,6 +239,7 @@ class _RoutinesTab extends ConsumerWidget {
   final String houseId;
   final String? seasonId;
   final bool isDraft;
+  final bool canCreate;
   final bool hasGenerated;
   final AsyncValue<List<ChoreTemplate>> templates;
   final bool generating;
@@ -210,16 +292,35 @@ class _RoutinesTab extends ConsumerWidget {
           // Chore list
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(choreTemplatesProvider(houseId)),
+              onRefresh: () async =>
+                  ref.invalidate(choreTemplatesProvider(houseId)),
               child: items.isEmpty
                   ? ListView(
-                      children: const [
-                        SizedBox(height: 100),
-                        EmptyView(
-                          icon: Icons.playlist_add_rounded,
-                          title: 'No routines yet',
-                          message: 'Add the chores your household does regularly.',
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        _RoutineEmpty(
+                          onCreate: canCreate
+                              ? () => context.push(
+                                  '/houses/$houseId/chores/new?routine=true',
+                                )
+                              : null,
                         ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Popular Templates',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const SizedBox(height: 10),
+                        for (final preset in RoutinePreset.values)
+                          _RoutinePresetTile(
+                            preset: preset,
+                            onAdd: canCreate
+                                ? () => context.push(
+                                    '/houses/$houseId/chores/new?routine=true&preset=${preset.key}',
+                                  )
+                                : null,
+                          ),
                       ],
                     )
                   : ListView.separated(
@@ -265,15 +366,20 @@ class _RoutineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      tileColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant
+              .withValues(alpha: .25),
+        ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: CircleAvatar(
+        foregroundColor: Theme.of(context).colorScheme.onPrimaryFixedVariant,
         backgroundColor: chore.type == ChoreType.bonus
-            ? Theme.of(context).colorScheme.tertiaryContainer
-            : Theme.of(context).colorScheme.primaryContainer,
+            ? Theme.of(context).colorScheme.tertiaryFixed
+            : Theme.of(context).colorScheme.primaryFixed,
         child: Icon(
           chore.type == ChoreType.bonus
               ? Icons.auto_awesome_rounded
@@ -350,7 +456,7 @@ class _GenerateButton extends StatelessWidget {
                     ),
                   )
                 : const Icon(Icons.auto_awesome_rounded),
-            label: Text(generating ? 'Generatingâ€¦' : 'Generate Schedule'),
+            label: Text(generating ? 'Generating…' : 'Generate Schedule'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
@@ -363,8 +469,6 @@ class _GenerateButton extends StatelessWidget {
     );
   }
 }
-
-// â”€â”€â”€ Mine Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _MyChoresTab extends ConsumerWidget {
   const _MyChoresTab({required this.houseId, required this.seasonId});
@@ -407,16 +511,7 @@ class _MyChoresTab extends ConsumerWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      entry.key,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                  _DayHeader(label: entry.key, count: entry.value.length),
                   ...entry.value.map(
                     (chore) => _OccurrenceTile(chore: chore, houseId: houseId),
                   ),
@@ -434,14 +529,12 @@ class _MyChoresTab extends ConsumerWidget {
     final sorted = [...items]..sort((a, b) => a.dueDate.compareTo(b.dueDate));
     final grouped = <String, List<ChoreOccurrence>>{};
     for (final item in sorted) {
-      final key = DateFormat('EEEE, MMM d').format(item.dueDate);
+      final key = DateFormat('EEEE, dd/MM').format(item.dueDate);
       grouped.putIfAbsent(key, () => []).add(item);
     }
     return grouped;
   }
 }
-
-// â”€â”€â”€ Team Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _TeamScheduleTab extends ConsumerWidget {
   const _TeamScheduleTab({required this.houseId, required this.seasonId});
@@ -467,6 +560,7 @@ class _TeamScheduleTab extends ConsumerWidget {
         onRetry: () => ref.invalidate(houseMembersProvider(houseId)),
       ),
       data: (memberList) => _TeamScheduleBody(
+        key: ValueKey((houseId, seasonId)),
         houseId: houseId,
         seasonId: seasonId!,
         members: memberList.where((m) => m.isActive).toList(),
@@ -480,6 +574,7 @@ class _TeamScheduleBody extends ConsumerStatefulWidget {
     required this.houseId,
     required this.seasonId,
     required this.members,
+    super.key,
   });
   final String houseId;
   final String seasonId;
@@ -490,7 +585,8 @@ class _TeamScheduleBody extends ConsumerStatefulWidget {
 }
 
 class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
-  List<dynamic> _occurrences = [];
+  List<ChoreOccurrence> _occurrences = [];
+  Object? _error;
   bool _loading = true;
   String? _filterMemberId;
 
@@ -501,6 +597,10 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
   }
 
   Future<void> _fetch() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get(
@@ -508,32 +608,43 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
       );
       if (mounted) {
         setState(() {
-          _occurrences = res.data as List;
+          _occurrences =
+              (res.data as List)
+                  .map(
+                    (row) => ChoreOccurrence.fromJson(
+                      Map<String, dynamic>.from(row as Map),
+                    ),
+                  )
+                  .toList()
+                ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = error;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const LoadingView();
+    if (_error != null) return ErrorView(error: _error!, onRetry: _fetch);
 
     final filtered = _filterMemberId == null
         ? _occurrences
         : _occurrences
-              .where((o) => o['assignedUserId'] == _filterMemberId)
+              .where((o) => o.assignedUserId == _filterMemberId)
               .toList();
 
-    final grouped = <String, List<dynamic>>{};
-    for (final o in filtered) {
-      try {
-        final date = DateTime.parse(o['dueDate'] as String).toLocal();
-        final key = DateFormat('EEEE, MMM d').format(date);
-        grouped.putIfAbsent(key, () => []).add(o);
-      } catch (_) {}
+    final grouped = <String, List<ChoreOccurrence>>{};
+    for (final occurrence in filtered) {
+      final key = DateFormat('EEEE, dd/MM').format(occurrence.dueDate);
+      grouped.putIfAbsent(key, () => []).add(occurrence);
     }
 
     return RefreshIndicator(
@@ -596,22 +707,14 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              entry.key,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
+                          _DayHeader(
+                            label: entry.key,
+                            count: entry.value.length,
                           ),
                           ...entry.value.map(
                             (o) => _TeamOccurrenceTile(
                               occurrence: o,
+                              houseId: widget.houseId,
                               members: widget.members,
                             ),
                           ),
@@ -628,107 +731,311 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
 }
 
 class _TeamOccurrenceTile extends StatelessWidget {
-  const _TeamOccurrenceTile({required this.occurrence, required this.members});
-  final dynamic occurrence;
+  const _TeamOccurrenceTile({
+    required this.occurrence,
+    required this.members,
+    required this.houseId,
+  });
+  final ChoreOccurrence occurrence;
   final List<HouseMember> members;
-
+  final String houseId;
   @override
   Widget build(BuildContext context) {
-    final assignedId = occurrence['assignedUserId'] as String?;
-    final assignee = assignedId != null
-        ? members.firstWhere(
-            (m) => m.userId == assignedId,
-            orElse: () => members.first,
-          )
-        : null;
-    final isUnassigned = assignedId == null;
-
+    final colors = Theme.of(context).colorScheme;
+    final assignee = members
+        .where((m) => m.userId == occurrence.assignedUserId)
+        .firstOrNull;
+    final name = occurrence.assignedUserId == null
+        ? 'Unassigned'
+        : assignee?.displayName ?? occurrence.assignedUserDisplayName;
     return Card(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: .25)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
-        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: isUnassigned
-              ? Theme.of(context).colorScheme.errorContainer
-              : Theme.of(context).colorScheme.primaryContainer,
-          child: Text(
-            isUnassigned
-                ? '?'
-                : (assignee!.displayName.isNotEmpty
-                      ? assignee.displayName[0].toUpperCase()
-                      : '?'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
+          backgroundColor: colors.primaryFixed,
+          foregroundColor: colors.onPrimaryFixedVariant,
+          child: Text(name.isEmpty ? '?' : name.characters.first.toUpperCase()),
         ),
         title: Text(
-          occurrence['choreName'] as String? ?? '',
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          occurrence.choreName,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          isUnassigned ? 'Unassigned' : assignee!.displayName,
-          style: TextStyle(
-            color: isUnassigned
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 12,
-          ),
+          name,
+          style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
         ),
-        trailing: Chip(
-          label: Text(
-            '${occurrence['snapshotKarma'] ?? occurrence['karmaPoints'] ?? 0} pts',
-            style: const TextStyle(fontSize: 11),
-          ),
-          padding: EdgeInsets.zero,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
+        trailing: _KarmaTag(points: occurrence.karmaPoints),
+        onTap: () => context.push('/houses/$houseId/chores/${occurrence.id}'),
       ),
     );
   }
 }
 
-// â”€â”€â”€ Shared â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 class _OccurrenceTile extends StatelessWidget {
   const _OccurrenceTile({required this.chore, required this.houseId});
   final ChoreOccurrence chore;
   final String houseId;
-
   @override
   Widget build(BuildContext context) {
-    final isOverdue =
+    final colors = Theme.of(context).colorScheme;
+    final overdue =
         chore.status == ChoreStatus.overdue ||
         chore.status == ChoreStatus.criticalOverdue;
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: overdue
+              ? colors.error.withValues(alpha: .35)
+              : colors.outlineVariant.withValues(alpha: .25),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isOverdue
-              ? Theme.of(context).colorScheme.errorContainer
-              : Theme.of(context).colorScheme.primaryContainer,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: overdue ? colors.errorContainer : colors.primaryFixed,
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Icon(
-            isOverdue
+            overdue
                 ? Icons.warning_amber_rounded
                 : Icons.cleaning_services_outlined,
-            size: 20,
-            color: isOverdue
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
+            color: overdue
+                ? colors.onErrorContainer
+                : colors.onPrimaryFixedVariant,
+            size: 21,
           ),
         ),
         title: Text(
           chore.choreName,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          'Due ${DateFormat('HH:mm').format(chore.dueDate)}  ·  ${chore.karmaPoints} Karma',
-          style: TextStyle(
-            color: isOverdue ? Theme.of(context).colorScheme.error : null,
-            fontSize: 12,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '${overdue ? 'Overdue' : 'Due'} ${DateFormat('HH:mm').format(chore.dueDate)}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: overdue ? colors.error : colors.onSurfaceVariant,
+                ),
+              ),
+              _KarmaTag(points: chore.karmaPoints),
+            ],
           ),
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_rounded, size: 18),
         onTap: () => context.push('/houses/$houseId/chores/${chore.id}'),
+      ),
+    );
+  }
+}
+
+class _KarmaTag extends StatelessWidget {
+  const _KarmaTag({required this.points});
+  final int points;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.tertiaryFixed,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$points Karma',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: colors.onTertiaryFixedVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.label, required this.count});
+  final String label;
+  final int count;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_today_outlined, size: 13, color: colors.primary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colors.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            '$count chores',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoutineEmpty extends StatelessWidget {
+  const _RoutineEmpty({this.onCreate});
+  final VoidCallback? onCreate;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colors.surfaceContainerLowest,
+              Color.alphaBlend(
+                colors.primaryFixed.withValues(alpha: .2),
+                colors.surfaceContainerLowest,
+              ),
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.primaryFixed,
+              ),
+              child: Icon(
+                Icons.update_rounded,
+                size: 28,
+                color: colors.onPrimaryFixedVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Routines Configured Yet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              onCreate != null
+                  ? 'Create recurring routines, then import them into a draft season to plan your chores.'
+                  : 'The owner can create recurring routines for your household.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                height: 1.5,
+                fontSize: 12,
+              ),
+            ),
+            if (onCreate != null) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Create First Routine'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoutinePresetTile extends StatelessWidget {
+  const _RoutinePresetTile({required this.preset, this.onAdd});
+  final RoutinePreset preset;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colors.primaryFixed,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                switch (preset) {
+                  RoutinePreset.deepClean => Icons.auto_awesome_rounded,
+                  RoutinePreset.dishes => Icons.flatware_rounded,
+                  RoutinePreset.recycling => Icons.recycling_rounded,
+                },
+                size: 20,
+                color: colors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    preset.title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${preset.schedule} · +${preset.karma} Karma',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onAdd != null)
+              TextButton(onPressed: onAdd, child: const Text('Add')),
+          ],
+        ),
       ),
     );
   }

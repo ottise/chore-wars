@@ -8,21 +8,21 @@ import '../../../core/widgets/app_states.dart';
 import '../data/ai_repository.dart';
 
 const evaluationMetricNames = {
-  'coverage': 'Tỷ lệ việc xếp được',
-  'coverage_count': 'Số việc xếp được',
-  'task_count': 'Số việc cần xếp',
-  'hard_violations': 'Phân công vi phạm',
-  'karma_gap': 'Chênh Karma được giao',
-  'karma_range_pct': 'Chênh Karma tương đối (%)',
-  'preferred_count': 'Việc phù hợp sở thích khai báo',
-  'disliked_count': 'Việc không được ưa thích',
-  'workload_concentration': 'Mức tập trung effort',
-  'assigned_count': 'Số việc đã có người nhận',
-  'preference_eligible_count': 'Số phân công có sở thích khai báo',
-  'declared_preference_alignment': 'Tỷ lệ phù hợp sở thích khai báo',
-  'rotation_repeat_count': 'Số phân công lặp việc của tuần trước',
-  'rotation_eligible_count': 'Số phân công đủ dữ liệu luân phiên',
-  'rotation_repeat_rate': 'Tỷ lệ lặp việc tuần trước',
+  'coverage': 'Task Coverage',
+  'coverage_count': 'Scheduled Task Count',
+  'task_count': 'Required Task Count',
+  'hard_violations': 'Hard Constraint Violations',
+  'karma_gap': 'Assigned Karma Gap',
+  'karma_range_pct': 'Relative Karma Gap (%)',
+  'preferred_count': 'Declared Preferred Tasks',
+  'disliked_count': 'Disliked Tasks',
+  'workload_concentration': 'Workload Concentration',
+  'assigned_count': 'Assigned Task Count',
+  'preference_eligible_count': 'Preference-Eligible Assignments',
+  'declared_preference_alignment': 'Declared Preference Alignment',
+  'rotation_repeat_count': 'Repeated Assignments from Last Week',
+  'rotation_eligible_count': 'Rotation-Eligible Assignments',
+  'rotation_repeat_rate': 'Weekly Repetition Rate',
 };
 const evaluationRatioKeys = {
   'coverage',
@@ -34,7 +34,7 @@ const evaluationRatioKeys = {
 };
 
 String evaluationValue(Object? value, {bool ratio = false}) {
-  if (value is! num || !value.isFinite) return 'Chưa xác định';
+  if (value is! num || !value.isFinite) return 'Unknown';
   if (ratio) return '${(value * 100).toStringAsFixed(1)}%';
   return value == value.roundToDouble()
       ? value.toInt().toString()
@@ -43,7 +43,7 @@ String evaluationValue(Object? value, {bool ratio = false}) {
 
 String evaluationDelta(String key, Object? value) =>
     evaluationRatioKeys.contains(key) && value is num
-    ? '${(value * 100).toStringAsFixed(1)} điểm %'
+    ? '${(value * 100).toStringAsFixed(1)} percentage points'
     : evaluationValue(value);
 
 class _EvaluationData extends ConsumerWidget {
@@ -88,17 +88,17 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
     padding: const EdgeInsets.all(20),
     children: [
       Text(
-        'Đánh giá và tiến bộ của AI',
+        'AI Evaluation & Progress',
         style: Theme.of(context).textTheme.headlineSmall,
       ),
       const SizedBox(height: 8),
       const Text(
-        'Dữ liệu tích lũy và chất lượng đề xuất là hai điều khác nhau. So sánh luôn kèm số mẫu, phiên bản và giới hạn.',
+        'Data accumulation and recommendation quality are different. Comparisons include sample counts, versions and limitations.',
       ),
       const SizedBox(height: 24),
-      Text('Tiến trình học', style: Theme.of(context).textTheme.titleLarge),
+      Text('Learning Timeline', style: Theme.of(context).textTheme.titleLarge),
       ExpansionTile(
-        title: const Text('Lịch sử tích lũy theo cutoff'),
+        title: const Text('Accumulation History by Cutoff'),
         children: [
           _EvaluationData(
             house: widget.houseId,
@@ -109,11 +109,11 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                   ListTile(
                     title: Text('${item['as_of']}'),
                     subtitle: Text(
-                      '${item['valid_event_count']} sự kiện · ${item['profile_evidence_count']} bằng chứng\n${item['telemetry_complete'] == true ? 'Đủ stream tại cutoff' : 'Chờ dữ liệu'}',
+                      '${item['valid_event_count']} events · ${item['profile_evidence_count']} evidence\n${item['telemetry_complete'] == true ? 'Stream complete at cutoff' : 'Awaiting data'}',
                     ),
                   ),
                 if ((data['items'] as List? ?? []).isEmpty)
-                  const Text('Chưa có snapshot đánh giá hoặc training.'),
+                  const Text('No evaluation or training snapshots yet.'),
               ],
             ),
           ),
@@ -127,31 +127,33 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
           children: [
             const SizedBox(height: 12),
             Text(
-              '${data['valid_event_count']} sự kiện hợp lệ · ${data['profile_evidence_count']} bằng chứng',
+              '${data['valid_event_count']} valid events · ${data['profile_evidence_count']} evidence',
             ),
-            const Text('Số lượng tăng chưa chứng minh đề xuất tốt hơn.'),
+            const Text(
+              'Higher counts alone do not prove better recommendations.',
+            ),
             Text(
-              '${data['observed_interaction_count'] ?? 0} tín hiệu mở chi tiết đã ghi nhận; chưa chứng minh đã đọc, từ chối hoặc thích công việc.',
+              '${data['observed_interaction_count'] ?? 0} recorded detail views; these do not establish that a chore was read, rejected or preferred.',
             ),
             for (final target in data['targets'] as List? ?? [])
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  '${target['target']}: ${target['eligible_count']} mẫu đủ nhãn',
+                  '${target['target']}: ${target['eligible_count']} eligible labeled samples',
                 ),
                 subtitle: Text(
-                  'Âm: ${(target['class_counts'] as Map?)?['0'] ?? 0} · Dương: ${(target['class_counts'] as Map?)?['1'] ?? 0}\n${target['product_data_eligible'] == true ? 'Đủ ngưỡng dữ liệu dự kiến; vẫn cần kiểm định' : 'Chưa đủ điều kiện dùng trong sản phẩm'}',
+                  'Negative: ${(target['class_counts'] as Map?)?['0'] ?? 0} · Positive: ${(target['class_counts'] as Map?)?['1'] ?? 0}\n${target['product_data_eligible'] == true ? 'Expected data threshold met; validation is still required' : 'Not eligible for product use'}',
                 ),
               ),
             Text(
-              'Model: ${data['training_status'] == 'NO_APPROVED_MODEL' ? 'Chưa có model được duyệt' : data['training_status']}',
+              'Model: ${data['training_status'] == 'NO_APPROVED_MODEL' ? 'No approved model' : data['training_status']}',
             ),
           ],
         ),
       ),
       const Divider(height: 36),
       ExpansionTile(
-        title: const Text('Lỗi đồng bộ dữ liệu AI của nhà'),
+        title: const Text('Household AI Sync Failures'),
         children: [
           _EvaluationData(
             house: widget.houseId,
@@ -159,19 +161,19 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
             builder: (data) => Column(
               children: [
                 const Text(
-                  'Chỉ hiển thị lỗi đã xác định thuộc nhà. Message chưa rõ nguồn được bộ phận vận hành xử lý.',
+                  'Only failures attributed to this house are shown. Unattributed messages are handled by operations.',
                 ),
                 for (final item in data['items'] as List? ?? [])
                   ListTile(
                     title: Text('${item['status']} · ${item['error_code']}'),
                     subtitle: Text(
-                      'Mã đối chiếu: ${item['id']} · Đã replay ${item['replay_count']} lần',
+                      'Reference ID: ${item['id']} · Replayed ${item['replay_count']} times',
                     ),
                   ),
                 if ((data['items'] as List? ?? []).isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text('Chưa có lỗi thuộc nhà này.'),
+                    child: Text('No failures for this house.'),
                   ),
               ],
             ),
@@ -179,7 +181,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
         ],
       ),
       ExpansionTile(
-        title: const Text('Thực nghiệm và phiên bản model'),
+        title: const Text('Experiments & Model Versions'),
         children: [
           _EvaluationData(
             house: widget.houseId,
@@ -190,7 +192,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                   ListTile(
                     title: Text('${row['target']} · ${row['status']}'),
                     subtitle: Text(
-                      '${row['family'] ?? 'Chưa chọn model'} · Quality: ${row['quality_passed']} · Product: ${row['product_passed']}',
+                      '${row['family'] ?? 'No model selected'} · Quality: ${row['quality_passed']} · Product: ${row['product_passed']}',
                     ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -202,14 +204,14 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                     ),
                   ),
                 if ((data['items'] as List? ?? []).isEmpty)
-                  const Text('Chưa có lần thực nghiệm.'),
+                  const Text('No experiments yet.'),
               ],
             ),
           ),
         ],
       ),
       ExpansionTile(
-        title: const Text('Tổng hợp các seed độc lập'),
+        title: const Text('Independent Seed Summary'),
         children: [
           _EvaluationData(
             house: widget.houseId,
@@ -229,7 +231,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                         ),
                         children: [
                           Text(
-                            'Còn thiếu seed: ${report['missing_seeds'] ?? []}',
+                            'Missing seeds: ${report['missing_seeds'] ?? []}',
                           ),
                           Text(report['claim']?.toString() ?? ''),
                           for (final metric
@@ -243,7 +245,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                                 [
                                   for (final component
                                       in (metric.value as Map).entries)
-                                    '${component.key}: ${evaluationDelta(metric.key.toString(), component.value['mean'])} · CI95: ${component.value['ci95'] ?? 'Chưa đủ cohort'} · n=${component.value['seed_count']}',
+                                    '${component.key}: ${evaluationDelta(metric.key.toString(), component.value['mean'])} · CI95: ${component.value['ci95'] ?? 'Insufficient cohorts'} · n=${component.value['seed_count']}',
                                 ].join('\n'),
                               ),
                             ),
@@ -253,14 +255,14 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                   ),
                 if ((data['items'] as List? ?? []).isEmpty)
                   const Text(
-                    'Chưa có báo cáo tổng hợp. Một seed không tạo CI giả.',
+                    'No aggregate report yet. A single seed does not produce an aggregate confidence interval.',
                   ),
               ],
             ),
           ),
         ],
       ),
-      Text('Lịch sử đánh giá', style: Theme.of(context).textTheme.titleLarge),
+      Text('Evaluation History', style: Theme.of(context).textTheme.titleLarge),
       _EvaluationData(
         house: widget.houseId,
         path: 'evaluations/runs?page=$page',
@@ -272,7 +274,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    'Chưa có lần đánh giá. Kết quả sẽ xuất hiện sau khi Evaluation Runner hoàn tất; màn hình không tạo số minh họa.',
+                    'No evaluations yet. Results appear after the Evaluation Runner completes; no placeholder metrics are generated.',
                   ),
                 ),
               for (final row in rows)
@@ -296,9 +298,9 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                 children: [
                   TextButton(
                     onPressed: page > 1 ? () => setState(() => page--) : null,
-                    child: const Text('Trước'),
+                    child: const Text('Previous'),
                   ),
-                  Text('Trang $page'),
+                  Text('Page $page'),
                   TextButton(
                     onPressed: page * 20 < (data['total'] as num? ?? 0)
                         ? () => setState(() => page++)
@@ -324,7 +326,7 @@ class AiEvaluationRunScreen extends StatelessWidget {
   final String houseId, runId;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Baseline và Adaptive')),
+    appBar: AppBar(title: const Text('Baseline vs Adaptive')),
     body: _EvaluationData(
       house: houseId,
       path: 'evaluations/runs/$runId',
@@ -335,14 +337,12 @@ class AiEvaluationRunScreen extends StatelessWidget {
           children: [
             if (meta['data_source'] == 'DEMO_SYNTHETIC')
               const Chip(
-                label: Text(
-                  'Dữ liệu giả lập — không phải kết quả người dùng thật',
-                ),
+                label: Text('Synthetic data — not real user outcomes'),
                 avatar: Icon(Icons.science_outlined),
               ),
             SelectableText('Run: ${run['id']}'),
             ExpansionTile(
-              title: const Text('Chỉ số và mẫu số của lần chạy này'),
+              title: const Text('Metrics & Denominators for This Run'),
               children: [
                 for (final entry in (run['metrics'] as Map).entries)
                   ListTile(
@@ -350,18 +350,18 @@ class AiEvaluationRunScreen extends StatelessWidget {
                       evaluationMetricNames[entry.key] ?? entry.key.toString(),
                     ),
                     subtitle: Text(
-                      '${evaluationValue(entry.value['value'], ratio: evaluationRatioKeys.contains(entry.key))} · ${entry.value['status']}\nTử số: ${entry.value['numerator'] ?? 'Không áp dụng'} · Mẫu số: ${entry.value['denominator'] ?? 'Không áp dụng'}\nĐịnh nghĩa: ${entry.value['definition_version']}',
+                      '${evaluationValue(entry.value['value'], ratio: evaluationRatioKeys.contains(entry.key))} · ${entry.value['status']}\nNumerator: ${entry.value['numerator'] ?? 'Not applicable'} · Denominator: ${entry.value['denominator'] ?? 'Not applicable'}\nDefinition: ${entry.value['definition_version']}',
                     ),
                   ),
               ],
             ),
             Text('Policy: ${meta['policy_version']}'),
-            Text('Model: ${meta['model_version'] ?? 'Không sử dụng model'}'),
+            Text('Model: ${meta['model_version'] ?? 'No model used'}'),
             Text(
-              'Input cutoff: ${meta['data_cutoff']}\nOutcome cutoff: ${meta['outcome_cutoff'] ?? 'Chưa quan sát kết quả thực hiện'}',
+              'Input cutoff: ${meta['data_cutoff']}\nOutcome cutoff: ${meta['outcome_cutoff'] ?? 'Outcomes not yet observed'}',
             ),
             Text(
-              'Scenario: ${meta['scenario_id']} · Seed: ${meta['seed'] ?? 'Không áp dụng'}',
+              'Scenario: ${meta['scenario_id']} · Seed: ${meta['seed'] ?? 'Not applicable'}',
             ),
             const SizedBox(height: 24),
             _EvaluationData(
@@ -370,7 +370,7 @@ class AiEvaluationRunScreen extends StatelessWidget {
               builder: (comparison) {
                 if (comparison['status'] != 'COMPARABLE') {
                   return Text(
-                    'Chưa thể so sánh: ${comparison['reason'] ?? comparison['status']}',
+                    'Comparison unavailable: ${comparison['reason'] ?? comparison['status']}',
                   );
                 }
                 final rows = comparison['runs'] as List;
@@ -380,14 +380,14 @@ class AiEvaluationRunScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'B0: greedy · S0: search không lịch sử · H1: search có lịch sử',
+                      'B0: greedy · S0: search without history · H1: search with history',
                     ),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
                         columns: const [
-                          DataColumn(label: Text('Chỉ số')),
+                          DataColumn(label: Text('Metric')),
                           DataColumn(label: Text('B0')),
                           DataColumn(label: Text('S0')),
                           DataColumn(label: Text('H1')),
@@ -421,7 +421,7 @@ class AiEvaluationRunScreen extends StatelessWidget {
                     ),
                     ExpansionTile(
                       tilePadding: EdgeInsets.zero,
-                      title: const Text('Phần search và phần lịch sử đóng góp'),
+                      title: const Text('Search & History Contributions'),
                       children: [
                         for (final entry
                             in (comparison['deltas'] as Map).entries)
@@ -433,17 +433,17 @@ class AiEvaluationRunScreen extends StatelessWidget {
                                   entry.key.toString(),
                             ),
                             subtitle: Text(
-                              'Search: ${evaluationDelta(entry.key.toString(), entry.value['search'])} · Lịch sử: ${evaluationDelta(entry.key.toString(), entry.value['history'])} · Tổng: ${evaluationDelta(entry.key.toString(), entry.value['total'])}',
+                              'Search: ${evaluationDelta(entry.key.toString(), entry.value['search'])} · History: ${evaluationDelta(entry.key.toString(), entry.value['history'])} · Total: ${evaluationDelta(entry.key.toString(), entry.value['total'])}',
                             ),
                           ),
                       ],
                     ),
                     const Text(
-                      'Một seed chưa có khoảng tin cậy tổng hợp. Lịch tốt hơn do search chưa chứng minh tốt hơn nhờ học hành vi.',
+                      'A single seed has no aggregate confidence interval. Search improvements alone do not establish the benefit of learning from behavior.',
                     ),
                     if (meta['outcome_metrics_status'] == 'NOT_OBSERVED')
                       const Text(
-                        'Chưa có outcome: không kết luận giảm trễ hoặc giảm yêu cầu điều chỉnh.',
+                        'No outcomes yet: reduced lateness or adjustment requests cannot be claimed.',
                       ),
                   ],
                 );
@@ -451,7 +451,7 @@ class AiEvaluationRunScreen extends StatelessWidget {
             ),
             const Divider(height: 36),
             Text(
-              'Ví dụ lịch trước và sau',
+              'Before & After Schedule Examples',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             _EvaluationData(
@@ -471,15 +471,15 @@ class AiEvaluationRunScreen extends StatelessWidget {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Lý do: ${sample['reason']}'),
+                            Text('Reason: ${sample['reason']}'),
                             for (final task in after)
                               ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(
-                                  task['name']?.toString() ?? 'Công việc',
+                                  task['name']?.toString() ?? 'Chore',
                                 ),
                                 subtitle: Text(
-                                  '${before[task['id']]?['assigned_to'] ?? 'Chưa giao'} → ${task['assigned_to'] ?? 'Chưa giao'}\n${task['start_at'] ?? 'Chưa có giờ phù hợp'}',
+                                  '${before[task['id']]?['assigned_to'] ?? 'Unassigned'} → ${task['assigned_to'] ?? 'Unassigned'}\n${task['start_at'] ?? 'No suitable time found'}',
                                 ),
                               ),
                           ],
@@ -505,7 +505,7 @@ class AiTrainingRunScreen extends StatelessWidget {
   final String houseId, runId;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Kết quả thực nghiệm')),
+    appBar: AppBar(title: const Text('Experiment Results')),
     body: _EvaluationData(
       house: houseId,
       path: 'learning/training-runs/$runId',
@@ -517,21 +517,21 @@ class AiTrainingRunScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           if (data['data_source'] == 'DEMO_SYNTHETIC')
-            const Chip(label: Text('Dữ liệu giả lập')),
+            const Chip(label: Text('Synthetic Data')),
           Text(
-            'Model: ${data['family'] ?? 'Chưa chọn'} · Phiên bản: ${data['model_version'] ?? 'Chưa có'}',
+            'Model: ${data['family'] ?? 'Not selected'} · Version: ${data['model_version'] ?? 'Not available'}',
           ),
           Text(
             'Quality gate: ${data['quality_passed']} · Product gate: ${data['product_passed']}',
           ),
           Text(
-            'Lý do: ${data['reason'] ?? data['product_reason'] ?? 'Xem các chỉ số bên dưới'}',
+            'Reason: ${data['reason'] ?? data['product_reason'] ?? 'See metrics below'}',
           ),
           SelectableText(
-            'Protocol: ${data['protocol']}\nRun: $runId\nNgưỡng: ${data['threshold'] ?? 'Không đạt hoặc chưa xác định'}',
+            'Protocol: ${data['protocol']}\nRun: $runId\nThreshold: ${data['threshold'] ?? 'Not passed or undetermined'}',
           ),
           const Text(
-            'Đạt kiểm định dự đoán chưa đủ điều kiện dùng trong sản phẩm. Model candidate không tự trở thành model production.',
+            'Passing prediction validation is not sufficient for product use. A candidate model does not automatically become a production model.',
           ),
           for (final key in [
             'readiness',

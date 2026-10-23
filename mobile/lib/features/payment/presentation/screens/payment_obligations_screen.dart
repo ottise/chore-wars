@@ -12,13 +12,26 @@ import '../../../home/presentation/providers/home_dashboard_provider.dart';
 import '../../domain/entities/payment_obligation.dart';
 import '../providers/payment_providers.dart';
 
-class PaymentObligationsScreen extends ConsumerWidget {
+class PaymentObligationsScreen extends ConsumerStatefulWidget {
   final String? houseId;
 
   const PaymentObligationsScreen({super.key, required this.houseId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PaymentObligationsScreen> createState() =>
+      _PaymentObligationsScreenState();
+}
+
+class _PaymentObligationsScreenState
+    extends ConsumerState<PaymentObligationsScreen> {
+  bool _history = false;
+  bool _settling = false;
+  String? get houseId => widget.houseId;
+  bool _active(PaymentObligation payment) =>
+      payment.status != PaymentStatus.paid &&
+      payment.status != PaymentStatus.cancelled;
+  @override
+  Widget build(BuildContext context) {
     if (houseId == null || houseId!.isEmpty) {
       return const Scaffold(
         body: EmptyState(
@@ -29,36 +42,154 @@ class PaymentObligationsScreen extends ConsumerWidget {
 
     final payments = ref.watch(paymentListProvider(houseId!));
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment Obligations')),
+      appBar: AppBar(
+        title: const Text(
+          'Payment Obligations',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
       body: payments.when(
         loading: () => const LoadingWidget(),
         error: (error, stackTrace) => ErrorState(
           error: error,
           onRetry: () => ref.invalidate(paymentListProvider(houseId!)),
         ),
-        data: (items) => items.isEmpty
-            ? const EmptyState(
-                message: 'No payment obligations.',
-                icon: Icons.payments_outlined,
-              )
-            : RefreshIndicator(
-                onRefresh: () =>
-                    ref.refresh(paymentListProvider(houseId!).future),
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: items.length,
-                  separatorBuilder: (_, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) => _PaymentCard(
-                    payment: items[index],
-                    onSettle:
-                        items[index].status == PaymentStatus.pending &&
-                            items[index].creditorUserId ==
-                                ref.watch(userProfileProvider).asData?.value.id
-                        ? () => _settle(context, ref, items[index])
-                        : null,
+        data: (items) {
+          final active = items.where(_active).toList();
+          final history = items.where((item) => !_active(item)).toList();
+          final visible = _history ? history : active;
+          final userId = ref.watch(userProfileProvider).asData?.value.id;
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(paymentListProvider(houseId!).future),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                SegmentedButton<bool>(
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? Theme.of(context).colorScheme.surfaceContainerLowest
+                          : Theme.of(context).colorScheme.surfaceContainerLow,
+                    ),
+                    foregroundColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    side: const WidgetStatePropertyAll(BorderSide.none),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                  segments: [
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Active (${active.length})'),
+                    ),
+                    const ButtonSegment(
+                      value: true,
+                      label: Text('Settled History'),
+                    ),
+                  ],
+                  selected: {_history},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (value) =>
+                      setState(() => _history = value.first),
+                ),
+                const SizedBox(height: 20),
+                if (visible.isEmpty)
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 40,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [
+                            Theme.of(context).colorScheme.primaryFixed
+                                .withValues(alpha: .5),
+                            Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerLowest,
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryFixed,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(
+                              _history
+                                  ? Icons.history_rounded
+                                  : Icons.account_balance_wallet_outlined,
+                              size: 34,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            _history
+                                ? 'No Settled Payments Yet'
+                                : 'All Settled Up!',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _history
+                                ? 'Payments confirmed as received will appear here.'
+                                : 'You have no active bounty payment obligations in this household.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 12,
+                              height: 1.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                for (final payment in visible)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _PaymentCard(
+                      payment: payment,
+                      onSettle:
+                          !_settling &&
+                              payment.status == PaymentStatus.pending &&
+                              payment.creditorUserId == userId
+                          ? () => _settle(context, ref, payment)
+                          : null,
+                    ),
+                  ),
+                const SizedBox(height: 18),
+                Text(
+                  'Payments are confirmed manually by the recipient after the money is received.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.5,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -78,17 +209,18 @@ class PaymentObligationsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CONFIRM'),
+            child: const Text('Confirm'),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
 
+    setState(() => _settling = true);
     try {
       await ref
           .read(paymentRepositoryProvider)
@@ -100,6 +232,8 @@ class PaymentObligationsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
       }
+    } finally {
+      if (mounted) setState(() => _settling = false);
     }
   }
 }
@@ -113,11 +247,17 @@ class _PaymentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
-    final isForced = payment.reason == PaymentReason.forcedReassignment;
+    final reason = switch (payment.reason) {
+      PaymentReason.forcedReassignment => 'Forced reassignment',
+      PaymentReason.bountyPayment => 'Bounty',
+      PaymentReason.penalty => 'Penalty',
+      PaymentReason.other => 'Other',
+      PaymentReason.unknown => 'Unknown',
+    };
     final status = switch (payment.status) {
       PaymentStatus.pending => 'Pending',
       PaymentStatus.paid => 'Recipient confirmed receipt',
@@ -126,11 +266,17 @@ class _PaymentCard extends StatelessWidget {
       PaymentStatus.unknown => 'Unknown',
     };
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(
+              Icons.payments_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
             Text(
               currency.format(payment.amount),
               style: Theme.of(context).textTheme.headlineMedium,
@@ -140,7 +286,7 @@ class _PaymentCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text('To: ${payment.creditorDisplayName}'),
             const SizedBox(height: 6),
-            Text('Reason: ${isForced ? 'Forced reassignment' : 'Bounty'}'),
+            Text('Reason: $reason'),
             const SizedBox(height: 6),
             Text('Status: $status'),
             if (onSettle != null) ...[
@@ -149,7 +295,7 @@ class _PaymentCard extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: onSettle,
-                  child: const Text('CONFIRM RECEIVED'),
+                  child: const Text('Confirm Received'),
                 ),
               ),
             ],

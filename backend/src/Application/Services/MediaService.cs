@@ -3,8 +3,11 @@ using ChoreWars.Application.Interfaces.Services;
 using ChoreWars.Application.DTOs.Chat;
 using ChoreWars.Domain.Entities;
 using ChoreWars.Domain.Exceptions;
+using ChoreWars.Application.Interfaces;
+using ChoreWars.Application.Events;
+using ChoreWars.Domain.Enums;
 namespace ChoreWars.Application.Services;
-public sealed class MediaService(IUnitOfWork uow, IChatService chat, IMediaStorage storage, IHouseMutationCoordinator mutations, IHouseAccessService access, TimeProvider? clock = null) : IMediaService {
+public sealed class MediaService(IUnitOfWork uow, IChatService chat, IMediaStorage storage, IHouseMutationCoordinator mutations, IHouseAccessService access, TimeProvider? clock = null, IEventPublisher? events = null) : IMediaService {
     private TimeProvider Clock => clock ?? TimeProvider.System;
     public async Task<MediaAttachment> UploadAsync(Guid roomId, Guid userId, byte[] data, CancellationToken ct) {
         await chat.EnsureRoomAccessAsync(roomId,userId,ct);
@@ -43,6 +46,11 @@ public sealed class MediaService(IUnitOfWork uow, IChatService chat, IMediaStora
             var message = new ChatMessage { Id = Guid.NewGuid(), RoomId = roomId, SenderId = userId, MessageType = media.Type, AttachmentId = media.Id, ClientMessageId = clientId, CreatedAt = Clock.GetUtcNow().UtcDateTime };
             await uow.Chats.AddMessageAsync(message,ct);
             await uow.SaveChangesAsync(ct);
+            if (events != null) {
+                var recipients = (await uow.HouseMembers.GetByHouseIdAsync(room.HouseId,ct))
+                    .Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != userId).Select(m => m.UserId).ToArray();
+                await events.PublishAsync(new ChatMessageCreatedEvent(message.Id,room.HouseId,recipients,[]),ct);
+            }
             return Map(message,user);
         },ct);
     }

@@ -44,7 +44,11 @@ cd chore-wars
    ```
 
 2. **Database Setup**
-   *(Database migrations and initial schema setup are Planned)*
+   Apply the existing Core migrations before starting the backend. From the repository root:
+   ```powershell
+   ./backend/scripts/migrate-docker.ps1
+   ```
+   The script reads the local Development connection configuration (normally PostgreSQL on port 5435), honors `ConnectionStrings__DefaultConnection`, and restores that environment variable when finished. It applies pending migrations without resetting the database. Back up existing data before upgrading. If the current backend has already been built and is running, use `-NoBuild` to avoid rebuilding locked binaries. Remote database migrations use the separate deployment workflow.
 
 3. **Run Backend**
    ```bash

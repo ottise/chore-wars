@@ -1,4 +1,8 @@
+import '../../../../core/storage/session_provider.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../data/datasources/notification_remote_data_source.dart';
@@ -6,132 +10,136 @@ import '../../data/repositories/notification_repository_impl.dart';
 import '../../data/services/notification_signalr_service.dart';
 import '../../domain/entities/notification_models.dart';
 
-final notificationRemoteDataSourceProvider = Provider<NotificationRemoteDataSource>((ref) {
-  return NotificationRemoteDataSourceImpl(ref.watch(dioProvider));
-});
+final notificationRemoteDataSourceProvider =
+    Provider<NotificationRemoteDataSource>((ref) {
+      return NotificationRemoteDataSourceImpl(ref.watch(dioProvider));
+    });
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  return NotificationRepositoryImpl(ref.watch(notificationRemoteDataSourceProvider));
+  return NotificationRepositoryImpl(
+    ref.watch(notificationRemoteDataSourceProvider),
+  );
 });
 
 class NotificationState {
-  final List<AppNotification> notifications;
-  final bool isLoading;
-
-  NotificationState({
+  const NotificationState({
     this.notifications = const [],
     this.isLoading = false,
+    this.error,
+    this.latestArrival,
   });
-
-  NotificationState copyWith({
-    List<AppNotification>? notifications,
-    bool? isLoading,
-  }) {
-    return NotificationState(
-      notifications: notifications ?? this.notifications,
-      isLoading: isLoading ?? this.isLoading,
-    );
-  }
+  final List<AppNotification> notifications;
+  final bool isLoading;
+  final String? error;
+  final AppNotification? latestArrival;
 }
 
 class NotificationNotifier extends Notifier<NotificationState> {
-  NotificationSignalRService? _signalRService;
-
+  NotificationSignalRService? _realtime;
+  int _generation = 0;
+  bool _current(int generation) => ref.mounted && generation == _generation;
   @override
   NotificationState build() {
+    ref.watch(sessionEpochProvider);
+    final generation = ++_generation;
+    NotificationSignalRService? service;
     ref.onDispose(() {
-      _signalRService?.disconnect();
+      service?.disconnect();
     });
-
-    // Start fetching & signalR asynchronously without blocking build
     Future.microtask(() {
-      _initSignalR();
+      if (!_current(generation)) return;
+      service = NotificationSignalRService(
+        () => ref.read(secureStorageProvider).getAccessToken(),
+        (notification) {
+          if (!_current(generation)) return;
+          if (state.notifications.any((n) => n.id == notification.id)) return;
+          state = NotificationState(
+            latestArrival: notification,
+            notifications: [
+              notification,
+              ...state.notifications.where((n) => n.id != notification.id),
+            ],
+          );
+        },
+      );
+      _realtime = service;
       loadNotifications();
     });
-
-    return NotificationState();
-  }
-
-  void _initSignalR() {
-    final secureStorage = ref.read(secureStorageProvider);
-    _signalRService = NotificationSignalRService(
-      () => secureStorage.getAccessToken(),
-      _handleNewNotification,
-    );
-    _signalRService?.connect();
-  }
-
-  void _handleNewNotification(AppNotification notification) {
-    state = state.copyWith(
-      notifications: [notification, ...state.notifications],
-    );
+    return const NotificationState();
   }
 
   Future<void> loadNotifications() async {
-    state = state.copyWith(isLoading: true);
+    _realtime?.connect();
+    final generation = _generation;
+    final existingIds = state.notifications.map((n) => n.id).toSet();
+    state = NotificationState(
+      notifications: state.notifications,
+      isLoading: true,
+    );
     try {
-      final repository = ref.read(notificationRepositoryProvider);
-      final data = await repository.getNotifications();
-      state = state.copyWith(notifications: data, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(isLoading: false);
+      final data = await ref
+          .read(notificationRepositoryProvider)
+          .getNotifications();
+      if (_current(generation)) {
+        final arrivals = state.notifications
+            .where((n) => !existingIds.contains(n.id))
+            .toList();
+        final arrivalIds = arrivals.map((n) => n.id).toSet();
+        state = NotificationState(
+          notifications: [
+            ...arrivals,
+            ...data.where((n) => !arrivalIds.contains(n.id)),
+          ],
+        );
+      }
+    } catch (error) {
+      if (_current(generation)) {
+        state = NotificationState(
+          notifications: state.notifications,
+          error: apiErrorMessage(error),
+        );
+      }
     }
   }
 
   Future<void> markAsRead(String id) async {
-    try {
-      final repository = ref.read(notificationRepositoryProvider);
-      await repository.markAsRead(id);
-      final updated = state.notifications.map((n) {
-        if (n.id == id) {
-          return AppNotification(
-            id: n.id,
-            userId: n.userId,
-            title: n.title,
-            message: n.message,
-            type: n.type,
-            isRead: true,
-            createdAt: n.createdAt,
-            metadata: n.metadata,
-          );
-        }
-        return n;
-      }).toList();
-      state = state.copyWith(notifications: updated);
-    } catch (e) {
-      // Ignore
+    final generation = _generation;
+    await ref.read(notificationRepositoryProvider).markAsRead(id);
+    if (_current(generation)) {
+      state = NotificationState(
+        notifications: state.notifications
+            .map((n) => n.id == id ? n.asRead() : n)
+            .toList(),
+      );
     }
   }
 
   Future<void> markAllAsRead() async {
-    try {
-      final repository = ref.read(notificationRepositoryProvider);
-      await repository.markAllAsRead();
-      final updated = state.notifications.map((n) {
-        return AppNotification(
-          id: n.id,
-          userId: n.userId,
-          title: n.title,
-          message: n.message,
-          type: n.type,
-          isRead: true,
-          createdAt: n.createdAt,
-          metadata: n.metadata,
-        );
-      }).toList();
-      state = state.copyWith(notifications: updated);
-    } catch (e) {
-      // Ignore
+    final generation = _generation;
+    await ref.read(notificationRepositoryProvider).markAllAsRead();
+    if (_current(generation)) {
+      state = NotificationState(
+        notifications: state.notifications.map((n) => n.asRead()).toList(),
+      );
     }
   }
 }
 
 final notificationNotifierProvider =
-    NotifierProvider<NotificationNotifier, NotificationState>(() {
-  return NotificationNotifier();
-});
-
-final unreadNotificationCountProvider = Provider<int>((ref) {
-  final notifications = ref.watch(notificationNotifierProvider).notifications;
-  return notifications.where((n) => !n.isRead).length;
-});
+    NotifierProvider<NotificationNotifier, NotificationState>(
+      NotificationNotifier.new,
+    );
+final unreadNotificationCountProvider = Provider<int>(
+  (ref) => ref
+      .watch(notificationNotifierProvider)
+      .notifications
+      .where((n) => !n.isRead)
+      .length,
+);
+final unreadChatCountProvider = Provider.family<int, String>(
+  (ref, houseId) => ref
+      .watch(notificationNotifierProvider)
+      .notifications
+      .where((n) => n.isChat && n.houseId == houseId && !n.isRead)
+      .length,
+);

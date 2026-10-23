@@ -1,3 +1,5 @@
+import 'package:chore_wars/core/theme/app_theme.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -44,21 +46,21 @@ class _UrgentEventBannerState extends State<UrgentEventBanner> {
         : '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
 
     return Card(
-      color: const Color(0xFFFFE8D9),
+      color: AppTheme.amberContainer,
       child: ListTile(
         leading: const CircleAvatar(
-          backgroundColor: Colors.deepOrange,
+          backgroundColor: AppTheme.orange,
           child: Icon(Icons.bolt_rounded, color: Colors.white),
         ),
         title: Text(
-          'CHIẾN DỊCH ĐÃ KÍCH HOẠT: ${widget.proposal.title}',
+          'CAMPAIGN ACTIVATED: ${widget.proposal.title}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: const Text('Các nhiệm vụ khẩn cấp đã được thêm vào lịch.'),
+        subtitle: const Text('Urgent tasks have been added to the schedule.'),
         trailing: Text(
           countdown,
           style: const TextStyle(
-            color: Colors.deepOrange,
+            color: AppTheme.orange,
             fontWeight: FontWeight.w900,
             fontSize: 18,
           ),

@@ -33,7 +33,7 @@ class BountyDetailScreen extends ConsumerWidget {
       builder: (context) => AlertDialog(
         title: const Text('Accept this chore?'),
         content: Text(
-          'You will receive ${NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(bounty.amount)}.',
+          'You will receive ${NumberFormat.currency(locale: 'en_US', symbol: '₫', decimalDigits: 0).format(bounty.amount)}.',
         ),
         actions: [
           TextButton(
@@ -87,8 +87,8 @@ class BountyDetailScreen extends ConsumerWidget {
         ),
         data: (bounty) {
           final currency = NumberFormat.currency(
-            locale: 'vi_VN',
-            symbol: 'đ',
+            locale: 'en_US',
+            symbol: '₫',
             decimalDigits: 0,
           );
           final isExpired = bounty.status == BountyStatus.expired;
@@ -148,9 +148,8 @@ class BountyDetailScreen extends ConsumerWidget {
                               ),
                             ),
                           TextButton(
-                            onPressed: () => context.push(
-                              '/payments?houseId=${Uri.encodeComponent(houseId!)}',
-                            ),
+                            onPressed: () =>
+                                context.push('/houses/$houseId/payments'),
                             child: const Text('View payment obligations'),
                           ),
                         ],

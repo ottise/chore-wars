@@ -19,6 +19,37 @@ class AppNotification {
     required this.metadata,
   });
 
+  bool get isChat => type == 'CHAT_MESSAGE' || type == 'CHAT_MENTION';
+  String? get houseId => metadata['houseId']?.toString();
+  String? get targetId => metadata['targetId']?.toString();
+  String? get destination {
+    final house = houseId;
+    if (house == null || house.isEmpty) return null;
+    final base = '/houses/${Uri.encodeComponent(house)}';
+    if (isChat) return '$base/chat/everyone';
+    final target = targetId;
+    return switch (metadata['targetType']) {
+      'BOUNTY' when target != null && target.isNotEmpty =>
+        '/bounties/${Uri.encodeComponent(target)}?houseId=${Uri.encodeQueryComponent(house)}',
+      'CHORE' when target != null && target.isNotEmpty =>
+        '$base/chores/${Uri.encodeComponent(target)}',
+      'SEASON' when target != null && target.isNotEmpty =>
+        '$base/seasons/${Uri.encodeComponent(target)}/leaderboard',
+      _ => null,
+    };
+  }
+
+  AppNotification asRead() => AppNotification(
+    id: id,
+    userId: userId,
+    title: title,
+    message: message,
+    type: type,
+    isRead: true,
+    createdAt: createdAt,
+    metadata: metadata,
+  );
+
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: json['id'] as String,
@@ -28,9 +59,13 @@ class AppNotification {
       type: json['type']?.toString() ?? '',
       isRead: json['isRead'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
-      metadata: json['metadata'] != null
-          ? Map<String, dynamic>.from(json['metadata'] as Map)
-          : {},
+      metadata: {
+        if (json['metadata'] is Map)
+          ...Map<String, dynamic>.from(json['metadata'] as Map),
+        if (json['houseId'] != null) 'houseId': json['houseId'],
+        if (json['targetType'] != null) 'targetType': json['targetType'],
+        if (json['targetId'] != null) 'targetId': json['targetId'],
+      },
     );
   }
 }

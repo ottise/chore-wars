@@ -1,102 +1,82 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../domain/entities/house_models.dart';
+import '../../../../core/widgets/app_states.dart';
+import '../providers/house_providers.dart';
 
-/// Displays the house invite code as a QR code so another user can scan it.
-/// The QR data is the invite code string — the scanner's JoinHouseScreen
-/// will pre-fill it.
-class QrInviteScreen extends StatelessWidget {
-  const QrInviteScreen({required this.house, super.key});
-
-  final House house;
-
+class QrInviteScreen extends ConsumerWidget {
+  const QrInviteScreen({required this.houseId, super.key});
+  final String houseId;
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Invite via QR')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 16),
-              Text(
-                'Share this QR code',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your housemate can scan this to join "${house.name}".',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.purple.withValues(alpha: 0.12),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+    appBar: AppBar(title: const Text('Invite to House')),
+    body: ref
+        .watch(houseDetailProvider(houseId))
+        .when(
+          loading: () => const LoadingView(),
+          error: (error, _) => ErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(houseDetailProvider(houseId)),
+          ),
+          data: (house) => LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text(
+                    house.name,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  child: QrImageView(
-                    data: house.inviteCode,
-                    version: QrVersions.auto,
-                    size: 240,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: AppTheme.purple,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: AppTheme.ink,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Housemates can scan this code to request to join.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: QrImageView(
+                      data: house.inviteCode,
+                      size: math.min(
+                        280,
+                        math.max(120, constraints.maxWidth - 48),
+                      ),
+                      backgroundColor: Colors.white,
+                      padding: const EdgeInsets.all(20),
+                      eyeStyle: const QrEyeStyle(
+                        eyeShape: QrEyeShape.square,
+                        color: Colors.black,
+                      ),
+                      dataModuleStyle: const QrDataModuleStyle(
+                        dataModuleShape: QrDataModuleShape.square,
+                        color: Colors.black,
+                      ),
+                      semanticsLabel: 'House Invite QR Code ${house.name}',
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  SelectableText(
+                    house.inviteCode,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: house.inviteCode),
+                      );
+                      if (context.mounted) {
+                        showAppMessage(context, 'Invite code copied');
+                      }
+                    },
+                    child: const Text('Copy Invite Code'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.purple.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Invite code',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      house.inviteCode,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 6,
-                        color: AppTheme.purple,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+  );
 }

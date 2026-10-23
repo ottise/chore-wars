@@ -143,7 +143,7 @@ class _Hero extends StatelessWidget {
         const SizedBox(height: 14),
         const Text(
           'Sample household data is already loaded. Nothing here is sent to a server.',
-          style: TextStyle(color: Color(0xFFE5E1FF), height: 1.45),
+          style: TextStyle(color: AppTheme.lavender, height: 1.45),
         ),
         const SizedBox(height: 24),
         FilledButton.icon(

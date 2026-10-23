@@ -7,10 +7,7 @@ String apiErrorMessage(Object error) {
 
   final data = error.response?.data;
   if (data is Map) {
-    final detail =
-        _mapValue(data, 'detail') ??
-        _mapValue(data, 'message') ??
-        _mapValue(data, 'title');
+    final detail = _mapValue(data, 'detail') ?? _mapValue(data, 'message');
     if (detail is String && detail.trim().isNotEmpty) {
       return detail;
     }
@@ -29,11 +26,13 @@ String apiErrorMessage(Object error) {
         return messages.join('\n');
       }
     }
+
+    final title = _mapValue(data, 'title');
+    if (title is String && title.trim().isNotEmpty) return title;
   }
 
   return switch (error.type) {
-    DioExceptionType.connectionTimeout =>
-      'Could not connect to the server. Check that the API is running and try again.',
+    DioExceptionType.connectionTimeout => 'Could not connect to the server. Check that the API is running and try again.',
     DioExceptionType.sendTimeout =>
       'The server took too long to accept the request. Please try again.',
     DioExceptionType.receiveTimeout =>
@@ -46,8 +45,7 @@ String apiErrorMessage(Object error) {
       'The server security certificate could not be verified.',
     DioExceptionType.cancel => 'The request was cancelled.',
     DioExceptionType.badResponse => _statusMessage(error.response?.statusCode),
-    DioExceptionType.unknown =>
-      'A network error occurred. Check that the server is running and try again.',
+    DioExceptionType.unknown => 'A network error occurred. Check that the server is running and try again.',
   };
 }
 

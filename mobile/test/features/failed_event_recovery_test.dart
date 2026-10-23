@@ -50,23 +50,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Thử xử lý lại'), findsOneWidget);
-      await tester.tap(find.text('Thử xử lý lại'));
+      expect(find.text('Retry Processing'), findsOneWidget);
+      await tester.tap(find.text('Retry Processing'));
       await tester.pumpAndSettle();
       expect(repository.replays, 0);
-      await tester.tap(find.text('Hủy'));
+      await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(repository.replays, 0);
-      await tester.tap(find.text('Thử xử lý lại'));
+      await tester.tap(find.text('Retry Processing'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Thử lại'));
+      await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(repository.replays, 1);
-      expect(find.text('Thử xử lý lại'), findsNothing);
-      expect(
-        find.text('Không có yêu cầu nào ở trạng thái này.'),
-        findsOneWidget,
-      );
+      expect(find.text('Retry Processing'), findsNothing);
+      expect(find.text('No requests with this status.'), findsOneWidget);
     },
   );
 }

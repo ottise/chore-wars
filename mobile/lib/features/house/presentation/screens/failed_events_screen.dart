@@ -25,18 +25,18 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Thử xử lý lại?'),
+        title: const Text('Retry Processing?'),
         content: const Text(
-          'Hệ thống sẽ xử lý lại yêu cầu gốc. Bạn không cần thực hiện lại công việc hoặc xác nhận tiền.',
+          'The system will retry the original request. You do not need to repeat the chore or confirm the payment again.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Thử lại'),
+            child: const Text('Retry'),
           ),
         ],
       ),
@@ -51,9 +51,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
       _refresh();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Đã yêu cầu xử lý lại. Tải lại danh sách để xem kết quả.',
-          ),
+          content: Text('Retry requested. Refresh the list to see the result.'),
         ),
       );
     } catch (error) {
@@ -67,27 +65,28 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
   }
 
   static String label(String value) => switch (value) {
-    'FAILED' => 'Cần xử lý',
-    'REPLAY_REQUESTED' => 'Đã yêu cầu thử lại',
-    'RESOLVED' => 'Đã khôi phục',
+    'FAILED' => 'Needs Review',
+    'REPLAY_REQUESTED' => 'Retry Requested',
+    'RESOLVED' => 'Recovered',
     _ => value,
   };
   static String reason(String code) => switch (code) {
-    'JsonException' => 'Thông tin yêu cầu không hợp lệ.',
-    'InvalidDataException' => 'Chưa xác minh được dữ liệu của yêu cầu.',
-    'DbUpdateException' => 'Dữ liệu chưa thể lưu. Hãy thử lại sau.',
-    'TimeoutException' || 'IOException' => 'Kết nối hoặc tác vụ bị gián đoạn.',
-    _ => 'Xử lý chưa thành công. Hệ thống đã lưu lỗi để kiểm tra.',
+    'JsonException' => 'The request information is invalid.',
+    'InvalidDataException' => 'The request data could not be verified.',
+    'DbUpdateException' => 'Unable to save data. Please try again later.',
+    'TimeoutException' ||
+    'IOException' => 'The connection or operation was interrupted.',
+    _ => 'Processing failed. The error was recorded for investigation.',
   };
   @override
   Widget build(BuildContext context) {
     final data = ref.watch(failedEventsProvider(_key));
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Xử lý hệ thống'),
+        title: const Text('System Recovery'),
         actions: [
           IconButton(
-            tooltip: 'Tải lại',
+            tooltip: 'Refresh',
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
           ),
@@ -101,15 +100,15 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Theo dõi các yêu cầu xử lý bị gián đoạn trong nhà của bạn. Chỉ chủ nhà được yêu cầu thử lại.',
+                  'Track interrupted household requests. Only the owner can request a retry.',
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   key: ValueKey(_status),
                   initialValue: _status ?? 'ALL',
-                  decoration: const InputDecoration(labelText: 'Trạng thái'),
+                  decoration: const InputDecoration(labelText: 'Status'),
                   items: [
-                    const DropdownMenuItem(value: 'ALL', child: Text('Tất cả')),
+                    const DropdownMenuItem(value: 'ALL', child: Text('All')),
                     for (final value in [
                       'FAILED',
                       'REPLAY_REQUESTED',
@@ -142,7 +141,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 48),
                         child: Center(
-                          child: Text('Không có yêu cầu nào ở trạng thái này.'),
+                          child: Text('No requests with this status.'),
                         ),
                       ),
                     for (final item in result.items) ...[
@@ -158,7 +157,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                         ),
                         title: Text(label(item.status)),
                         subtitle: Text(
-                          '${item.topic}\n${DateFormat('dd/MM/yyyy HH:mm').format(item.lastFailedAt.toLocal())} · ${item.failureCount} lần lỗi · ${item.replayCount} lần thử lại',
+                          '${item.topic}\n${DateFormat('dd/MM/yyyy HH:mm').format(item.lastFailedAt.toLocal())} · ${item.failureCount} failures · ${item.replayCount} retries',
                         ),
                         isThreeLine: true,
                       ),
@@ -166,7 +165,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
                           item.status == 'RESOLVED'
-                              ? 'Yêu cầu đã được xử lý thành công.'
+                              ? 'The request was processed successfully.'
                               : reason(item.errorCode),
                         ),
                       ),
@@ -179,7 +178,9 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                                 : null,
                             icon: const Icon(Icons.replay),
                             label: Text(
-                              _busy == item.id ? 'Đang gửi…' : 'Thử xử lý lại',
+                              _busy == item.id
+                                  ? 'Sending…'
+                                  : 'Retry Processing',
                             ),
                           ),
                         ),
@@ -189,15 +190,15 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          tooltip: 'Trang trước',
+                          tooltip: 'Previous Page',
                           onPressed: _page > 1 && _busy == null
                               ? () => setState(() => _page--)
                               : null,
                           icon: const Icon(Icons.chevron_left),
                         ),
-                        Text('Trang $_page · ${result.total} yêu cầu'),
+                        Text('Page $_page · ${result.total} requests'),
                         IconButton(
-                          tooltip: 'Trang tiếp',
+                          tooltip: 'Next Page',
                           onPressed: _page * 20 < result.total && _busy == null
                               ? () => setState(() => _page++)
                               : null,

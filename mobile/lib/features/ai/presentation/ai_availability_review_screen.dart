@@ -51,7 +51,7 @@ class _AiAvailabilityReviewScreenState
     epoch ??= current;
     if (epoch != current) {
       return const Scaffold(
-        body: Center(child: Text('Phiên đã đổi. Hãy mở lại yêu cầu.')),
+        body: Center(child: Text('Your session changed. Reopen the request.')),
       );
     }
     final seasons = ref.watch(aiSeasonsProvider(widget.houseId));
@@ -65,23 +65,23 @@ class _AiAvailabilityReviewScreenState
         )
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Xác nhận lịch bận / rảnh')),
+      appBar: AppBar(title: const Text('Confirm Availability')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
-            'Chọn đúng ngày và giờ của bạn theo giờ Việt Nam. Mùa nháp cập nhật khai báo; mùa đang chạy sẽ tạo phương án để xem lại và đồng thuận trước khi đổi lịch.',
+            'Choose your dates and times in Vietnam time (GMT+7). Draft seasons update your availability; active seasons require a reviewed and approved proposal before changing the schedule.',
           ),
           if (seasons.isLoading) const LinearProgressIndicator(),
           if (seasons.hasError)
             TextButton(
               onPressed: () =>
                   ref.invalidate(aiSeasonsProvider(widget.houseId)),
-              child: const Text('Tải lại danh sách mùa'),
+              child: const Text('Refresh Seasons'),
             ),
           DropdownButtonFormField<String>(
             initialValue: season,
-            decoration: const InputDecoration(labelText: 'Mùa áp dụng'),
+            decoration: const InputDecoration(labelText: 'Season'),
             items: rows
                 .map(
                   (s) => DropdownMenuItem(
@@ -95,8 +95,8 @@ class _AiAvailabilityReviewScreenState
           SwitchListTile(
             title: Text(
               busyValue
-                  ? 'Tôi bận trong khung giờ này'
-                  : 'Tôi rảnh trong khung giờ này',
+                  ? 'I am unavailable during this interval'
+                  : 'I am available during this interval',
             ),
             value: busyValue,
             onChanged: saving ? null : (v) => setState(() => busyValue = v),
@@ -104,7 +104,7 @@ class _AiAvailabilityReviewScreenState
           ListTile(
             title: Text(
               date == null
-                  ? 'Chọn ngày'
+                  ? 'Choose Date'
                   : date!.toIso8601String().substring(0, 10),
             ),
             trailing: const Icon(Icons.calendar_today),
@@ -124,7 +124,7 @@ class _AiAvailabilityReviewScreenState
           ),
           ListTile(
             title: Text(
-              start == null ? 'Chọn giờ bắt đầu' : start!.format(context),
+              start == null ? 'Choose Start Time' : start!.format(context),
             ),
             onTap: saving
                 ? null
@@ -141,9 +141,9 @@ class _AiAvailabilityReviewScreenState
           ListTile(
             title: Text(
               endOfDay
-                  ? '24:00 (cuối ngày)'
+                  ? '24:00 (end of day)'
                   : end == null
-                  ? 'Chọn giờ kết thúc'
+                  ? 'Choose End Time'
                   : end!.format(context),
             ),
             onTap: saving
@@ -179,7 +179,7 @@ class _AiAvailabilityReviewScreenState
                         last = endOfDay ? 1440 : end!.hour * 60 + end!.minute;
                     if (first >= last) {
                       setState(
-                        () => error = 'Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.',
+                        () => error = 'The end time must follow the start time on the same day.',
                       );
                       return;
                     }
@@ -210,7 +210,7 @@ class _AiAvailabilityReviewScreenState
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Đã cập nhật khai báo trong mùa nháp.',
+                              'Availability updated for the draft season.',
                             ),
                           ),
                         );
@@ -236,7 +236,7 @@ class _AiAvailabilityReviewScreenState
                       }
                     }
                   },
-            child: Text(saving ? 'Đang xử lý…' : 'Xác nhận và xem phương án'),
+            child: Text(saving ? 'Processing…' : 'Confirm & Preview Proposal'),
           ),
         ],
       ),

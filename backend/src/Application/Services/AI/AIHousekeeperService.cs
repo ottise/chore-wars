@@ -18,7 +18,8 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
     IAIContextBuilder contexts, IHouseMutationCoordinator mutations, IHouseAccessService access, TimeProvider clock,
     IActionProposalService proposals, IScheduleChangeService scheduleChanges,
     IValidator<AIGenerateRequest> generateValidator, IValidator<AITextRequest> textValidator,
-    IValidator<AIAvailabilityChangeRequest> availabilityValidator, IValidator<AIObservationRequest> observationValidator) : IAIHousekeeperService
+    IValidator<AIAvailabilityChangeRequest> availabilityValidator, IValidator<AIObservationRequest> observationValidator,
+    IAIServiceStatus? serviceStatus = null) : IAIHousekeeperService
 {
     private async Task AuthorizeAsync(Guid house, Guid actor, bool owner, CancellationToken ct)
     {
@@ -65,7 +66,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                 settings.Enabled=enabled ?? settings.Enabled; settings.ChatAutoInsightsEnabled=chatAuto ?? settings.ChatAutoInsightsEnabled; settings.Version++;
                 if (!settings.Enabled || !settings.ChatAutoInsightsEnabled) await ai.RevokeChatInsightsAsync(house,null,ct);
             }
-            return JsonSerializer.SerializeToElement(new{enabled=settings.Enabled,chat_auto_insights_enabled=settings.ChatAutoInsightsEnabled,version=settings.Version});
+            return JsonSerializer.SerializeToElement(new{enabled=settings.Enabled,configured=serviceStatus?.IsConfigured ?? true,chat_auto_insights_enabled=settings.ChatAutoInsightsEnabled,version=settings.Version});
         },ct);
 
     public Task<JsonElement> ConsentAsync(Guid house, Guid actor, bool? enabled, CancellationToken ct)
@@ -183,14 +184,14 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             var urgent=urgentJson.Deserialize<UrgentEventPayload>() ?? throw new DomainException("Invalid urgent plan.");
             var targets=urgent.Chores.Select(c=>c.AssignedUserId).Append(actor).Distinct().Where(id=>id!=actor).ToList();
             if(targets.Count==0)throw new ConflictException("Use a household participant to review the urgent plan.");
-            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.URGENT_EVENT,Title="AI đề xuất chiến dịch khẩn cấp",Description="Xem timeline, nguồn lực và xác nhận tham gia. Effort là ước tính chuẩn; không tự thưởng điểm.",PayloadJson=urgentJson.GetRawText(),TargetUserIds=targets,ExpiresAt=clock.GetUtcNow().UtcDateTime.AddMinutes(5)},actor,ct);
+            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.URGENT_EVENT,Title="AI Urgent Campaign Proposal",Description="Review the timeline and resources, then confirm participation. Effort is a standard estimate; points are not awarded automatically.",PayloadJson=urgentJson.GetRawText(),TargetUserIds=targets,ExpiresAt=clock.GetUtcNow().UtcDateTime.AddMinutes(5)},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
         if (value.Kind==AIConstants.Swap) {
             if (!payload.RootElement.TryGetProperty("swap_payload",out var swap)) throw new ConflictException("No feasible swap was found.");
             var swapData=swap.Deserialize<ChoreSwapPayload>() ?? throw new DomainException("Invalid swap candidate.");
             var target=await uow.ChoreOccurrences.GetByIdAsync(swapData.TargetOccurrenceId,ct) ?? throw new NotFoundException("Swap target missing.");
-            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.CHORE_SWAP,Title="AI đề xuất đổi việc",Description="Hai bên xác nhận trước khi đổi trách nhiệm.",PayloadJson=swap.GetRawText(),TargetUserIds=[target.AssignedUserId!.Value],ExpiresAt=value.ExpiresAt},actor,ct);
+            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.CHORE_SWAP,Title="AI Chore Swap Proposal",Description="Both members must approve before responsibility changes.",PayloadJson=swap.GetRawText(),TargetUserIds=[target.AssignedUserId!.Value],ExpiresAt=value.ExpiresAt},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
         if (value.Kind==AIConstants.Replan) {
@@ -212,7 +213,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                 }
             }
             var required=await scheduleChanges.ValidateAsync(house,change,ct);
-            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.SCHEDULE_REPLAN,Title="AI đề xuất sắp lại lịch",Description="Chủ nhà và mọi người bị thay đổi phải xác nhận.",PayloadJson=JsonSerializer.Serialize(change),TargetUserIds=required.Where(id=>id!=actor).ToList(),ExpiresAt=value.ExpiresAt},actor,ct);
+            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.SCHEDULE_REPLAN,Title="AI Schedule Change Proposal",Description="The owner and all affected members must approve.",PayloadJson=JsonSerializer.Serialize(change),TargetUserIds=required.Where(id=>id!=actor).ToList(),ExpiresAt=value.ExpiresAt},actor,ct);
             value.ProposalId=linked.Id;value.Status=linked.Status==ProposalStatus.APPROVED?AIConstants.Applied:AIConstants.Accepted;return View(value);
         }
         if (context.GetProperty("status").GetString()!=AIConstants.Draft) throw new ConflictException("Draft changed status.");

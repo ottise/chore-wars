@@ -159,7 +159,7 @@ Dùng voice note trong chat. Micro ghi âm, Loa phát lại; không phụ thuộ
 
 Ứng viên thư viện là `record` cho recording và `just_audio` cho playback; kiểm tra tài liệu publisher, quyền Android/iOS và khóa version tương thích Flutter SDK khi triển khai: [record](https://pub.dev/packages/record), [just_audio](https://pub.dev/packages/just_audio).
 
-Bản đầu ghi AAC-LC trong M4A, tối đa 60 giây, dung lượng tối đa 5 MB. Không ghi nền, không tự phát tin nhắn mới.
+Bản đầu ghi AAC-LC trong M4A, tối đa 60 giây, dung lượng tối đa 5 MB. Không ghi nền, không tự phát tin nhắn mới. Cập nhật 23/10/2026: Android giữ AAC M4A; web dùng PCM WAV 16 bit mono 16 kHz, backend kiểm tra cấu trúc và thời lượng thực. Cùng giới hạn 60 giây/5 MB, không chỉ đổi extension.
 
 ### BE
 

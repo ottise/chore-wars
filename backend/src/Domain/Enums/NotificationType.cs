@@ -13,5 +13,7 @@ public enum NotificationType
     SEASON_ENDED = 8,
     PAYMENT_DUE = 9,
     REWARD_GRANTED = 10,
-    URGENT_EVENT = 11
+    URGENT_EVENT = 11,
+    CHAT_MESSAGE = 12,
+    CHAT_MENTION = 13
 }

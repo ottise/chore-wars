@@ -21,14 +21,13 @@ class CreateSeasonScreen extends ConsumerStatefulWidget {
 class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _desc = TextEditingController();
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
   int _allocationMethod = 1; // 1 = Automatic, 0 = Manual
-  
+
   bool _saving = false;
   String? _apiError;
-  
+
   List<dynamic> _pastSeasons = [];
   String? _selectedCloneSeasonId;
   bool _loadingSeasons = true;
@@ -57,31 +56,44 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   @override
   void dispose() {
     _name.dispose();
-    _desc.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Start new season')),
+      appBar: AppBar(
+        title: const Text(
+          'Start New Season',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!_loadingSeasons && _pastSeasons.isNotEmpty) ...[
+              if (!_loadingSeasons) ...[
                 DropdownButtonFormField<String?>(
+                  isExpanded: true,
                   initialValue: _selectedCloneSeasonId,
-                  decoration: const InputDecoration(labelText: 'Clone from past season (Optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Clone from past season (Optional)',
+                  ),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('None (Start fresh)')),
-                    ..._pastSeasons.map((s) => DropdownMenuItem(
-                          value: s['id'] as String,
-                          child: Text(s['name'] as String),
-                        ))
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('None (Start fresh)'),
+                    ),
+                    ..._pastSeasons.map(
+                      (s) => DropdownMenuItem(
+                        value: s['id'] as String,
+                        child: Text(s['name'] as String),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _selectedCloneSeasonId = v),
                 ),
@@ -89,26 +101,73 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
               ],
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Season Name', hintText: 'e.g. Spring Cleaning'),
+                decoration: const InputDecoration(
+                  labelText: 'Season Name',
+                  hintText: 'e.g. Winter Harmony 2026',
+                ),
                 validator: (v) => v!.trim().isEmpty ? 'Enter a name' : null,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
+                isExpanded: true,
                 initialValue: _allocationMethod,
-                decoration: const InputDecoration(labelText: 'Allocation Method'),
+                decoration: const InputDecoration(
+                  labelText: 'Allocation Method',
+                ),
                 items: const [
-                  DropdownMenuItem(value: 1, child: Text('Automatic (AI Generation)')),
-                  DropdownMenuItem(value: 0, child: Text('Manual Assignment')),
+                  DropdownMenuItem(value: 1, child: Text('Automatic')),
+                  DropdownMenuItem(value: 0, child: Text('Manual')),
                 ],
                 onChanged: (v) => setState(() => _allocationMethod = v!),
               ),
               const SizedBox(height: 24),
+              const Text(
+                'Active Timeframe',
+                style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(DateFormat('MMM d, yyyy').format(_startDate)),
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLowest,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant
+                              .withValues(alpha: .4),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, size: 20),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Starts',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat.yMMMd('en_US').format(_startDate),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                       onPressed: () async {
                         final d = await showDatePicker(
                           context: context,
@@ -120,7 +179,8 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                           setState(() {
                             _startDate = d;
                             final maxEnd = DateTime(d.year, d.month + 1, d.day);
-                            if (_endDate.isBefore(d) || _endDate.isAfter(maxEnd)) {
+                            if (_endDate.isBefore(d) ||
+                                _endDate.isAfter(maxEnd)) {
                               _endDate = maxEnd;
                             }
                           });
@@ -128,16 +188,60 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  const Icon(Icons.arrow_forward),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: AppTheme.muted,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(DateFormat('MMM d, yyyy').format(_endDate)),
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLowest,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant
+                              .withValues(alpha: .4),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, size: 20),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Ends',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat.yMMMd('en_US').format(_endDate),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                       onPressed: () async {
                         final minEnd = _startDate.add(const Duration(days: 1));
-                        final maxEnd = DateTime(_startDate.year, _startDate.month + 1, _startDate.day);
+                        final maxEnd = DateTime(
+                          _startDate.year,
+                          _startDate.month + 1,
+                          _startDate.day,
+                        );
                         final initial = _endDate.isBefore(minEnd)
                             ? minEnd
                             : (_endDate.isAfter(maxEnd) ? maxEnd : _endDate);
@@ -155,19 +259,29 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Mỗi mùa giải kéo dài tối đa 1 tháng (tối đa đến ${DateFormat('dd/MM/yyyy').format(DateTime(_startDate.year, _startDate.month + 1, _startDate.day))})',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+                'Each season lasts up to one month (until ${DateFormat('dd/MM/yyyy').format(DateTime(_startDate.year, _startDate.month + 1, _startDate.day))})',
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: AppTheme.muted),
               ),
               if (_apiError != null) ...[
                 const SizedBox(height: 24),
-                Text(_apiError!, style: const TextStyle(color: AppTheme.red, fontWeight: FontWeight.bold)),
+                Text(
+                  _apiError!,
+                  style: const TextStyle(
+                    color: AppTheme.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
               const SizedBox(height: 32),
-              ElevatedButton(
+              FilledButton(
                 onPressed: _saving ? null : _save,
-                child: _saving ? const CircularProgressIndicator() : const Text('Create Season'),
+                child: _saving
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create Season'),
               ),
             ],
           ),
@@ -179,13 +293,18 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final maxEnd = DateTime(_startDate.year, _startDate.month + 1, _startDate.day);
+    final maxEnd = DateTime(
+      _startDate.year,
+      _startDate.month + 1,
+      _startDate.day,
+    );
     if (!_endDate.isAfter(_startDate)) {
-      setState(() => _apiError = 'Ngày kết thúc phải sau ngày bắt đầu.');
+      setState(() => _apiError = 'The end date must be after the start date.');
       return;
     }
-    if (_endDate.isAfter(maxEnd) && _endDate.difference(_startDate).inDays > 31) {
-      setState(() => _apiError = 'Một mùa giải chỉ được kéo dài tối đa 1 tháng.');
+    if (_endDate.isAfter(maxEnd) &&
+        _endDate.difference(_startDate).inDays > 31) {
+      setState(() => _apiError = 'A season can last up to one month.');
       return;
     }
 
@@ -203,11 +322,14 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
       };
 
       if (_selectedCloneSeasonId != null) {
-        await dio.post('/houses/${widget.houseId}/seasons/$_selectedCloneSeasonId/reuse', data: payload);
+        await dio.post(
+          '/houses/${widget.houseId}/seasons/$_selectedCloneSeasonId/reuse',
+          data: payload,
+        );
       } else {
         await dio.post('/houses/${widget.houseId}/seasons', data: payload);
       }
-      
+
       refreshHouseState(ref, houseId: widget.houseId);
       ref.invalidate(homeDashboardProvider(widget.houseId));
       if (mounted) {

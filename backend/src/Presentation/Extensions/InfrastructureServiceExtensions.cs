@@ -34,6 +34,7 @@ public static class InfrastructureServiceExtensions
             options.UseNpgsql(databaseConnectionString));
 
         services.Configure<ChoreWars.Infrastructure.AI.AIOptions>(configuration.GetSection("AI"));
+        services.AddSingleton<IAIServiceStatus, ChoreWars.Infrastructure.AI.AIServiceStatus>();
         services.AddScoped<IAIStateRepository, AIStateRepository>();
         services.AddHostedService<ChoreWars.Infrastructure.AI.AIChatInsightWorker>();
         services.AddHttpClient<IAIHousekeeperClient, ChoreWars.Infrastructure.AI.AIHousekeeperHttpClient>(http => {
@@ -99,6 +100,7 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<DeadlineReminderWorker>();
         
         services.AddHostedService<ChoreCompletedConsumer>();
+        services.AddHostedService<ChatMessageCreatedConsumer>();
         services.AddHostedService<BountyCreatedConsumer>();
         services.AddHostedService<BountyAcceptedConsumer>();
         services.AddHostedService<ChoreOverdueConsumer>();

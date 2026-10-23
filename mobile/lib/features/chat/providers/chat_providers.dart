@@ -120,8 +120,14 @@ class ChatMessagesNotifier extends ChangeNotifier {
     }
   }
 
+  final Map<String, String> _pendingTextRequests = {};
   Future<void> sendMessage(String content) async {
-    final message = await _repo.sendMessage(_roomId, content);
+    final clientId = _pendingTextRequests.putIfAbsent(
+      content,
+      () => const Uuid().v4(),
+    );
+    final message = await _repo.sendMessage(_roomId, content, clientId);
+    _pendingTextRequests.remove(content);
     if (_disposed) return;
     _messages = [message, ..._messages.where((m) => m.id != message.id)];
     notifyListeners();

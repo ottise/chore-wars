@@ -12,7 +12,7 @@ class AiRiskInsightsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final query = (house: houseId, path: 'me/risk-insights');
     return Scaffold(
-      appBar: AppBar(title: const Text('Trách nhiệm của tôi')),
+      appBar: AppBar(title: const Text('My Responsibilities')),
       body: ref
           .watch(aiDataProvider(query))
           .when(
@@ -25,14 +25,12 @@ class AiRiskInsightsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               children: [
                 const Text(
-                  'Chỉ xem các trách nhiệm bạn đã nhận. Ước lượng dùng thông tin lúc nhận trách nhiệm và không tự thay đổi lịch, điểm hoặc tiền.',
+                  'Only responsibilities you have accepted are shown. Estimates use information available at acceptance and do not change schedules, points or payments.',
                 ),
                 if ((data['items'] as List? ?? []).isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'Hiện chưa có trách nhiệm còn mở đủ điều kiện.',
-                    ),
+                    child: Text('No eligible open responsibilities.'),
                   ),
                 for (final row in data['items'] as List? ?? [])
                   Card(
@@ -42,27 +40,29 @@ class AiRiskInsightsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(switch (row['status']) {
-                            'PREDICTED' => 'Ước lượng tại thời điểm nhận việc',
-                            'NO_APPROVED_MODEL' => 'Chưa có model được duyệt',
-                            'WAITING_FOR_TELEMETRY' => 'Đang chờ đồng bộ',
+                            'PREDICTED' => 'Estimate at Acceptance',
+                            'NO_APPROVED_MODEL' => 'No approved model',
+                            'WAITING_FOR_TELEMETRY' => 'Awaiting Sync',
                             'INSUFFICIENT_SOURCE_CONTEXT' =>
-                              'Thiếu bằng chứng gốc',
-                            _ => 'Chưa đủ điều kiện đánh giá',
+                              'Missing Source Evidence',
+                            _ => 'Not Eligible for Evaluation',
                           }),
                           if (row['p_late'] is num) ...[
                             Text(
-                              'Nguy cơ trễ ước lượng: ${((row['p_late'] as num) * 100).toStringAsFixed(1)}%',
+                              'Estimated lateness risk: ${((row['p_late'] as num) * 100).toStringAsFixed(1)}%',
                             ),
                             Text(
-                              'Context lúc nhận việc: ${row['logical_prediction_time']}',
+                              'Context at acceptance: ${row['logical_prediction_time']}',
                             ),
-                            Text('Thực thi dự đoán: ${row['executed_at']}'),
                             Text(
-                              'Model: ${row['model_version']} · Nguồn: ${row['data_source']}',
+                              'Prediction executed at: ${row['executed_at']}',
+                            ),
+                            Text(
+                              'Model: ${row['model_version']} · Source: ${row['data_source']}',
                             ),
                             if (row['data_source'] == 'DEMO_SYNTHETIC')
                               const Text(
-                                'Dữ liệu giả lập; chưa chứng minh hiệu quả với người dùng thật.',
+                                'Synthetic data; effectiveness for real users is not established.',
                               ),
                           ],
                           if (row['occurrence_id'] != null)
@@ -70,7 +70,7 @@ class AiRiskInsightsScreen extends ConsumerWidget {
                               onPressed: () => context.push(
                                 '/houses/$houseId/chores/${row['occurrence_id']}',
                               ),
-                              child: const Text('Mở công việc'),
+                              child: const Text('Open Chore'),
                             ),
                         ],
                       ),

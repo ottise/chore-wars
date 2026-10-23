@@ -869,6 +869,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("ChatNotificationsMuted")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("HouseId")
                         .HasColumnType("uuid");
 

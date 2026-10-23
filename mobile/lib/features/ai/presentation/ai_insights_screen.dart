@@ -19,9 +19,7 @@ class AiInsightsScreen extends ConsumerWidget {
     );
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          chat ? 'Gợi ý riêng từ tin nhắn' : 'Bounty phù hợp với bạn',
-        ),
+        title: Text(chat ? 'Private Chat Insights' : 'Bounties for You'),
       ),
       body: ref
           .watch(aiDataProvider(query))
@@ -36,13 +34,13 @@ class AiInsightsScreen extends ConsumerWidget {
               children: [
                 Text(
                   chat
-                      ? 'Chỉ bạn thấy kết quả từ tin nhắn của mình. Đây là tín hiệu cần xác nhận, chưa là lịch bận hoặc thay đổi trách nhiệm.'
-                      : 'Gợi ý tự nguyện dựa trên lịch rảnh, sở thích khai báo và kinh nghiệm. Nhận nhiều bounty không làm tăng phần việc bắt buộc.',
+                      ? 'Only you can see insights from your messages. They require confirmation and do not change availability or responsibility.'
+                      : 'Optional suggestions based on availability, declared preferences and experience. Accepting more bounties does not increase required chores.',
                 ),
                 if ((data['items'] as List? ?? []).isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text('Chưa có gợi ý đủ điều kiện.'),
+                    child: Text('No eligible suggestions yet.'),
                   ),
                 for (final item in data['items'] as List? ?? [])
                   Card(
@@ -52,7 +50,7 @@ class AiInsightsScreen extends ConsumerWidget {
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Trạng thái: ${item['status']}'),
+                                Text('Status: ${item['status']}'),
                                 Text(
                                   (item['result'] as Map?)?['summary']
                                           ?.toString() ??
@@ -69,8 +67,8 @@ class AiInsightsScreen extends ConsumerWidget {
                                                 as Map?)?['missing_fields']
                                             as List? ??
                                         [])
-                                  Text('Cần làm rõ: $missing'),
-                                Text('Nguồn tin nhắn: ${item['message_id']}'),
+                                  Text('Needs clarification: $missing'),
+                                Text('Source message: ${item['message_id']}'),
                                 if (item['status'] == 'READY' &&
                                     (item['result'] as Map?)?['availability']
                                         is Map)
@@ -89,11 +87,11 @@ class AiInsightsScreen extends ConsumerWidget {
                                       ),
                                     ),
                                     child: const Text(
-                                      'Xem lại và xác nhận lịch bận / rảnh',
+                                      'Review & Confirm Availability',
                                     ),
                                   ),
                                 const Text(
-                                  'Để xác nhận thay đổi, mở phần khai báo lịch rảnh hoặc tạo đề xuất và xem lại với người liên quan.',
+                                  'To confirm a change, edit your availability or create a proposal and review it with affected members.',
                                 ),
                               ],
                             )
@@ -101,25 +99,25 @@ class AiInsightsScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item['name']?.toString() ?? 'Công việc',
+                                  item['name']?.toString() ?? 'Chore',
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleMedium,
                                 ),
                                 Text(
-                                  '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0).format(item['amount'])} · ${item['declared_preference']}',
+                                  '${NumberFormat.currency(locale: 'en_US', symbol: '₫', decimalDigits: 0).format(item['amount'])} · ${item['declared_preference']}',
                                 ),
-                                Text('Có thể xếp từ ${item['possible_start']}'),
                                 Text(
-                                  'Lý do: ${item['reason']} · ${item['historical_completions_capped']} lần hoàn thành trước (giới hạn 20)',
+                                  'Available from ${item['possible_start']}',
+                                ),
+                                Text(
+                                  'Reason: ${item['reason']} · ${item['historical_completions_capped']} prior completions (capped at 20)',
                                 ),
                                 TextButton(
                                   onPressed: () => context.push(
                                     '/bounties/${item['bounty_id']}?houseId=$houseId',
                                   ),
-                                  child: const Text(
-                                    'Xem bounty và quyết định nhận',
-                                  ),
+                                  child: const Text('View Bounty & Decide'),
                                 ),
                               ],
                             ),

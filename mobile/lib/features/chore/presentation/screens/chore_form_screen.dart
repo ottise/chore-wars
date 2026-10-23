@@ -6,12 +6,21 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/chore_models.dart';
+import '../../domain/entities/routine_preset.dart';
 import '../providers/chore_providers.dart';
 
 class ChoreFormScreen extends ConsumerStatefulWidget {
-  const ChoreFormScreen({required this.houseId, this.initial, super.key});
+  const ChoreFormScreen({
+    required this.houseId,
+    this.initial,
+    this.createRoutine = false,
+    this.preset,
+    super.key,
+  });
   final String houseId;
   final ChoreTemplate? initial;
+  final bool createRoutine;
+  final RoutinePreset? preset;
 
   @override
   ConsumerState<ChoreFormScreen> createState() => _ChoreFormScreenState();
@@ -88,21 +97,26 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   void initState() {
     super.initState();
     final chore = widget.initial;
-    _deadlineMinutes = chore?.deadlineMinutes ?? 1439;
+    final preset = widget.preset;
+    _asRoutine = chore?.asRoutine ?? (widget.createRoutine || preset != null);
+    _deadlineMinutes =
+        chore?.deadlineMinutes ?? preset?.deadlineMinutes ?? 1439;
     _anchor = DateTime.tryParse(chore?.recurrenceAnchor ?? '');
     _customDates.addAll(chore?.customDates ?? const []);
-    _name = TextEditingController(text: chore?.name ?? '');
+    _name = TextEditingController(text: chore?.name ?? preset?.title ?? '');
     _description = TextEditingController(text: chore?.description ?? '');
-    _karma = TextEditingController(text: chore?.karmaPoints.toString() ?? '');
+    _karma = TextEditingController(
+      text: (chore?.karmaPoints ?? preset?.karma)?.toString() ?? '',
+    );
     _frequencyValue = TextEditingController(
       text: chore?.frequencyValue?.toString() ?? '',
     );
     _type = chore?.type ?? ChoreType.normal;
-    _frequency = chore?.frequency ?? ChoreFrequency.daily;
-    _days = {...?chore?.frequencyDays};
+    _frequency = chore?.frequency ?? preset?.frequency ?? ChoreFrequency.daily;
+    _days = {...?(chore?.frequencyDays ?? preset?.days)};
     _difficulty = chore?.difficulty ?? ChoreEffort.medium;
     _estimatedMinutes = TextEditingController(
-      text: (chore?.estimatedMinutes ?? 30).toString(),
+      text: (chore?.estimatedMinutes ?? preset?.minutes ?? 30).toString(),
     );
   }
 
@@ -119,7 +133,13 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(_editing ? 'Edit chore' : 'Create chore'),
+      title: Text(
+        _editing
+            ? 'Edit chore'
+            : _asRoutine
+            ? 'Create Routine'
+            : 'Create chore',
+      ),
       actions: _editing
           ? [
               IconButton(

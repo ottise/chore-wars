@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/session_provider.dart';
 import '../../../core/utils/api_error_message.dart';
+import '../../chat/presentation/screens/capture_photo_screen.dart';
 
 class AiEvidenceScreen extends ConsumerStatefulWidget {
   const AiEvidenceScreen({
@@ -54,7 +55,7 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
 
   Future<void> upload(int captured) async {
     if (id != null) return;
-    if (bytes == null) throw StateError('Chọn ảnh trước khi tải lên.');
+    if (bytes == null) throw StateError('Choose a photo before uploading.');
     request ??= const Uuid().v4();
     final response = await ref
         .read(dioProvider)
@@ -76,18 +77,16 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
     epoch ??= current;
     if (epoch != current) {
       return const Scaffold(
-        body: Center(
-          child: Text('Phiên đăng nhập đã thay đổi. Hãy mở lại công việc.'),
-        ),
+        body: Center(child: Text('Your session changed. Reopen the chore.')),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Ảnh minh chứng')),
+      appBar: AppBar(title: const Text('Photo Evidence')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
-            'Ảnh được lưu riêng tư trong nhà. Nhận xét AI là tham khảo; bạn quyết định hoàn thành.',
+            'Photos are private to your household. AI feedback is advisory; you decide when the chore is complete.',
           ),
           if (bytes != null)
             Padding(
@@ -103,16 +102,28 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                     onPressed: busy
                         ? null
                         : () => run((captured) async {
-                            final picked = await ImagePicker().pickImage(
-                              source: source,
-                              maxWidth: 1600,
-                              imageQuality: 80,
-                            );
+                            final picked = source == ImageSource.camera
+                                ? await Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).push<XFile>(
+                                    MaterialPageRoute(
+                                      builder: (_) => const CapturePhotoScreen(
+                                        title: 'Capture Photo Evidence',
+                                        captureLabel: 'Use This Photo',
+                                      ),
+                                    ),
+                                  )
+                                : await ImagePicker().pickImage(
+                                    source: ImageSource.gallery,
+                                    maxWidth: 1600,
+                                    imageQuality: 80,
+                                  );
                             if (picked == null || !active(captured)) return;
                             final selected = await picked.readAsBytes();
                             if (!active(captured)) return;
                             if (selected.length > 5000000) {
-                              throw StateError('Ảnh vượt quá 5 MB.');
+                              throw StateError('Photo exceeds 5 MB.');
                             }
                             setState(() {
                               bytes = selected;
@@ -127,7 +138,9 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                           : Icons.photo_library_outlined,
                     ),
                     label: Text(
-                      source == ImageSource.camera ? 'Chụp ảnh' : 'Chọn ảnh',
+                      source == ImageSource.camera
+                          ? 'Take Photo'
+                          : 'Choose Photo',
                     ),
                   ),
               ],
@@ -149,7 +162,7 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                         );
                       }
                     }),
-              child: const Text('Mở ảnh đã đính kèm'),
+              child: const Text('Open Attached Photo'),
             ),
           if (widget.evidenceId == null && bytes != null) ...[
             FilledButton.tonalIcon(
@@ -169,10 +182,10 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                       }
                     }),
               icon: const Icon(Icons.auto_awesome_outlined),
-              label: const Text('Xin nhận xét AI (tùy chọn)'),
+              label: const Text('Request AI Feedback (Optional)'),
             ),
             if (review != null) ...[
-              Text('Kết quả: ${review!['result']}'),
+              Text('Result: ${review!['result']}'),
               for (final line in [
                 ...(review!['observations'] as List? ?? []),
                 ...(review!['limitations'] as List? ?? []),
@@ -188,18 +201,18 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('Xác nhận đã hoàn thành?'),
+                          title: const Text('Confirm Completion?'),
                           content: const Text(
-                            'Nhận xét AI không quyết định việc cộng điểm. Hệ thống áp dụng quy tắc mùa và công việc hiện tại.',
+                            'AI feedback does not determine points. Current season and chore rules still apply.',
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Hủy'),
+                              child: const Text('Cancel'),
                             ),
                             FilledButton(
                               onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Đã hoàn thành'),
+                              child: const Text('Completed'),
                             ),
                           ],
                         ),
@@ -216,7 +229,7 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                       }
                     }),
               icon: const Icon(Icons.check),
-              label: const Text('Hoàn thành với ảnh này'),
+              label: const Text('Complete with This Photo'),
             ),
           ],
           if (busy) const LinearProgressIndicator(),

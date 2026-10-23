@@ -1,10 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../../../core/widgets/app_states.dart';
 import '../../domain/entities/house_models.dart';
 import '../../../chore/domain/entities/chore_models.dart';
 
@@ -14,36 +17,19 @@ class MemberSettingsScreen extends ConsumerStatefulWidget {
     required this.seasonId,
     super.key,
   });
-
-  final String houseId;
-  final String seasonId;
-
+  final String houseId, seasonId;
   @override
-  ConsumerState<MemberSettingsScreen> createState() => _MemberSettingsScreenState();
+  ConsumerState<MemberSettingsScreen> createState() =>
+      _MemberSettingsScreenState();
 }
 
 class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
-  bool _isLoading = true;
-  bool _isSaving = false;
-
-  // Availability
-  final Map<int, bool> _availability = {
-    0: true, 1: true, 2: true, 3: true,
-    4: true, 5: true, 6: true,
-  };
-  final _days = [
-    (1, 'Monday'), (2, 'Tuesday'), (3, 'Wednesday'),
-    (4, 'Thursday'), (5, 'Friday'), (6, 'Saturday'), (0, 'Sunday'),
-  ];
-
-  // Constraints
-  int _maxChoresPerWeek = 10;
-  int _maxMinutesPerDay = 120;
-
-  // Preferences
+  bool _isLoading = true, _isSaving = false;
+  bool _loaded = false;
+  String? _error;
+  int _maxChoresPerWeek = 10, _maxMinutesPerDay = 120;
   List<ChoreTemplate> _chores = [];
   final Map<String, PreferenceType> _preferences = {};
-
   @override
   void initState() {
     super.initState();
@@ -51,261 +37,360 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
   }
 
   Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+      _loaded = false;
+      _error = null;
+    });
     try {
       final dio = ref.read(dioProvider);
-      
-      final futures = await Future.wait([
+      final responses = await Future.wait([
         dio.get(ApiEndpoints.houseConstraints(widget.houseId)),
         dio.get(ApiEndpoints.housePreferences(widget.houseId)),
         dio.get(ApiEndpoints.houseChores(widget.houseId)),
-        dio.get(ApiEndpoints.seasonAvailability(widget.houseId, widget.seasonId)),
       ]);
-
-      final constraintsData = futures[0].data;
-      if (constraintsData != null) {
-        _maxChoresPerWeek = constraintsData['maxChoresPerWeek'] ?? 10;
-        _maxMinutesPerDay = constraintsData['maxEffortMinutesPerDay'] ?? 120;
-      }
-
-      final prefsData = futures[1].data as List<dynamic>? ?? [];
-      for (var p in prefsData) {
-        final pref = MemberPreference.fromJson(p);
-        _preferences[pref.choreId] = pref.type;
-      }
-
-      final choresData = futures[2].data as List<dynamic>? ?? [];
-      _chores = choresData.map((c) => ChoreTemplate.fromJson(c)).toList();
-
-      final availData = futures[3].data['availabilities'] as Map<String, dynamic>? ?? {};
-      availData.forEach((key, value) {
-        final dayInt = int.tryParse(key);
-        if (dayInt != null && _availability.containsKey(dayInt)) {
-          _availability[dayInt] = value as bool;
+      if (!mounted) return;
+      setState(() {
+        _maxChoresPerWeek =
+            (responses[0].data?['maxChoresPerWeek'] as num?)?.toInt() ?? 10;
+        _maxMinutesPerDay =
+            (responses[0].data?['maxEffortMinutesPerDay'] as num?)?.toInt() ??
+            120;
+        _preferences.clear();
+        for (final row in responses[1].data as List? ?? []) {
+          final preference = MemberPreference.fromJson(
+            Map<String, dynamic>.from(row as Map),
+          );
+          _preferences[preference.choreId] = preference.type;
         }
+        _chores = (responses[2].data as List? ?? [])
+            .map(
+              (row) =>
+                  ChoreTemplate.fromJson(Map<String, dynamic>.from(row as Map)),
+            )
+            .toList();
+        _loaded = true;
       });
-
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiErrorMessage(e))),
-        );
-      }
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _save() async {
-    setState(() => _isSaving = true);
+    if (_isSaving || !_loaded) return;
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
     try {
       final dio = ref.read(dioProvider);
-      
-      // Save Availability
-      final Map<String, bool> availabilityPayload = {};
-      _availability.forEach((key, value) {
-        availabilityPayload[key.toString()] = value;
-      });
-
-      // Save Constraints
-      final constraintsPayload = {
-        'maxChoresPerWeek': _maxChoresPerWeek,
-        'maxEffortMinutesPerDay': _maxMinutesPerDay,
-      };
-
-      // Save Preferences
-      final prefsPayload = _preferences.entries.map((e) => {
-        'choreId': e.key,
-        'type': e.value.apiValue,
-      }).toList();
-
       await Future.wait([
-        dio.post(ApiEndpoints.seasonAvailability(widget.houseId, widget.seasonId), 
-                 data: {'availabilities': availabilityPayload}),
-        dio.post(ApiEndpoints.houseConstraints(widget.houseId), 
-                 data: constraintsPayload),
-        dio.post(ApiEndpoints.housePreferences(widget.houseId), 
-                 data: {'preferences': prefsPayload}),
+        dio.post(
+          ApiEndpoints.houseConstraints(widget.houseId),
+          data: {
+            'maxChoresPerWeek': _maxChoresPerWeek,
+            'maxEffortMinutesPerDay': _maxMinutesPerDay,
+          },
+        ),
+        dio.post(
+          ApiEndpoints.housePreferences(widget.houseId),
+          data: {
+            'preferences': _preferences.entries
+                .map(
+                  (entry) => {
+                    'choreId': entry.key,
+                    'type': entry.value.apiValue,
+                  },
+                )
+                .toList(),
+          },
+        ),
       ]);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings saved successfully!')),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiErrorMessage(e))),
-        );
-      }
+      if (mounted) context.pop();
+    } catch (error) {
+      if (mounted) setState(() => _error = apiErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          _buildSectionTitle('📅 Availability', 'Days you can do chores.'),
-          const SizedBox(height: 16),
-          _buildAvailabilitySection(),
-          
-          const SizedBox(height: 32),
-          _buildSectionTitle('⚙️ Constraints', 'Your maximum workload limits.'),
-          const SizedBox(height: 16),
-          _buildConstraintsSection(),
-          
-          const SizedBox(height: 32),
-          _buildSectionTitle('❤️ Preferences', 'Your chore preferences.'),
-          const SizedBox(height: 16),
-          _buildPreferencesSection(),
-
-          const SizedBox(height: 48),
-          FilledButton(
-            onPressed: _isSaving ? null : _save,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: _isSaving
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Save Settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, String subtitle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.muted)),
-      ],
-    );
-  }
-
-  Widget _buildAvailabilitySection() {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < _days.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
-            SwitchListTile(
-              title: Text(_days[i].$2, style: const TextStyle(fontWeight: FontWeight.w500)),
-              value: _availability[_days[i].$1]!,
-              onChanged: (val) => setState(() => _availability[_days[i].$1] = val),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildConstraintsSection() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  Future<void> _choosePreference(ChoreTemplate chore) async {
+    final selected = await showModalBottomSheet<PreferenceType>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Max Chores / Week', style: TextStyle(fontWeight: FontWeight.w500)),
-                Text('$_maxChoresPerWeek', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.purple)),
-              ],
+            ListTile(
+              title: Text(
+                chore.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
-            Slider(
-              value: _maxChoresPerWeek.toDouble(),
-              min: 1, max: 30, divisions: 29,
-              onChanged: (val) => setState(() => _maxChoresPerWeek = val.round()),
-            ),
-            const Divider(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Max Minutes / Day', style: TextStyle(fontWeight: FontWeight.w500)),
-                Text('$_maxMinutesPerDay', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.purple)),
-              ],
-            ),
-            Slider(
-              value: _maxMinutesPerDay.toDouble(),
-              min: 15, max: 300, divisions: 19, // 15 min increments
-              onChanged: (val) => setState(() => _maxMinutesPerDay = val.round()),
-            ),
+            for (final item in {
+              PreferenceType.preferred: 'Preferred',
+              PreferenceType.neutral: 'Neutral',
+              PreferenceType.disliked: 'Disliked',
+            }.entries)
+              ListTile(
+                title: Text(item.value),
+                selected:
+                    (_preferences[chore.id] ?? PreferenceType.neutral) ==
+                    item.key,
+                onTap: () => Navigator.pop(context, item.key),
+              ),
           ],
         ),
       ),
     );
+    if (mounted && selected != null) {
+      setState(() => _preferences[chore.id] = selected);
+    }
   }
 
-  Widget _buildPreferencesSection() {
-    if (_chores.isEmpty) {
-      return const Text('No chores available to set preferences.');
-    }
-    
+  Widget _panel(Widget child) => Card(
+    margin: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+      side: BorderSide(
+        color: Theme.of(context).colorScheme.outlineVariant
+            .withValues(alpha: .35),
+      ),
+    ),
+    child: Padding(padding: const EdgeInsets.all(20), child: child),
+  );
+
+  Widget _capacity(
+    String eyebrow,
+    String title,
+    String value,
+    double current,
+    double min,
+    double max,
+    ValueChanged<double> onChanged,
+  ) {
+    final colors = Theme.of(context).colorScheme;
     return Column(
-      children: _chores.map((chore) {
-        final currentPref = _preferences[chore.id] ?? PreferenceType.neutral;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(chore.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<PreferenceType>(
-                      segments: const [
-                        ButtonSegment(value: PreferenceType.disliked, icon: Text('😞')),
-                        ButtonSegment(value: PreferenceType.neutral, icon: Text('😐')),
-                        ButtonSegment(value: PreferenceType.preferred, icon: Text('😍')),
-                      ],
-                      selected: {currentPref},
-                      onSelectionChanged: (set) {
-                        setState(() => _preferences[chore.id] = set.first);
-                      },
-                      showSelectedIcon: false,
+                  Text(
+                    eyebrow,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colors.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
             ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.primaryFixed,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: colors.onPrimaryFixedVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Semantics(
+          label: title,
+          child: Slider(
+            value: current,
+            min: min,
+            max: max,
+            divisions: (max - min).round(),
+            label: value,
+            onChanged: _isSaving ? null : onChanged,
           ),
-        );
-      }).toList(),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${min.toInt()}',
+              style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+            ),
+            Text(
+              '${max.toInt()}',
+              style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'My Settings',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: _isLoading
+          ? const LoadingView()
+          : !_loaded && _error != null
+          ? ErrorView(error: _error!, onRetry: _fetchData)
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                Text(
+                  'Set your capacity and choose chores that suit you.',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _panel(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _capacity(
+                        'WEEKLY CAPACITY',
+                        'Max Chores / Week',
+                        '$_maxChoresPerWeek tasks',
+                        _maxChoresPerWeek.toDouble(),
+                        math.min(1, _maxChoresPerWeek).toDouble(),
+                        math.max(40, _maxChoresPerWeek).toDouble(),
+                        (value) =>
+                            setState(() => _maxChoresPerWeek = value.round()),
+                      ),
+                      const Divider(height: 36),
+                      _capacity(
+                        'DAILY DEDICATION',
+                        'Max Minutes / Day',
+                        '$_maxMinutesPerDay min',
+                        _maxMinutesPerDay.toDouble(),
+                        math.min(15, _maxMinutesPerDay).toDouble(),
+                        math.max(240, _maxMinutesPerDay).toDouble(),
+                        (value) =>
+                            setState(() => _maxMinutesPerDay = value.round()),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'These limits are used to validate and assign chores. Set your available time slots as well.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Chore Preferences',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tap a chore to mark it as preferred, neutral or disliked.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _panel(
+                  _chores.isEmpty
+                      ? const Text('No chores available to set preferences.')
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final chore in _chores)
+                              ActionChip(
+                                avatar: Icon(
+                                  (_preferences[chore.id] ??
+                                              PreferenceType.neutral) ==
+                                          PreferenceType.preferred
+                                      ? Icons.favorite_outline_rounded
+                                      : (_preferences[chore.id] ??
+                                                PreferenceType.neutral) ==
+                                            PreferenceType.disliked
+                                      ? Icons.remove_circle_outline
+                                      : Icons.cleaning_services_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  '${chore.name}${_preferences[chore.id] == PreferenceType.preferred
+                                      ? ' · Preferred'
+                                      : _preferences[chore.id] == PreferenceType.disliked
+                                      ? ' · Disliked'
+                                      : ''}',
+                                ),
+                                onPressed: _isSaving
+                                    ? null
+                                    : () => _choosePreference(chore),
+                              ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _isSaving
+                      ? null
+                      : () => context.push(
+                          '/houses/${widget.houseId}/seasons/${widget.seasonId}/availability',
+                        ),
+                  icon: const Icon(Icons.schedule_outlined, size: 18),
+                  label: const Text('Edit Availability'),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(_error!, style: TextStyle(color: colors.error)),
+                  ),
+              ],
+            ),
+      bottomNavigationBar: _isLoading
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _isSaving || !_loaded ? null : _save,
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: Text(_isSaving ? 'Saving…' : 'Save Changes'),
+                ),
+              ),
+            ),
     );
   }
 }

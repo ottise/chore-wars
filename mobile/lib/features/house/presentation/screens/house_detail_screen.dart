@@ -2,72 +2,196 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../core/widgets/app_states.dart';
-import '../../../chat/providers/action_proposal_providers.dart';
-import '../../../chat/presentation/widgets/urgent_event_banner.dart';
 import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
 
 class HouseDetailScreen extends ConsumerWidget {
   const HouseDetailScreen({required this.houseId, super.key});
-
   final String houseId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final house = ref.watch(houseDetailProvider(houseId));
     final members = ref.watch(houseMembersProvider(houseId));
-    final activeSeason = ref.watch(activeSeasonProvider(houseId));
-
+    final season = ref.watch(activeSeasonProvider(houseId));
+    final me = ref.watch(userProfileProvider).asData?.value.id;
+    final colors = Theme.of(context).colorScheme;
+    final base = '/houses/$houseId';
     return Scaffold(
-      appBar: AppBar(
-        title: house.when(
-          loading: () => const SizedBox.shrink(),
-          error: (_, _) => const Text('House'),
-          data: (h) => Text(h.name),
+      body: house.when(
+        loading: () => const LoadingView(),
+        error: (error, _) => ErrorView(
+          error: error,
+          onRetry: () => refreshHouseState(ref, houseId: houseId),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Chores needing resolution',
-            icon: const Icon(Icons.pending_actions),
-            onPressed: () => context.push('/houses/$houseId/unresolved-chores'),
-          ),
-          IconButton(
-            tooltip: 'Household rewards',
-            icon: const Icon(Icons.redeem),
-            onPressed: () => context.push('/houses/$houseId/rewards'),
-          ),
-          house
-                  .whenData(
-                    (h) => IconButton(
-                      tooltip: 'Settings',
-                      icon: const Icon(Icons.settings_outlined),
-                      onPressed: () =>
-                          context.push('/houses/$houseId/settings', extra: h),
+        data: (h) => RefreshIndicator(
+          onRefresh: () async {
+            refreshHouseState(ref, houseId: houseId);
+            await Future.wait([
+              ref.read(houseDetailProvider(houseId).future),
+              ref.read(houseMembersProvider(houseId).future),
+              ref.read(activeSeasonProvider(houseId).future),
+            ]);
+          },
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+                children: [
+                  Text(
+                    'Your shared space',
+                    style: TextStyle(
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                  )
-                  .value ??
-              const SizedBox.shrink(),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          refreshHouseState(ref, houseId: houseId);
-          await ref.read(houseDetailProvider(houseId).future);
-        },
-        child: house.when(
-          loading: () => const LoadingView(),
-          error: (error, _) => ErrorView(
-            error: error,
-            onRetry: () => refreshHouseState(ref, houseId: houseId),
-          ),
-          data: (h) => _HouseBody(
-            house: h,
-            members: members,
-            activeSeason: activeSeason,
-            houseId: houseId,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Overview',
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -1,
+                                color: colors.onSurface,
+                              ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push('$base/more'),
+                        child: const Text('House Management'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  season.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (error, _) => ErrorView(
+                      error: error,
+                      onRetry: () =>
+                          ref.invalidate(activeSeasonProvider(houseId)),
+                    ),
+                    data: (value) => _SeasonCard(
+                      houseId: houseId,
+                      owner: h.myRole == HouseRole.owner,
+                      season: value,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Text(
+                        'Member',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(width: 8),
+                      if (members.asData != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primaryFixed,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${members.asData!.value.where((m) => m.isActive).length}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: colors.onPrimaryFixedVariant,
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      if (h.myRole == HouseRole.owner)
+                        TextButton(
+                          onPressed: () => context.push('$base/members'),
+                          child: const Text('Manage'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  members.when(
+                    loading: () => const LoadingView(),
+                    error: (error, _) => ErrorView(
+                      error: error,
+                      onRetry: () =>
+                          ref.invalidate(houseMembersProvider(houseId)),
+                    ),
+                    data: (list) {
+                      final active = list.where((m) => m.isActive).toList();
+                      return _Surface(
+                        child: active.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(20),
+                                child: Text('No member information available.'),
+                              )
+                            : Column(
+                                children: [
+                                  for (var i = 0; i < active.length; i++) ...[
+                                    if (i > 0)
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        child: Divider(height: 1),
+                                      ),
+                                    _MemberTile(
+                                      member: active[i],
+                                      onTap: active[i].userId == me
+                                          ? () => context.push('$base/account')
+                                          : null,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'YOUR HOUSEHOLD',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  _Surface(
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.person_outline_rounded),
+                          title: const Text('My Profile & Schedule'),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => context.push('$base/account'),
+                        ),
+                        if (season.asData?.value?['id'] != null) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Divider(height: 1),
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.calendar_month_outlined),
+                            title: const Text('Household Schedule'),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push(
+                              '$base/seasons/${season.asData!.value!['id']}/review',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -75,360 +199,187 @@ class HouseDetailScreen extends ConsumerWidget {
   }
 }
 
-class _HouseBody extends ConsumerWidget {
-  const _HouseBody({
-    required this.house,
-    required this.members,
-    required this.activeSeason,
+class _SeasonCard extends StatelessWidget {
+  const _SeasonCard({
     required this.houseId,
+    required this.owner,
+    required this.season,
   });
-
-  final House house;
-  final AsyncValue<List<HouseMember>> members;
-  final AsyncValue<Map<String, dynamic>?> activeSeason;
   final String houseId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final urgentEvent = ref.watch(activeUrgentEventForHouseProvider(houseId));
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            _HeaderCard(house: house),
-            const SizedBox(height: 20),
-            _QuickActions(
-              house: house,
-              houseId: houseId,
-              activeSeason: activeSeason,
-            ),
-            if (urgentEvent.asData?.value != null) ...[
-              const SizedBox(height: 16),
-              UrgentEventBanner(proposal: urgentEvent.asData!.value!),
-            ],
-            const SizedBox(height: 24),
-            activeSeason.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => ErrorView(
-                error: error,
-                onRetry: () => ref.invalidate(activeSeasonProvider(houseId)),
-              ),
-              data: (season) {
-                if (season == null) {
-                  if (house.myRole != HouseRole.owner) {
-                    return const ListTile(
-                      leading: Icon(Icons.hourglass_empty_rounded),
-                      title: Text('No season has been created yet'),
-                      subtitle: Text(
-                        'The house owner can create the next season.',
-                      ),
-                    );
-                  }
-
-                  return ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: Theme.of(context).colorScheme.primaryContainer,
-                    leading: const Icon(Icons.add_task_rounded),
-                    title: const Text('Start new season'),
-                    subtitle: const Text('Create a season to assign chores'),
-                    onTap: () => context.push('/houses/$houseId/seasons/new'),
-                  );
-                }
-
-                if (season['status'] == 0) {
-                  if (house.myRole != HouseRole.owner) {
-                    return const ListTile(
-                      leading: Icon(Icons.schedule_rounded),
-                      title: Text('Season setup in progress'),
-                      subtitle: Text(
-                        'The house owner will generate the schedule when it is ready.',
-                      ),
-                    );
-                  }
-
-                  return ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: Theme.of(context).colorScheme.secondaryContainer,
-                    leading: const Icon(Icons.auto_awesome_rounded),
-                    title: const Text('Set up draft schedule'),
-                    subtitle: const Text(
-                      'Generate, assign and submit the schedule for review',
-                    ),
-                    onTap: () => context.push(
-                      '/houses/$houseId/seasons/${season['id']}/review',
-                    ),
-                  );
-                }
-
-                if (season['status'] == 1) {
-                  final hasConfirmed =
-                      season['currentUserConfirmationStatus'] == 1;
-                  final confirmedCount = season['confirmedCount'] ?? 0;
-                  final requiredCount =
-                      season['requiredConfirmationCount'] ?? 0;
-                  return ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: Theme.of(context).colorScheme.tertiaryContainer,
-                    leading: Icon(
-                      hasConfirmed
-                          ? Icons.hourglass_top_rounded
-                          : Icons.rate_review_rounded,
-                    ),
-                    title: Text(
-                      hasConfirmed ? 'Schedule confirmed' : 'Review Schedule',
-                    ),
-                    subtitle: Text(
-                      hasConfirmed
-                          ? 'Waiting for the other members '
-                                '($confirmedCount/$requiredCount confirmed)'
-                          : 'Review and confirm the generated schedule',
-                    ),
-                    onTap: () => context.push(
-                      '/houses/$houseId/seasons/${season['id']}/review',
-                    ),
-                  );
-                }
-
-                return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(height: 24),
-            Text('Members', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            members.when(
-              loading: () => const LoadingView(),
-              error: (error, _) => ErrorView(
-                error: error,
-                onRetry: () => ref.invalidate(houseMembersProvider(houseId)),
-              ),
-              data: (list) => Column(
-                children: list
-                    .where((m) => m.isActive)
-                    .map((m) => _MemberTile(member: m))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.house});
-  final House house;
+  final bool owner;
+  final Map<String, dynamic>? season;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: AppTheme.purple,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              Icons.home_work_rounded,
-              color: AppTheme.yellow,
-              size: 36,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              house.name,
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+    final colors = Theme.of(context).colorScheme;
+    final base = '/houses/$houseId';
+    final status = season?['status'];
+    final confirmed = season?['currentUserConfirmationStatus'] == 1;
+    final (title, detail, action, path) = switch (status) {
+      null => (
+        'Start Your First Season',
+        owner ? 'Create a season to plan and share household chores.' : 'The owner will create a season and prepare the household schedule.',
+        owner ? 'Create New Season' : null,
+        '$base/seasons/new',
+      ),
+      0 => (
+        'Preparing a New Season',
+        owner
+            ? 'Build a schedule, assign chores and submit it for review.'
+            : 'The owner is preparing the chore schedule.',
+        owner ? 'Prepare Schedule' : null,
+        '$base/seasons/${season!['id']}/review',
+      ),
+      1 => (
+        confirmed
+            ? 'You Have Approved the Schedule'
+            : 'Schedule Awaiting Approval',
+        '${season!['confirmedCount'] ?? 0}/${season!['requiredConfirmationCount'] ?? 0} members have approved. Everyone must agree before the season starts.',
+        'Review Schedule',
+        '$base/seasons/${season!['id']}/review',
+      ),
+      2 => (
+        'Keep Your Household on Track',
+        'The season is active. Check your assigned chores and update your progress.',
+        'View Chores',
+        '$base/chores',
+      ),
+      _ => (
+        'Season Completed',
+        'Review your household schedule and results.',
+        'Review Season',
+        '$base/seasons/${season!['id']}/review',
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.primaryFixed,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: colors.onPrimaryFixedVariant,
               ),
-              child: Text(
-                house.myRole.label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
+              const SizedBox(width: 8),
+              Text(
+                'Current Season',
+                style: TextStyle(
+                  color: colors.onPrimaryFixedVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: colors.onPrimaryFixed,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            detail,
+            style: TextStyle(color: colors.onPrimaryFixedVariant, height: 1.5),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => context.push(path),
+              child: Text(action),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({
-    required this.house,
-    required this.houseId,
-    this.activeSeason,
-  });
-  final House house;
-  final String houseId;
-  final AsyncValue<Map<String, dynamic>?>? activeSeason;
-
+class _Surface extends StatelessWidget {
+  const _Surface({required this.child});
+  final Widget child;
   @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _ActionChip(
-          icon: Icons.cleaning_services_rounded,
-          label: 'Chores',
-          onTap: () => context.push('/houses/$houseId/chores'),
-        ),
-        _ActionChip(
-          icon: Icons.people_outline_rounded,
-          label: 'Members',
-          onTap: () => context.push('/houses/$houseId/members'),
-        ),
-        _ActionChip(
-          icon: Icons.bolt_rounded,
-          label: 'Karma',
-          onTap: () => context.push('/houses/$houseId/karma'),
-        ),
-        _ActionChip(
-          icon: Icons.chat_bubble_outline_rounded,
-          label: 'Chat',
-          onTap: () => context.push('/houses/$houseId/chat'),
-        ),
-        _ActionChip(
-          icon: Icons.volunteer_activism_outlined,
-          label: 'Bounties',
-          onTap: () =>
-              context.push('/bounties?houseId=${Uri.encodeComponent(houseId)}'),
-        ),
-        _ActionChip(
-          icon: Icons.qr_code_rounded,
-          label: 'Invite QR',
-          onTap: () => context.push('/houses/$houseId/qr-invite', extra: house),
-        ),
-        if (activeSeason?.value != null)
-          _ActionChip(
-            icon: Icons.tune_rounded,
-            label: 'My Settings',
-            onTap: () => context.push(
-              '/houses/$houseId/seasons/${activeSeason!.value!['id']}/member-settings',
-            ),
-          ),
-        if (activeSeason?.value != null)
-          _ActionChip(
-            icon: Icons.star_rounded,
-            label: 'Bonus Chores',
-            onTap: () => context.push(
-              '/houses/$houseId/seasons/${activeSeason!.value!['id']}/bonus-chores',
-            ),
-          ),
-        if (activeSeason?.value != null &&
-            (activeSeason!.value!['status'] == 2 ||
-                activeSeason!.value!['status'] == 'ACTIVE'))
-          _ActionChip(
-            icon: Icons.bolt_rounded,
-            label: 'Urgent Event',
-            onTap: () => context.push('/houses/$houseId/urgent-event'),
-          ),
-      ],
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE9E7F5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: AppTheme.purple),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: AppTheme.ink,
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surfaceContainerLowest,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+      side: BorderSide(
+        color: Theme.of(context).colorScheme.outlineVariant
+            .withValues(alpha: .35),
       ),
-    );
-  }
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: child,
+  );
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member});
+  const _MemberTile({required this.member, this.onTap});
   final HouseMember member;
-
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      onTap: onTap,
+      leading: Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: member.isOwner
+              ? colors.primaryFixed
+              : colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Text(
-          member.displayName.isNotEmpty
-              ? member.displayName[0].toUpperCase()
-              : '?',
-          style: const TextStyle(
-            color: AppTheme.purple,
-            fontWeight: FontWeight.w800,
+          member.displayName.isEmpty
+              ? '?'
+              : member.displayName.characters.first.toUpperCase(),
+          style: TextStyle(
+            color: member.isOwner
+                ? colors.onPrimaryFixedVariant
+                : colors.onSurface,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
       title: Text(
         member.displayName,
-        style: Theme.of(context).textTheme.titleMedium,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
-      trailing: member.isOwner
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.purple.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text(
-                'Owner',
-                style: TextStyle(
-                  color: AppTheme.purple,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            )
-          : null,
+      subtitle: Text(member.isOwner ? 'Owner' : 'Member'),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: member.isOwner
+              ? colors.primaryFixed
+              : colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          member.isOwner ? 'Owner' : 'Member',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: member.isOwner
+                ? colors.onPrimaryFixedVariant
+                : colors.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

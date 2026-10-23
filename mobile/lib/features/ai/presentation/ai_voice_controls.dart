@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -8,10 +9,12 @@ class AiVoiceControls extends StatefulWidget {
     required this.controller,
     required this.summary,
     this.disabled = false,
+    this.compact = false,
   });
   final TextEditingController controller;
   final String summary;
   final bool disabled;
+  final bool compact;
   @override
   State<AiVoiceControls> createState() => _AiVoiceControlsState();
 }
@@ -23,6 +26,7 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
   bool listening = false, starting = false;
   String? status;
   int generation = 0;
+  bool _disposed = false;
   @override
   void initState() {
     super.initState();
@@ -31,19 +35,36 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
 
   @override
   void dispose() {
+    _disposed = true;
     generation++;
     WidgetsBinding.instance.removeObserver(this);
-    speech.cancel();
-    tts.stop();
+    _stopAll();
     super.dispose();
+  }
+
+  Future<void> _stopAll() async {
+    generation++;
+    try {
+      await speech.cancel();
+    } catch (_) {}
+    try {
+      await tts.stop();
+    } catch (_) {}
+    if (mounted && !_disposed) {
+      setState(() {
+        listening = false;
+        starting = false;
+      });
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
       generation++;
-      speech.cancel();
-      tts.stop();
+      _stopAll();
       if (mounted) {
         setState(() {
           listening = false;
@@ -60,41 +81,51 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
       status = null;
     });
     try {
-      await tts.stop();
+      try {
+        await tts.stop();
+      } catch (_) {
+        /* Recognition remains usable without a TTS engine. */
+      }
       if (!mounted || operation != generation) return;
+      speech.errorListener = (error) {
+        if (mounted && !_disposed) {
+          setState(() {
+            status =
+                'Speech recognition failed (${error.errorMsg}). Check microphone permissions, network connection and speech services.';
+            listening = false;
+          });
+        }
+      };
+      speech.statusListener = (value) {
+        if (mounted && !_disposed) {
+          setState(() => listening = value == 'listening');
+        }
+      };
       final ready = await speech.initialize(
-        onError: (error) {
-          if (mounted && operation == generation) {
-            setState(() {
-              status = 'Không nhận được giọng nói. Bạn có thể nhập nội dung.';
-              listening = false;
-            });
-          }
-        },
-        onStatus: (value) {
-          if (mounted && operation == generation) {
-            setState(() => listening = value == 'listening');
-          }
-        },
+        onError: speech.errorListener,
+        onStatus: speech.statusListener,
       );
       if (!mounted || operation != generation) return;
       if (!ready) {
         setState(
-          () => status = 'Micro hoặc dịch vụ nhận giọng nói chưa sẵn sàng. Bạn vẫn có thể nhập nội dung.',
+          () => status = 'Microphone or speech services are unavailable. You can still type your message.',
         );
         return;
       }
-      final locales = await speech.locales();
-      final vietnamese = locales
-          .where((l) => l.localeId.toLowerCase().startsWith('vi'))
+      final locales = kIsWeb ? <LocaleName>[] : await speech.locales();
+      final english = locales
+          .where((l) => l.localeId.toLowerCase().startsWith('en'))
           .toList();
       if (!mounted || operation != generation) return;
-      if (vietnamese.isEmpty) {
-        setState(() => status = 'Thiết bị chưa có nhận giọng nói tiếng Việt.');
+      if (!kIsWeb && english.isEmpty) {
+        setState(
+          () => status =
+              'English speech recognition is unavailable on this device.',
+        );
         return;
       }
       await speech.listen(
-        localeId: vietnamese.first.localeId,
+        localeId: kIsWeb ? 'en-US' : english.first.localeId,
         listenFor: const Duration(seconds: 30),
         onResult: (result) {
           if (!mounted || operation != generation) return;
@@ -112,7 +143,8 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
     } catch (_) {
       if (mounted && operation == generation) {
         setState(
-          () => status = 'Nhận giọng nói không khả dụng. Hãy nhập nội dung.',
+          () => status =
+              'Speech recognition is unavailable. Please type your message.',
         );
       }
     } finally {
@@ -126,22 +158,24 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
       await speech.cancel();
       if (!mounted || operation != generation) return;
       if (mounted) setState(() => listening = false);
-      final available = await tts.isLanguageAvailable('vi-VN');
+      final available = await tts.isLanguageAvailable('en-US');
       if (!mounted || operation != generation) return;
       if (available != true) {
         if (mounted) {
-          setState(() => status = 'Thiết bị chưa có giọng đọc tiếng Việt.');
+          setState(
+            () => status = 'An English voice is unavailable on this device.',
+          );
         }
         return;
       }
-      await tts.setLanguage('vi-VN');
+      await tts.setLanguage('en-US');
       if (!mounted || operation != generation) return;
       await tts.speak(widget.summary);
     } catch (_) {
       if (mounted) {
         setState(
           () =>
-              status = 'Không phát được giọng đọc. Bạn vẫn có thể đọc kết quả.',
+              status = 'Unable to play speech. You can still read the result.',
         );
       }
     }
@@ -152,40 +186,41 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Wrap(
-        spacing: 8,
+        spacing: widget.compact ? 0 : 8,
         children: [
           TextButton.icon(
             onPressed: widget.disabled || starting
                 ? null
                 : listening
                 ? () async {
-                    generation++;
                     await speech.stop();
                     if (mounted) setState(() => listening = false);
                   }
                 : listen,
             icon: Icon(listening ? Icons.stop : Icons.mic_none),
-            label: Text(listening ? 'Dừng ghi' : 'Nói tiếng Việt'),
+            label: Text(
+              listening
+                  ? 'Stop Recording'
+                  : widget.compact
+                  ? 'Speak'
+                  : 'Speak English',
+            ),
           ),
           TextButton.icon(
             onPressed: widget.disabled || widget.summary.isEmpty ? null : speak,
             icon: const Icon(Icons.volume_up_outlined),
-            label: const Text('Đọc kết quả'),
+            label: Text(widget.compact ? 'Read' : 'Read Results'),
           ),
           TextButton(
-            onPressed: () async {
-              generation++;
-              await speech.cancel();
-              await tts.stop();
-              if (mounted) setState(() => listening = false);
-            },
-            child: const Text('Dừng âm thanh'),
+            onPressed: _stopAll,
+            child: Text(widget.compact ? 'Stop' : 'Stop Audio'),
           ),
         ],
       ),
-      const Text(
-        'Bạn có thể sửa bản chép lời trước khi gửi. Nhận giọng nói có thể cần dịch vụ mạng của thiết bị.',
-      ),
+      if (!widget.compact)
+        const Text(
+          'You can edit the transcript before sending. Speech recognition may use your device network services.',
+        ),
       if (status != null) Text(status!),
     ],
   );

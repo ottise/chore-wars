@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:chore_wars/core/utils/api_error_message.dart';
 
-import '../widgets/urgent_event_banner.dart';
+import '../../domain/chat_mentions.dart';
+import '../../../house/presentation/providers/house_providers.dart';
+import '../widgets/chat_notification_button.dart';
 
 import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
@@ -28,6 +30,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final ScrollController _scrollController = ScrollController();
   String? _roomId;
   bool _isLoadingRoom = true;
+  int _roomLoadGeneration = 0;
 
   @override
   void initState() {
@@ -45,21 +48,32 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   Future<void> _initChat() async {
+    final generation = ++_roomLoadGeneration;
     try {
       final repo = ref.read(chatRepositoryProvider);
       final room = await repo.getHouseRoom(widget.houseId);
-      if (mounted) {
+      if (mounted && generation == _roomLoadGeneration) {
         setState(() {
           _roomId = room.id;
           _isLoadingRoom = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _roomLoadGeneration) {
         setState(() => _isLoadingRoom = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
       }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatRoomScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.houseId != widget.houseId) {
+      _roomId = null;
+      _isLoadingRoom = true;
+      _initChat();
     }
   }
 
@@ -84,31 +98,49 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
     final chatNotifier = ref.watch(chatMessagesProvider(_roomId!));
     final currentUser = ref.watch(userProfileProvider).asData?.value;
+    final members =
+        ref.watch(houseMembersProvider(widget.houseId)).asData?.value ?? [];
+    final house = ref.watch(houseDetailProvider(widget.houseId)).asData?.value;
+    final colors = Theme.of(context).colorScheme;
+    final background = Color.alphaBlend(
+      colors.primaryFixed.withValues(alpha: .4),
+      colors.surface,
+    );
+    final names = {
+      for (final member in members) member.userId: member.displayName,
+    };
     final proposalsAsync = ref.watch(actionProposalProvider(_roomId!));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('House Chat'),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        leading: IconButton(
+          tooltip: 'Back to Chat',
+          onPressed: () => context.go('/houses/${widget.houseId}/chat'),
+          icon: const Icon(Icons.arrow_back_rounded, size: 21),
+        ),
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Household Chat',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${house?.name ?? 'My House'}${members.isEmpty ? '' : ' · ${members.where((m) => m.isActive).length} members'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+        backgroundColor: background,
         elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Phát động nhiệm vụ khẩn cấp',
-            icon: const Icon(Icons.bolt_rounded),
-            onPressed: () =>
-                context.push('/houses/${widget.houseId}/urgent-event'),
-          ),
-        ],
+        actions: [ChatNotificationButton(houseId: widget.houseId)],
       ),
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: background,
       body: Column(
         children: [
-          if (ref
-                  .watch(activeUrgentEventForHouseProvider(widget.houseId))
-                  .asData
-                  ?.value
-              case final urgent?)
-            UrgentEventBanner(proposal: urgent),
           Expanded(
             child: ListenableBuilder(
               listenable: chatNotifier,
@@ -133,7 +165,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     activeProposals.length + chatNotifier.messages.length;
 
                 if (totalItems == 0) {
-                  return const Center(child: Text('No messages yet. Say hi!'));
+                  return const Center(
+                    child: Text('Say hello to your household.'),
+                  );
                 }
                 return ListView.builder(
                   controller: _scrollController,
@@ -171,7 +205,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       children: [
                         if (showDateSeparator)
                           ChatDateSeparator(date: message.createdAt),
-                        MessageBubble(message: message, isMe: isMe),
+                        MessageBubble(
+                          message: message,
+                          isMe: isMe,
+                          memberNames: names,
+                        ),
                       ],
                     );
                   },
@@ -179,12 +217,30 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               },
             ),
           ),
-          VoiceNoteRecorder(
-            onSend: (bytes, filename) => ref
-                .read(chatMessagesProvider(_roomId!))
-                .sendImage(bytes, filename),
-          ),
           MessageInput(
+            onOpenBounty: () =>
+                context.push('/houses/${widget.houseId}/bounties'),
+            voiceRecorder: VoiceNoteRecorder(
+              onSend: (bytes, filename) => ref
+                  .read(chatMessagesProvider(_roomId!))
+                  .sendImage(bytes, filename),
+            ),
+            mentionTargets: [
+              const ChatMentionTarget(id: 'agent', label: 'Assistant'),
+              const ChatMentionTarget(id: 'all', label: 'Everyone'),
+              for (final member in members.where(
+                (m) => m.isActive && m.userId != currentUser?.id,
+              ))
+                ChatMentionTarget(id: member.userId, label: member.displayName),
+            ],
+            onAgentRequest: (prompt) async {
+              if (!mounted) return;
+              FocusScope.of(context).unfocus();
+              await context.push(
+                '/houses/${widget.houseId}/chat/assistant',
+                extra: prompt,
+              );
+            },
             onSendMessage: (content) =>
                 ref.read(chatMessagesProvider(_roomId!)).sendMessage(content),
             onSendImage: (bytes, filename) async {

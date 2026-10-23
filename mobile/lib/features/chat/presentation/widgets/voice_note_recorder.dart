@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../providers/voice_note_provider.dart';
+import '../../data/services/voice_file.dart';
 
 class VoiceNoteRecorder extends ConsumerStatefulWidget {
   const VoiceNoteRecorder({super.key, required this.onSend});
@@ -45,14 +45,18 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
           'Microphone permission was denied. Enable it in phone settings to record.',
         );
       }
-      final directory = await getTemporaryDirectory();
-      final path =
-          '${directory.path}/cw-record-${DateTime.now().microsecondsSinceEpoch}.m4a';
+      final encoder = kIsWeb ? AudioEncoder.wav : AudioEncoder.aacLc;
+      if (!await _recorder.isEncoderSupported(encoder)) {
+        throw StateError(
+          'Audio recording is unsupported. Check microphone permissions and try again.',
+        );
+      }
+      final path = await recordingPath();
       await _recorder.start(
-        const RecordConfig(
-          encoder: AudioEncoder.aacLc,
+        RecordConfig(
+          encoder: encoder,
           bitRate: 64000,
-          sampleRate: 44100,
+          sampleRate: 16000,
           numChannels: 1,
         ),
         path: path,
@@ -106,8 +110,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
   }
 
   static Future<void> _deleteFile(String path) async {
-    final file = File(path);
-    if (await file.exists()) await file.delete();
+    await deleteRecording(path);
   }
 
   Future<void> _discard() async {
@@ -123,12 +126,12 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
     setState(() => _busy = true);
     try {
       final playback = ref.read(audioPlaybackProvider);
-      final bytes = await File(path).readAsBytes();
+      final bytes = await readRecording(path);
       if (bytes.length > 5 * 1024 * 1024) {
         throw StateError('Voice note exceeds 5 MB.');
       }
       await playback.stop();
-      await widget.onSend(bytes, 'voice-note.m4a');
+      await widget.onSend(bytes, kIsWeb ? 'voice-note.wav' : 'voice-note.m4a');
       await _deleteFile(path);
       if (mounted) setState(() => _path = null);
     } catch (error) {
@@ -143,7 +146,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
     if (path == null) return;
     final playback = ref.read(audioPlaybackProvider);
     try {
-      final bytes = await File(path).readAsBytes();
+      final bytes = await readRecording(path);
       if (!mounted) return;
       await playback.playBytes('preview', bytes);
     } catch (error) {
@@ -163,6 +166,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
 
   @override
   Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
       if (_path == null)
         IconButton(

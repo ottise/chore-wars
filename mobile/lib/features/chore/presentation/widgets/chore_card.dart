@@ -112,7 +112,7 @@ class _KarmaPill extends StatelessWidget {
       child: Text(
         '+$value Karma',
         style: const TextStyle(
-          color: Color(0xFF7A5700),
+          color: AppTheme.onAmber,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),

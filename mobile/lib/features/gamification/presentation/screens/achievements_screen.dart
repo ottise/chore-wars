@@ -16,7 +16,12 @@ class AchievementsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final achievements = ref.watch(achievementsProvider(houseId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Achievements')),
+      appBar: AppBar(
+        title: const Text(
+          'House Achievements',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(achievementsProvider(houseId));
@@ -51,15 +56,16 @@ class AchievementsScreen extends ConsumerWidget {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                   sliver: SliverGrid.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.86,
-                        ),
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 260,
+                      mainAxisExtent:
+                          220 + MediaQuery.textScalerOf(context).scale(40),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                    ),
                     itemCount: items.length,
-                    itemBuilder: (context, index) => GestureDetector(
+                    itemBuilder: (context, index) => _AchievementCard(
+                      item: items[index],
                       onTap: items[index].isUnlocked
                           ? () => showDialog<void>(
                               context: context,
@@ -68,7 +74,6 @@ class AchievementsScreen extends ConsumerWidget {
                               ),
                             )
                           : null,
-                      child: _AchievementCard(item: items[index]),
                     ),
                   ),
                 ),
@@ -104,16 +109,21 @@ class _ProgressHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$unlocked of $total unlocked',
-                  style: Theme.of(context).textTheme.titleLarge
+                  '$unlocked of $total Unlocked',
+                  style: Theme.of(context).textTheme.titleMedium
                       ?.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 10),
                 LinearProgressIndicator(
                   value: total == 0 ? 0 : unlocked / total,
-                  color: AppTheme.yellow,
+                  color: Colors.white,
                   backgroundColor: Colors.white24,
                   borderRadius: BorderRadius.circular(10),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${total == 0 ? 0 : (unlocked / total * 100).round()}% unlocked · Keep completing household tasks',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
                 ),
               ],
             ),
@@ -125,56 +135,109 @@ class _ProgressHeader extends StatelessWidget {
 }
 
 class _AchievementCard extends StatelessWidget {
-  const _AchievementCard({required this.item});
+  const _AchievementCard({required this.item, this.onTap});
   final Achievement item;
-
+  final VoidCallback? onTap;
   IconData get _icon => switch (item.conditionType) {
     1 => Icons.local_fire_department_rounded,
     2 => Icons.bolt_rounded,
     3 => Icons.volunteer_activism_rounded,
     _ => Icons.cleaning_services_rounded,
   };
-
   @override
-  Widget build(BuildContext context) => Card(
-    color: item.isUnlocked
-        ? Theme.of(context).colorScheme.surface
-        : Theme.of(context).colorScheme.surfaceContainerHighest,
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: item.isUnlocked
-                ? AppTheme.yellow.withValues(alpha: 0.35)
-                : Colors.black12,
-            child: Icon(
-              item.isUnlocked ? _icon : Icons.lock_outline_rounded,
-              color: item.isUnlocked ? const Color(0xFF7A5700) : AppTheme.muted,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            item.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.isUnlocked ? 'Unlocked' : item.description,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: item.isUnlocked ? AppTheme.green : AppTheme.muted,
-              fontWeight: item.isUnlocked ? FontWeight.w800 : FontWeight.w400,
-              fontSize: 12,
-            ),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: item.isUnlocked
+          ? colors.surfaceContainerLowest
+          : colors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: item.isUnlocked
+              ? colors.primaryFixedDim
+              : colors.outlineVariant.withValues(alpha: .35),
+        ),
       ),
-    ),
-  );
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: item.isUnlocked
+                          ? colors.primaryFixed
+                          : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      item.isUnlocked ? _icon : Icons.lock_outline_rounded,
+                      size: 22,
+                      color: item.isUnlocked
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      item.isUnlocked ? 'Done' : 'Locked',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: item.isUnlocked
+                            ? AppTheme.green
+                            : colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Text(
+                item.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                item.description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.5,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              Divider(color: colors.outlineVariant.withValues(alpha: .4)),
+              Text(
+                item.isUnlocked
+                    ? 'Achievement unlocked'
+                    : 'Target: ${item.threshold}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: item.isUnlocked
+                      ? colors.primary
+                      : colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

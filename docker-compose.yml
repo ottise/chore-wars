@@ -53,7 +53,7 @@ services:
         until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
           sleep 2
         done
-        for topic in chore.completed bounty.created bounty.accepted chore.overdue bounty.expired season.ended chore.deadline_reminder; do
+        for topic in chore.completed bounty.created bounty.accepted chore.overdue bounty.expired season.ended chore.deadline_reminder chat.message_created; do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic $$topic --partitions 1 --replication-factor 1
         done
 

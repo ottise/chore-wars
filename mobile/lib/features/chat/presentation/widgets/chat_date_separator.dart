@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:chore_wars/core/theme/app_theme.dart';
 
 class ChatDateSeparator extends StatelessWidget {
   final DateTime date;
@@ -31,7 +30,7 @@ class ChatDateSeparator extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+            color: theme.colorScheme.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(12.0),
             boxShadow: [
               BoxShadow(
@@ -44,7 +43,7 @@ class ChatDateSeparator extends StatelessWidget {
           child: Text(
             dateString,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppTheme.muted,
+              color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),

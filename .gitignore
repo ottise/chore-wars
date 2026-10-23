@@ -20,6 +20,7 @@ obj/
 .env
 .env.*
 !.env.example
+backend/src/Presentation/appsettings.AI.local.json
 
 # =========================
 # Node

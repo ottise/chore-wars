@@ -48,7 +48,7 @@ class _CreateUrgentEventScreenState
   }) async {
     if (!_formKey.currentState!.validate()) return;
     if (_targetIds.isEmpty) {
-      _showError('Hãy chọn ít nhất một thành viên tham gia.');
+      _showError('Choose at least one participant.');
       return;
     }
 
@@ -58,42 +58,44 @@ class _CreateUrgentEventScreenState
           chore.assignedUserId == null ||
           !participants.contains(chore.assignedUserId),
     )) {
-      _showError('Mỗi việc nhỏ phải được giao cho một người tham gia.');
+      _showError('Assign every task to a participant.');
       return;
     }
 
     setState(() => _submitting = true);
     try {
       final deadlineMinutes = int.parse(_deadlineController.text.trim());
-      await ref.read(actionProposalServiceProvider).createProposal(
-        houseId: widget.houseId,
-        type: ProposalType.urgentEvent,
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        targetUserIds: _targetIds.toList(),
-        payloadJson: jsonEncode({
-          'seasonId': seasonId,
-          'deadlineMinutes': deadlineMinutes,
-          'chores': _chores
-              .map(
-                (chore) => {
-                  'name': chore.name.text.trim(),
-                  'description': chore.description.text.trim(),
-                  'karmaPoints': int.parse(chore.karma.text.trim()),
-                  'difficulty': chore.difficulty,
-                  'assignedUserId': chore.assignedUserId,
-                },
-              )
-              .toList(),
-        }),
-      );
+      await ref
+          .read(actionProposalServiceProvider)
+          .createProposal(
+            houseId: widget.houseId,
+            type: ProposalType.urgentEvent,
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim(),
+            targetUserIds: _targetIds.toList(),
+            payloadJson: jsonEncode({
+              'seasonId': seasonId,
+              'deadlineMinutes': deadlineMinutes,
+              'chores': _chores
+                  .map(
+                    (chore) => {
+                      'name': chore.name.text.trim(),
+                      'description': chore.description.text.trim(),
+                      'karmaPoints': int.parse(chore.karma.text.trim()),
+                      'difficulty': chore.difficulty,
+                      'assignedUserId': chore.assignedUserId,
+                    },
+                  )
+                  .toList(),
+            }),
+          );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Đã phát động nhiệm vụ. Hãy chờ các thành viên xác nhận.'),
+          content: Text('Campaign proposed. Waiting for members to approve.'),
         ),
       );
-      context.go('/houses/${widget.houseId}/chat');
+      context.go('/houses/${widget.houseId}/chat/everyone');
     } catch (error) {
       _showError(apiErrorMessage(error));
     } finally {
@@ -118,7 +120,7 @@ class _CreateUrgentEventScreenState
     final profileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nhiệm vụ khẩn cấp')),
+      appBar: AppBar(title: const Text('Urgent Campaign')),
       body: membersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text(apiErrorMessage(error))),
@@ -132,7 +134,7 @@ class _CreateUrgentEventScreenState
               if (season == null || !_isActiveSeason(season['status'])) {
                 return const Center(
                   child: Text(
-                    'Cần có mùa giải đang hoạt động để phát động nhiệm vụ.',
+                    'An active season is required to launch a campaign.',
                   ),
                 );
               }
@@ -161,12 +163,13 @@ class _CreateUrgentEventScreenState
                       controller: _titleController,
                       maxLength: 150,
                       decoration: const InputDecoration(
-                        labelText: 'Tiêu đề chiến dịch',
-                        hintText: 'Dọn dẹp chuẩn bị tiệc sinh nhật',
+                        labelText: 'Campaign Title',
+                        hintText: 'Clean up for a birthday party',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => value == null || value.trim().isEmpty
-                          ? 'Hãy nhập tiêu đề.'
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
+                          ? 'Enter a title.'
                           : null,
                     ),
                     const SizedBox(height: 12),
@@ -175,7 +178,7 @@ class _CreateUrgentEventScreenState
                       maxLines: 2,
                       maxLength: 1000,
                       decoration: const InputDecoration(
-                        labelText: 'Mô tả',
+                        labelText: 'Description',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -184,25 +187,25 @@ class _CreateUrgentEventScreenState
                       controller: _deadlineController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Thời hạn sau khi kích hoạt (phút)',
+                        labelText: 'Deadline After Activation (minutes)',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         final minutes = int.tryParse(value?.trim() ?? '');
                         if (minutes == null || minutes < 1 || minutes > 1440) {
-                          return 'Thời hạn phải từ 1 đến 1440 phút.';
+                          return 'The deadline must be between 1 and 1,440 minutes.';
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Thành viên cần xác nhận',
+                      'Members Required to Approve',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     if (targets.isEmpty)
-                      const Text('Nhà cần ít nhất hai thành viên.')
+                      const Text('The house needs at least two members.')
                     else
                       Wrap(
                         spacing: 8,
@@ -218,7 +221,8 @@ class _CreateUrgentEventScreenState
                                     } else {
                                       _targetIds.remove(member.userId);
                                       for (final chore in _chores) {
-                                        if (chore.assignedUserId == member.userId) {
+                                        if (chore.assignedUserId ==
+                                            member.userId) {
                                           chore.assignedUserId = profile.id;
                                         }
                                       }
@@ -234,7 +238,7 @@ class _CreateUrgentEventScreenState
                       children: [
                         Expanded(
                           child: Text(
-                            'Danh sách việc nhỏ',
+                            'Task List',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
@@ -245,7 +249,7 @@ class _CreateUrgentEventScreenState
                             ),
                           ),
                           icon: const Icon(Icons.add_rounded),
-                          label: const Text('Thêm việc'),
+                          label: const Text('Add Task'),
                         ),
                       ],
                     ),
@@ -270,16 +274,16 @@ class _CreateUrgentEventScreenState
                       onPressed: _submitting
                           ? null
                           : () => _submit(
-                                currentUserId: profile.id,
-                                seasonId: season['id'].toString(),
-                              ),
+                              currentUserId: profile.id,
+                              seasonId: season['id'].toString(),
+                            ),
                       icon: _submitting
                           ? const SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.bolt_rounded),
-                      label: const Text('Phát động chiến dịch'),
+                      label: const Text('Launch Campaign'),
                     ),
                   ],
                 ),
@@ -327,7 +331,7 @@ class _UrgentChoreEditor extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Việc ${index + 1}',
+                    'Task${index + 1}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -341,15 +345,15 @@ class _UrgentChoreEditor extends StatelessWidget {
             TextFormField(
               controller: draft.name,
               maxLength: 100,
-              decoration: const InputDecoration(labelText: 'Tên việc'),
+              decoration: const InputDecoration(labelText: 'Task Name'),
               validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Hãy nhập tên việc.'
+                  ? 'Enter a task name.'
                   : null,
             ),
             TextFormField(
               controller: draft.description,
               maxLength: 500,
-              decoration: const InputDecoration(labelText: 'Mô tả'),
+              decoration: const InputDecoration(labelText: 'Description'),
             ),
             Row(
               children: [
@@ -361,7 +365,7 @@ class _UrgentChoreEditor extends StatelessWidget {
                     validator: (value) {
                       final karma = int.tryParse(value?.trim() ?? '');
                       return karma == null || karma < 0
-                          ? 'Karma không hợp lệ.'
+                          ? 'Enter a valid Karma value.'
                           : null;
                     },
                   ),
@@ -370,11 +374,11 @@ class _UrgentChoreEditor extends StatelessWidget {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: draft.difficulty,
-                    decoration: const InputDecoration(labelText: 'Độ khó'),
+                    decoration: const InputDecoration(labelText: 'Difficulty'),
                     items: const [
-                      DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
-                      DropdownMenuItem(value: 'MEDIUM', child: Text('Vừa')),
-                      DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+                      DropdownMenuItem(value: 'EASY', child: Text('Easy')),
+                      DropdownMenuItem(value: 'MEDIUM', child: Text('Medium')),
+                      DropdownMenuItem(value: 'HARD', child: Text('Hard')),
                     ],
                     onChanged: (value) {
                       if (value != null) draft.difficulty = value;
@@ -386,9 +390,10 @@ class _UrgentChoreEditor extends StatelessWidget {
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               key: ValueKey('${draft.assignedUserId}-${participants.length}'),
-              initialValue: participants.any(
-                (member) => member.userId == draft.assignedUserId,
-              )
+              initialValue:
+                  participants.any(
+                    (member) => member.userId == draft.assignedUserId,
+                  )
                   ? draft.assignedUserId
                   : currentUserId,
               decoration: const InputDecoration(labelText: 'Giao cho'),

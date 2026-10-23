@@ -30,7 +30,12 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
     final key = (houseId: widget.houseId, seasonId: widget.seasonId);
     final rewards = ref.watch(seasonRewardsProvider(key));
     return Scaffold(
-      appBar: AppBar(title: const Text('Season reward')),
+      appBar: AppBar(
+        title: const Text(
+          'Season Rewards',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(seasonRewardsProvider(key));
@@ -42,32 +47,103 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
             error: error,
             onRetry: () => ref.invalidate(seasonRewardsProvider(key)),
           ),
-          data: (items) => items.isEmpty
-              ? const EmptyView(
-                  icon: Icons.card_giftcard_rounded,
-                  title: 'No reward for this season',
-                  message: 'Final rank rewards appear after the season ends.',
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final reward = items[index];
-                    return _RewardCard(
-                      reward: reward,
-                      busy: _busyId == reward.redemptionId,
-                      onClaim: reward.redemptionId == null
-                          ? null
-                          : () => _claim(reward, key),
-                      onUse: reward.redemptionId == null
-                          ? null
-                          : () => context.push(
-                              '/houses/${widget.houseId}/seasons/${widget.seasonId}/chore-pass/${reward.redemptionId}',
-                            ),
-                    );
-                  },
+          data: (items) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              const Text(
+                'Final rank rewards are distributed at the end of each season.',
+                style: TextStyle(
+                  color: AppTheme.muted,
+                  height: 1.5,
+                  fontSize: 12,
                 ),
+              ),
+              const SizedBox(height: 18),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Theme.of(context).colorScheme.primaryFixed,
+                        Theme.of(context).colorScheme.surfaceContainerLowest,
+                      ],
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.card_giftcard_rounded,
+                        size: 46,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Season Rewards',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Recognition for your household contributions',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Leaderboard rewards',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push(
+                      '/houses/${widget.houseId}/seasons/${widget.seasonId}/leaderboard',
+                    ),
+                    child: const Text('View Ranks'),
+                  ),
+                ],
+              ),
+              if (items.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'No rewards yet. Final rank rewards appear after the season ends.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              for (final reward in items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RewardCard(
+                    reward: reward,
+                    busy: _busyId == reward.redemptionId,
+                    onClaim: reward.redemptionId == null
+                        ? null
+                        : () => _claim(reward, key),
+                    onUse: reward.redemptionId == null
+                        ? null
+                        : () => context.push(
+                            '/houses/${widget.houseId}/seasons/${widget.seasonId}/chore-pass/${reward.redemptionId}',
+                          ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -102,77 +178,95 @@ class _RewardCard extends StatelessWidget {
   final VoidCallback? onUse;
 
   @override
-  Widget build(BuildContext context) => Card(
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        Container(
-          width: double.infinity,
-          color: AppTheme.purple,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.workspace_premium_rounded,
-                size: 54,
-                color: AppTheme.yellow,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                reward.name,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                reward.status.label,
-                style: const TextStyle(
-                  color: Color(0xFFE5E1FF),
-                  fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.tertiaryFixed,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    reward.isChorePass
+                        ? Icons.shield_outlined
+                        : Icons.emoji_events_outlined,
+                    color: colors.tertiary,
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        reward.status.label,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        reward.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (reward.description.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          reward.description,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (reward.claimDeadline != null) ...[
+              const SizedBox(height: 16),
+              _DeadlineRow(label: 'Claim by', date: reward.claimDeadline!),
+            ],
+            if (reward.usageDeadline != null) ...[
+              const SizedBox(height: 10),
+              _DeadlineRow(label: 'Use by', date: reward.usageDeadline!),
+            ],
+            if (reward.status == RedemptionStatus.unclaimed &&
+                onClaim != null) ...[
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: busy ? null : onClaim,
+                child: Text(busy ? 'Claiming…' : 'Claim Reward'),
+              ),
+            ] else if (reward.status == RedemptionStatus.claimed &&
+                reward.isChorePass &&
+                onUse != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onUse,
+                icon: const Icon(Icons.confirmation_number_outlined),
+                label: const Text('Use Chore Pass'),
               ),
             ],
-          ),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              if (reward.description.isNotEmpty)
-                Text(reward.description, textAlign: TextAlign.center),
-              if (reward.claimDeadline != null) ...[
-                const SizedBox(height: 16),
-                _DeadlineRow(label: 'Claim by', date: reward.claimDeadline!),
-              ],
-              if (reward.usageDeadline != null) ...[
-                const SizedBox(height: 10),
-                _DeadlineRow(label: 'Use by', date: reward.usageDeadline!),
-              ],
-              const SizedBox(height: 20),
-              if (reward.status == RedemptionStatus.unclaimed)
-                ElevatedButton(
-                  onPressed: busy ? null : onClaim,
-                  child: busy
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Claim reward'),
-                )
-              else if (reward.status == RedemptionStatus.claimed &&
-                  reward.isChorePass)
-                ElevatedButton.icon(
-                  onPressed: onUse,
-                  icon: const Icon(Icons.confirmation_number_outlined),
-                  label: const Text('Use chore pass'),
-                ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _DeadlineRow extends StatelessWidget {
@@ -187,9 +281,13 @@ class _DeadlineRow extends StatelessWidget {
       const SizedBox(width: 8),
       Text(label),
       const Spacer(),
-      Text(
-        DateFormat('MMM d, h:mm a').format(date),
-        style: const TextStyle(fontWeight: FontWeight.w800),
+      Flexible(
+        flex: 3,
+        child: Text(
+          DateFormat.yMMMd('en_US').add_jm().format(date),
+          textAlign: TextAlign.right,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
       ),
     ],
   );

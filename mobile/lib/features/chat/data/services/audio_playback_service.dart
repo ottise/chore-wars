@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -31,8 +32,27 @@ class AudioPlaybackService extends ChangeNotifier with WidgetsBindingObserver {
     final request = ++_request;
     await player.stop();
     if (_disposed || request != _request) return;
+    final wav =
+        bytes.length >= 12 &&
+        bytes[0] == 82 &&
+        bytes[1] == 73 &&
+        bytes[2] == 70 &&
+        bytes[3] == 70;
+    if (kIsWeb) {
+      activeId = id;
+      await player.setUrl(
+        Uri.dataFromBytes(
+          bytes,
+          mimeType: wav ? 'audio/wav' : 'audio/mp4',
+        ).toString(),
+      );
+      if (_disposed || request != _request) return;
+      notifyListeners();
+      unawaited(player.play());
+      return;
+    }
     final directory = await getTemporaryDirectory();
-    final file = File('${directory.path}/cw-audio-$id.m4a');
+    final file = File('${directory.path}/cw-audio-$id.${wav ? 'wav' : 'm4a'}');
     await file.writeAsBytes(bytes, flush: true);
     _files.add(file);
     if (_disposed || request != _request) {

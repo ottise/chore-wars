@@ -37,7 +37,9 @@ class ChoreWarsApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // we can use local_storage for this later
+      themeMode: ThemeMode.light,
+      locale: const Locale('en'),
+      supportedLocales: const [Locale('en')],
       routerConfig: router,
       builder: (context, child) =>
           WebPreviewFrame(child: child ?? const SizedBox.shrink()),

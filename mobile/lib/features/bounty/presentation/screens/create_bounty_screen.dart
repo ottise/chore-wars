@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../home/presentation/providers/home_dashboard_provider.dart';
@@ -36,14 +37,18 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || widget.houseId == null || widget.occurrenceId == null) {
+    if (!_formKey.currentState!.validate() ||
+        widget.houseId == null ||
+        widget.occurrenceId == null) {
       return;
     }
 
     setState(() => _isSubmitting = true);
     try {
-      final normalized = _amountController.text.trim().replaceAll('.', '').replaceAll(',', '.');
-      await ref.read(bountyRepositoryProvider).createBounty(
+      final normalized = _amountController.text.trim().replaceAll(',', '');
+      await ref
+          .read(bountyRepositoryProvider)
+          .createBounty(
             houseId: widget.houseId!,
             choreOccurrenceId: widget.occurrenceId!,
             amount: double.parse(normalized),
@@ -54,7 +59,8 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
       context.pop();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -72,7 +78,10 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
           children: [
             Text('Chore', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 4),
-            Text(widget.choreName ?? 'Chore details unavailable', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              widget.choreName ?? 'Chore details unavailable',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 24),
             Text('Deadline', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 4),
@@ -80,16 +89,21 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Bounty amount',
-                suffixText: 'đ',
+                hintText: 'e.g. 50,000',
+                suffixText: 'VND',
                 border: OutlineInputBorder(),
               ),
               validator: (value) {
-                final normalized = value?.trim().replaceAll('.', '').replaceAll(',', '.');
+                final normalized = value?.trim().replaceAll(',', '');
                 final amount = double.tryParse(normalized ?? '');
-                if (amount == null || amount <= 0) return 'Enter a valid amount.';
+                if (amount == null || !amount.isFinite || amount <= 0) {
+                  return 'Enter a valid amount.';
+                }
                 return null;
               },
             ),
@@ -101,7 +115,9 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
             ),
             if (!canSubmit) ...[
               const SizedBox(height: 12),
-              const Text('A chore occurrence and house are required to post a bounty.'),
+              const Text(
+                'A chore occurrence and house are required to post a bounty.',
+              ),
             ],
           ],
         ),

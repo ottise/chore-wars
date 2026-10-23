@@ -86,11 +86,15 @@ class ChatSignalRService {
     _connectedRoomId = roomId;
   }
 
-  Future<ChatMessageModel> sendMessage(String roomId, String content) async {
+  Future<ChatMessageModel> sendMessage(
+    String roomId,
+    String content,
+    String clientMessageId,
+  ) async {
     if (_connection?.state == HubConnectionState.Connected) {
       final raw = await _connection!.invoke(
-        'SendMessage',
-        args: [roomId, content],
+        'SendText',
+        args: [roomId, content, clientMessageId],
       );
       if (raw is Map) {
         return ChatMessageModel.fromJson(Map<String, dynamic>.from(raw));

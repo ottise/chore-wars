@@ -199,8 +199,8 @@ public class ActionProposalService : IActionProposalService
                 await _notificationService.CreateNotificationAsync(
                     participantId,
                     proposal.HouseId,
-                    "Chiến dịch khẩn cấp đã bắt đầu!",
-                    $"{proposal.Title} đã được 100% thành viên đồng ý. Đồng hồ đang đếm ngược.",
+                    "Urgent campaign started!",
+                    $"{proposal.Title} was approved by all required members. The countdown has started.",
                     nameof(NotificationType.URGENT_EVENT),
                     "ActionProposal",
                     proposal.Id,

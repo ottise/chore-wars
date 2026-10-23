@@ -36,6 +36,24 @@ void main() {
     expect(apiErrorMessage(error), 'The season is no longer in draft state.');
   });
 
+  test('shows field validation errors before the generic problem title', () {
+    final error = DioException(
+      requestOptions: request(),
+      type: DioExceptionType.badResponse,
+      response: Response<Map<String, dynamic>>(
+        requestOptions: request(),
+        statusCode: 400,
+        data: {
+          'title': 'One or more validation errors occurred.',
+          'errors': {
+            'file': ['The file field is required.'],
+          },
+        },
+      ),
+    );
+    expect(apiErrorMessage(error), 'The file field is required.');
+  });
+
   test('replaces Dio timeout diagnostics with a user-friendly message', () {
     final error = DioException(
       requestOptions: request(),

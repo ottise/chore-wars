@@ -94,7 +94,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
     epoch ??= current;
     if (epoch != current) {
       return const Scaffold(
-        body: Center(child: Text('Phiên đã đổi. Hãy mở lại yêu cầu.')),
+        body: Center(child: Text('Your session changed. Reopen the request.')),
       );
     }
     final members =
@@ -107,10 +107,10 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
     final frozen = busy || record != null;
     final isUrgent = widget.kind == 'URGENT';
     final title = switch (widget.kind) {
-      'SWAP' => 'Tìm phương án đổi việc',
-      'REPLAN' => 'Sắp lại lịch tương lai',
-      'EVOLUTION' => 'Lịch cho mùa tiếp theo',
-      _ => 'Chiến dịch khẩn cấp',
+      'SWAP' => 'Find a Chore Swap',
+      'REPLAN' => 'Replan Future Chores',
+      'EVOLUTION' => 'Next Season Schedule',
+      _ => 'Urgent Campaign',
     };
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -118,12 +118,12 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
-            'Xem phương án trước khi gửi. Các thay đổi đang diễn ra cần đúng người liên quan đồng thuận; lịch nháp vẫn qua duyệt mùa.',
+            'Preview before sending. Changes to active schedules require approval from affected members; draft schedules still require season review.',
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: season,
-            decoration: const InputDecoration(labelText: 'Mùa làm việc'),
+            decoration: const InputDecoration(labelText: 'Working Season'),
             items: [
               for (final s in seasons.where(
                 (s) => widget.kind == 'EVOLUTION'
@@ -143,7 +143,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
             DropdownButtonFormField<String>(
               initialValue: previous,
               decoration: const InputDecoration(
-                labelText: 'Mùa đã kết thúc làm nguồn đối chiếu',
+                labelText: 'Completed Reference Season',
               ),
               items: [
                 for (final s in seasons.where(
@@ -160,7 +160,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
             ),
           if (widget.kind == 'SWAP')
             const Text(
-              'Chỉ gợi ý đổi việc còn hợp lệ. Hai người duyệt lại trước khi đổi trách nhiệm.',
+              'Only eligible swaps are suggested. Both members review before responsibility changes.',
             ),
           if (isUrgent) ...[
             TextField(
@@ -169,7 +169,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
               maxLines: 4,
               maxLength: 8000,
               decoration: const InputDecoration(
-                labelText: 'Cần hoàn thành điều gì?',
+                labelText: 'What needs to be done?',
               ),
             ),
             TextField(
@@ -177,18 +177,18 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
               enabled: !frozen,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Ngân sách thời gian (phút)',
+                labelText: 'Time Budget (minutes)',
               ),
             ),
             TextField(
               controller: resources,
               enabled: !frozen,
               decoration: const InputDecoration(
-                labelText: 'Nguồn lực có sẵn, phân tách bằng dấu phẩy',
-                hintText: 'máy hút bụi, bồn rửa',
+                labelText: 'Available Resources, Separated by Commas',
+                hintText: 'vacuum cleaner, sink',
               ),
             ),
-            const Text('Người tham gia (bao gồm bạn):'),
+            const Text('Participants (including you):'),
             for (final member in members)
               CheckboxListTile(
                 value:
@@ -212,7 +212,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                   ? null
                   : () => operation(() async {
                       if (widget.kind == 'EVOLUTION' && previous == null) {
-                        throw StateError('Chọn mùa nguồn trước.');
+                        throw StateError('Choose a reference season first.');
                       }
                       final path = switch (widget.kind) {
                         'SWAP' => 'schedules/swap',
@@ -245,28 +245,28 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                       if (active) setState(() => record = response);
                     }),
               icon: const Icon(Icons.auto_awesome_outlined),
-              label: const Text('Tạo bản xem trước'),
+              label: const Text('Create Preview'),
             ),
           if (record != null) ...[
             const Divider(height: 32),
-            Text('Trạng thái: ${record!['status']}'),
+            Text('Status: ${record!['status']}'),
             for (final change in record!['availability_changes'] as List? ?? [])
               Text(
-                'Lịch rảnh đề xuất: ${change['LocalDate'] ?? change['localDate']} · ${change['Slots'] ?? change['slots']}',
+                'Proposed availability: ${change['LocalDate'] ?? change['localDate']} · ${change['Slots'] ?? change['slots']}',
               ),
             if (result?['reason'] != null) Text(result!['reason'].toString()),
             if (result?['status'] != null) Text(result!['status'].toString()),
             for (final field in result?['missing_fields'] as List? ?? [])
-              Text('Cần làm rõ: $field'),
+              Text('Needs clarification: $field'),
             for (final task in result?['tasks'] as List? ?? [])
               ListTile(
-                title: Text(task['name']?.toString() ?? 'Công việc'),
+                title: Text(task['name']?.toString() ?? 'Chore'),
                 subtitle: Text(
-                  '${names[task['assigned_to']] ?? 'Chưa xếp'} · ${task['start_at'] ?? 'Chưa xếp giờ'}${task['end_at'] == null ? '' : ' → ${task['end_at']}'}\n${(task['dependencies'] as List? ?? []).isEmpty ? '' : 'Phụ thuộc: ${task['dependencies']}'}',
+                  '${names[task['assigned_to']] ?? 'Unassigned'} · ${task['start_at'] ?? 'Time not assigned'}${task['end_at'] == null ? '' : ' → ${task['end_at']}'}\n${(task['dependencies'] as List? ?? []).isEmpty ? '' : 'Dependencies: ${task['dependencies']}'}',
                 ),
               ),
             for (final key in result?['unplaced'] as List? ?? [])
-              Text('Chưa xếp được: $key'),
+              Text('Could not schedule: $key'),
             if (record!['status'] == 'READY' &&
                 result?['status'] != 'INFEASIBLE' &&
                 result?['status'] != 'NEEDS_CLARIFICATION')
@@ -277,18 +277,18 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                         final confirmed = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: const Text('Gửi phương án đã xem?'),
+                            title: const Text('Send Reviewed Proposal?'),
                             content: const Text(
-                              'Hệ thống sẽ kiểm tra lại lịch hiện tại và yêu cầu đúng người liên quan xác nhận. Nếu dữ liệu đổi, bạn cần xem phương án mới.',
+                              'The system will recheck the current schedule and request approval from affected members. If the data has changed, review a new proposal.',
                             ),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Hủy'),
+                                child: const Text('Cancel'),
                               ),
                               FilledButton(
                                 onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Đồng ý gửi'),
+                                child: const Text('Send Proposal'),
                               ),
                             ],
                           ),
@@ -304,11 +304,11 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                         if (active) setState(() => record = response);
                         ref.invalidate(activeSeasonProvider(widget.houseId));
                       }),
-                child: const Text('Gửi phương án đã xem'),
+                child: const Text('Send Reviewed Proposal'),
               ),
             if (record!['proposal_id'] != null)
               const Text(
-                'Đã tạo thẻ đồng thuận trong chat nhà. Mọi thay đổi chỉ áp dụng khi đủ xác nhận.',
+                'An approval card was posted to household chat. Changes apply only after all required approvals.',
               ),
             TextButton(
               onPressed: busy
@@ -317,7 +317,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                       record = null;
                       request = const Uuid().v4();
                     }),
-              child: const Text('Tạo yêu cầu khác'),
+              child: const Text('Create Another Request'),
             ),
           ],
           if (busy) const LinearProgressIndicator(),

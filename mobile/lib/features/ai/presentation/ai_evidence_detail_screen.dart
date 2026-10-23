@@ -16,7 +16,7 @@ class AiEvidenceDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final query = (house: houseId, path: 'evidence/$evidenceId');
     return Scaffold(
-      appBar: AppBar(title: const Text('Bằng chứng đóng góp')),
+      appBar: AppBar(title: const Text('Contribution Evidence')),
       body: ref
           .watch(aiDataProvider(query))
           .when(
@@ -34,56 +34,56 @@ class AiEvidenceDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 children: [
                   if (data['data_source'] == 'DEMO_SYNTHETIC')
-                    const Chip(label: Text('Bằng chứng giả lập')),
+                    const Chip(label: Text('Synthetic Evidence')),
                   Text(switch (data['event_type']) {
-                    'occurrence.upsert' => 'Kết quả công việc',
-                    'episode.upsert' => 'Lịch sử nhận trách nhiệm',
-                    'ledger.upsert' => 'Giao dịch Karma',
-                    'ranking.upsert' => 'Kết quả xếp hạng mùa',
-                    'bounty.upsert' => 'Lịch sử đăng bounty',
-                    'proposal.upsert' => 'Yêu cầu điều chỉnh',
-                    'payment.upsert' => 'Xác nhận thanh toán',
-                    _ => 'Bằng chứng nghiệp vụ',
+                    'occurrence.upsert' => 'Chore Outcome',
+                    'episode.upsert' => 'Responsibility History',
+                    'ledger.upsert' => 'Karma Transaction',
+                    'ranking.upsert' => 'Season Ranking Result',
+                    'bounty.upsert' => 'Bounty Posting History',
+                    'proposal.upsert' => 'Adjustment Request',
+                    'payment.upsert' => 'Payment Confirmation',
+                    _ => 'Activity Evidence',
                   }, style: Theme.of(context).textTheme.headlineSmall),
-                  Text('Ghi nhận lúc ${data['recorded_at']}'),
+                  Text('Recorded at ${data['recorded_at']}'),
                   for (final entry in payload.entries)
                     ListTile(
                       title: Text(
                         {
-                              'name': 'Công việc',
-                              'minutes': 'Effort chuẩn (phút)',
-                              'karma': 'Karma theo việc',
-                              'completed_at': 'Hoàn thành lúc',
-                              'completed_by': 'Người thực sự hoàn thành',
-                              'reason': 'Nguồn nhận trách nhiệm',
-                              'started_at': 'Nhận trách nhiệm lúc',
-                              'ended_at': 'Kết thúc trách nhiệm lúc',
+                              'name': 'Chore',
+                              'minutes': 'Standard Effort (minutes)',
+                              'karma': 'Chore Karma',
+                              'completed_at': 'Completed at',
+                              'completed_by': 'Actual Completer',
+                              'reason': 'Responsibility Source',
+                              'started_at': 'Responsibility Started at',
+                              'ended_at': 'Responsibility Ended at',
                               'amount': data['event_type'] == 'ledger.upsert'
-                                  ? 'Lượng Karma'
-                                  : 'Số tiền (VND)',
-                              'type': 'Loại giao dịch',
-                              'rank': 'Thứ hạng',
-                              'member_count': 'Số thành viên xếp hạng',
-                              'total_karma': 'Karma của mùa',
-                              'chores_completed': 'Số việc hoàn thành',
+                                  ? 'Karma Amount'
+                                  : 'Amount (VND)',
+                              'type': 'Transaction Type',
+                              'rank': 'Rank',
+                              'member_count': 'Ranked Member Count',
+                              'total_karma': 'Season Karma',
+                              'chores_completed': 'Completed Chore Count',
                             }[entry.key] ??
                             entry.key.toString(),
                       ),
                       subtitle: SelectableText(
-                        entry.value?.toString() ?? 'Chưa xác định',
+                        entry.value?.toString() ?? 'Unknown',
                       ),
                     ),
                   if (occurrence != null)
                     TextButton(
                       onPressed: () =>
                           context.push('/houses/$houseId/chores/$occurrence'),
-                      child: const Text('Mở công việc gốc'),
+                      child: const Text('Open Original Chore'),
                     ),
                   ExpansionTile(
-                    title: const Text('Thông tin truy vết'),
+                    title: const Text('Trace Details'),
                     children: [
                       SelectableText(
-                        'Event: $evidenceId\nThứ tự nguồn: ${data['house_sequence']}',
+                        'Event: $evidenceId\nSource sequence: ${data['house_sequence']}',
                       ),
                     ],
                   ),

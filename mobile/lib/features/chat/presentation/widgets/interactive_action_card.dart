@@ -41,11 +41,11 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   Color _getTypeColor(ProposalType type) {
     switch (type) {
       case ProposalType.choreSwap:
-        return Colors.orange;
+        return AppTheme.orange;
       case ProposalType.urgentEvent:
-        return Colors.deepOrange;
+        return AppTheme.orange;
       case ProposalType.seasonApproval:
-        return Colors.blue;
+        return AppTheme.purple;
       case ProposalType.scheduleReplan:
         return AppTheme.purple;
     }
@@ -54,13 +54,13 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   String _getTypeLabel(ProposalType type) {
     switch (type) {
       case ProposalType.choreSwap:
-        return 'YÊU CẦU ĐỔI VIỆC NHÀ';
+        return 'CHORE SWAP REQUEST';
       case ProposalType.urgentEvent:
-        return 'NHIỆM VỤ KHẨN CẤP';
+        return 'URGENT TASKS';
       case ProposalType.seasonApproval:
-        return 'PHÊ DUYỆT MÙA GIẢI';
+        return 'SEASON APPROVAL';
       case ProposalType.scheduleReplan:
-        return 'Đề xuất sắp lại lịch';
+        return 'Schedule Change Proposal';
     }
   }
 
@@ -82,9 +82,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           updated.status == ProposalStatus.approved) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              '🎉 Chiến dịch đã kích hoạt! Đồng hồ bắt đầu đếm ngược.',
-            ),
+            content: Text('🎉 Campaign activated! The countdown has started.'),
           ),
         );
       }
@@ -130,9 +128,9 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
 
     Color cardBg;
     if (proposal.status == ProposalStatus.approved) {
-      cardBg = const Color(0xFFE8F8F5); // Soft mint green
+      cardBg = AppTheme.successContainer;
     } else if (proposal.status == ProposalStatus.rejected) {
-      cardBg = const Color(0xFFFDEDEC); // Soft light pink/red
+      cardBg = AppTheme.errorContainer;
     } else {
       cardBg = Theme.of(context).colorScheme.surfaceContainerHighest;
     }
@@ -200,7 +198,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     ),
                     SizedBox(width: 4),
                     Text(
-                      'Đã duyệt',
+                      'Approved',
                       style: TextStyle(
                         color: AppTheme.green,
                         fontWeight: FontWeight.bold,
@@ -216,7 +214,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     Icon(Icons.cancel_rounded, color: AppTheme.red, size: 16),
                     SizedBox(width: 4),
                     Text(
-                      'Đã từ chối',
+                      'Rejected',
                       style: TextStyle(
                         color: AppTheme.red,
                         fontWeight: FontWeight.bold,
@@ -232,7 +230,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.2),
+                    color: AppTheme.yellow.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Row(
@@ -240,14 +238,14 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     children: [
                       Icon(
                         Icons.access_time_rounded,
-                        color: Colors.orange,
+                        color: AppTheme.orange,
                         size: 13,
                       ),
                       SizedBox(width: 4),
                       Text(
-                        'Chờ xác nhận',
+                        'Awaiting Approval',
                         style: TextStyle(
-                          color: Colors.orange,
+                          color: AppTheme.orange,
                           fontWeight: FontWeight.w600,
                           fontSize: 11,
                         ),
@@ -270,7 +268,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
             Text(
               proposal.description,
               style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: Colors.grey[700]),
+                  ?.copyWith(color: AppTheme.muted),
             ),
           ],
           if (proposal.type == ProposalType.urgentEvent)
@@ -282,10 +280,10 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           // Confirmations list
           if (proposal.confirmations.isNotEmpty) ...[
             Text(
-              'Tiến độ xác nhận (${proposal.confirmations.where((c) => c.status == ProposalConfirmationStatus.confirmed).length}/${proposal.confirmations.length}):',
+              'Approval Progress (${proposal.confirmations.where((c) => c.status == ProposalConfirmationStatus.confirmed).length}/${proposal.confirmations.length}):',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: AppTheme.muted,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -303,24 +301,24 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   case ProposalConfirmationStatus.confirmed:
                     statusColor = AppTheme.green;
                     statusIcon = Icons.check_circle_rounded;
-                    statusLabel = 'Đồng ý';
+                    statusLabel = 'Approve';
                     break;
                   case ProposalConfirmationStatus.rejected:
                     statusColor = AppTheme.red;
                     statusIcon = Icons.cancel_rounded;
-                    statusLabel = 'Từ chối';
+                    statusLabel = 'Reject';
                     break;
                   case ProposalConfirmationStatus.pending:
-                    statusColor = Colors.orange;
+                    statusColor = AppTheme.orange;
                     statusIcon = Icons.hourglass_top_rounded;
-                    statusLabel = 'Chờ';
+                    statusLabel = 'Pending';
                     break;
                 }
 
                 return Chip(
                   avatar: Icon(statusIcon, color: statusColor, size: 16),
                   label: Text(
-                    isMe ? 'Bạn ($statusLabel)' : statusLabel,
+                    isMe ? 'You ($statusLabel)' : statusLabel,
                     style: TextStyle(
                       fontSize: 11,
                       color: statusColor,
@@ -366,10 +364,10 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     child: OutlinedButton.icon(
                       onPressed: () => _respond(
                         ProposalConfirmationStatus.rejected,
-                        reason: 'Bận, không thể tham gia.',
+                        reason: 'Busy, unable to participate.',
                       ),
                       icon: const Icon(Icons.close_rounded, size: 18),
-                      label: const Text('Bận rồi'),
+                      label: const Text('Unavailable'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.red,
                         side: const BorderSide(color: AppTheme.red),
@@ -386,7 +384,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                       onPressed: () =>
                           _respond(ProposalConfirmationStatus.confirmed),
                       icon: const Icon(Icons.check_rounded, size: 18),
-                      label: const Text('Đồng ý'),
+                      label: const Text('Approve'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.green,
                         foregroundColor: Colors.white,
@@ -402,7 +400,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                       onPressed: () =>
                           _respond(ProposalConfirmationStatus.rejected),
                       icon: const Icon(Icons.close_rounded, size: 18),
-                      label: const Text('Từ chối'),
+                      label: const Text('Reject'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.red,
                         side: const BorderSide(color: AppTheme.red),
@@ -417,8 +415,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           ] else if (isTarget && hasResponded) ...[
             Text(
               proposal.hasUserConfirmed(widget.currentUserId)
-                  ? '✅ Bạn đã xác nhận đồng ý.'
-                  : '❌ Bạn đã từ chối yêu cầu này.',
+                  ? '✅ You have approved this request.'
+                  : '❌ You have rejected this request.',
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
@@ -429,11 +427,11 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
             ),
           ] else if (!isTarget) ...[
             Text(
-              '👁️ Bạn đang xem yêu cầu dành cho thành viên khác.',
+              '👁️ This request is intended for another member.',
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
-                color: Colors.grey[600],
+                color: AppTheme.muted,
               ),
             ),
           ],
@@ -454,11 +452,11 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Chủ nhà và mọi người bị thay đổi phải đồng ý. Một người từ chối thì giữ nguyên toàn bộ lịch.',
+            'The owner and every affected member must agree. If anyone rejects, the schedule stays unchanged.',
           ),
           for (final change in availability)
             Text(
-              'Lịch rảnh mới của ${change['UserId'] ?? change['userId']} ngày ${change['LocalDate'] ?? change['localDate']}: ${change['Slots'] ?? change['slots']}',
+              'New availability for ${change['UserId'] ?? change['userId']} day ${change['LocalDate'] ?? change['localDate']}: ${change['Slots'] ?? change['slots']}',
             ),
           for (final change in changes)
             Padding(
@@ -470,7 +468,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         ],
       );
     } on FormatException {
-      return const Text('Không đọc được chi tiết. Tải lại trước khi xác nhận.');
+      return const Text('Unable to load details. Refresh before approving.');
     }
   }
 
@@ -489,14 +487,14 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         margin: const EdgeInsets.only(top: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.deepOrange.withValues(alpha: 0.08),
+          color: AppTheme.orange.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Thời hạn: $deadline phút sau khi tất cả đồng ý',
+              'Deadline: $deadline minutes after everyone agrees',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
@@ -505,7 +503,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
               return Padding(
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(
-                  '• ${chore['Name'] ?? chore['name']} (+${chore['KarmaPoints'] ?? chore['karmaPoints']} Karma)\nBắt đầu +${chore['PlannedOffsetMinutes'] ?? chore['plannedOffsetMinutes'] ?? 0} phút · Phụ thuộc: ${chore['DependsOn'] ?? chore['dependsOn'] ?? []} · Nguồn lực: ${chore['Resources'] ?? chore['resources'] ?? []}',
+                  '• ${chore['Name'] ?? chore['name']} (+${chore['KarmaPoints'] ?? chore['karmaPoints']} Karma)\nStart +${chore['PlannedOffsetMinutes'] ?? chore['plannedOffsetMinutes'] ?? 0} minutes · Dependencies: ${chore['DependsOn'] ?? chore['dependsOn'] ?? []} · Resources: ${chore['Resources'] ?? chore['resources'] ?? []}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               );

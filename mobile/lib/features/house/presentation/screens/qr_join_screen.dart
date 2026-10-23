@@ -1,125 +1,202 @@
-import '../../../../core/network/api_client.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/widgets/app_states.dart';
-import '../providers/house_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../domain/entities/invite_code.dart';
+import '../providers/house_providers.dart';
 
-
-/// Camera-based QR scanner that reads the invite code and calls joinHouse.
 class QrJoinScreen extends ConsumerStatefulWidget {
   const QrJoinScreen({super.key});
-
   @override
   ConsumerState<QrJoinScreen> createState() => _QrJoinScreenState();
 }
 
-class _QrJoinScreenState extends ConsumerState<QrJoinScreen> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
+class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
+    with WidgetsBindingObserver {
+  final _controller = MobileScannerController(
+    autoStart: false,
+    formats: const [BarcodeFormat.qrCode],
+    detectionSpeed: DetectionSpeed.normal,
   );
+  Future<void> _cameraQueue = Future.value();
   bool _processing = false;
+  bool _inForeground = true;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _camera(() => _controller.start()),
+    );
+  }
+
+  Future<void> _camera(Future<void> Function() action) {
+    _cameraQueue = _cameraQueue.then((_) async {
+      if (!mounted) return;
+      try {
+        await action();
+      } catch (_) {
+        if (mounted) {
+          showAppMessage(
+            context,
+            'Unable to open camera. Check camera permissions or enter an invite code.',
+            error: true,
+          );
+        }
+      }
+    });
+    return _cameraQueue;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _inForeground = false;
+      unawaited(_camera(() => _controller.stop()));
+    } else if (state == AppLifecycleState.resumed) {
+      _inForeground = true;
+      if (!_processing) unawaited(_camera(() => _controller.start()));
+    }
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_cameraQueue.then((_) => _controller.dispose()));
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan QR code'),
-        actions: [
-          IconButton(
-            tooltip: 'Toggle torch',
-            icon: const Icon(Icons.flashlight_on_rounded),
-            onPressed: () => _controller.toggleTorch(),
-          ),
-          IconButton(
-            tooltip: 'Flip camera',
-            icon: const Icon(Icons.flip_camera_ios_rounded),
-            onPressed: () => _controller.switchCamera(),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-            errorBuilder: (context, error, child) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.videocam_off_rounded, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Unable to access camera (${error.errorCode.name})',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Scan House QR Code'),
+      actions: [
+        TextButton(
+          onPressed: _processing
+              ? null
+              : () => _camera(() => _controller.switchCamera()),
+          child: const Text('Switch Camera'),
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              MobileScanner(
+                controller: _controller,
+                onDetect: _onDetect,
+                errorBuilder: (context, error, child) => ColoredBox(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Camera access is unavailable. Allow camera access for this app or browser.',
+                            textAlign: TextAlign.center,
+                          ),
+                          TextButton(
+                            onPressed: () => _camera(() => _controller.start()),
+                            child: const Text('Retry'),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => context.pushReplacement('/houses/join'),
-                        child: const Text('Enter invite code manually'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              );
-            },
+                overlayBuilder: (context, constraints) =>
+                    IgnorePointer(child: _ScanOverlay()),
+              ),
+              if (_processing)
+                const ColoredBox(color: Colors.black54, child: LoadingView()),
+            ],
           ),
-          _ScanOverlay(),
-          if (_processing)
-            const ColoredBox(
-              color: Colors.black54,
-              child: LoadingView(),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Place the full QR code inside the frame. Use good lighting and hold the camera steady.',
+                  textAlign: TextAlign.center,
+                ),
+                TextButton(
+                  onPressed: _processing
+                      ? null
+                      : () => context.pushReplacement('/houses/join'),
+                  child: const Text('Enter Invite Code Instead'),
+                ),
+              ],
             ),
-        ],
-      ),
-    );
-  }
-
+          ),
+        ),
+      ],
+    ),
+  );
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_processing) return;
-    final barcode = capture.barcodes.firstOrNull;
-    final rawValue = barcode?.rawValue;
-    if (rawValue == null || rawValue.isEmpty) return;
-
+    if (_processing || !_inForeground) return;
+    final codes = capture.barcodes
+        .map((b) => parseInviteCode(b.rawValue ?? ''))
+        .whereType<String>();
+    if (codes.isEmpty) return;
+    final code = codes.first;
     setState(() => _processing = true);
-    await _controller.stop();
-
+    var joined = false;
     try {
-      final code = rawValue.trim().toUpperCase();
-      final preview = await ref.read(dioProvider).get('/invitations/${Uri.encodeComponent(code)}/preview');
+      await _camera(() => _controller.stop());
       if (!mounted) return;
-      final confirmed = await showDialog<bool>(context:context,builder:(context)=>AlertDialog(
-        title:Text('Join ${preview.data['name']}?'),
-        content:Text('${preview.data['activeMembers']} / ${preview.data['capacity']} members'),
-        actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('Cancel')),FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('Join'))],
-      ));
-      if (confirmed != true) { await _controller.start(); if(mounted) setState(()=>_processing=false); return; }
-      await ref.read(houseRepositoryProvider).joinHouse(
-        inviteCode: rawValue.trim().toUpperCase(),
+      final preview = await ref
+          .read(dioProvider)
+          .get('/invitations/${Uri.encodeComponent(code)}/preview');
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Join House ${preview.data['name']}?'),
+          content: Text(
+            '${preview.data['activeMembers']} / ${preview.data['capacity']} members',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Tham gia'),
+            ),
+          ],
+        ),
       );
+      if (confirmed != true || !mounted) return;
+      await ref.read(houseRepositoryProvider).joinHouse(inviteCode: code);
+      if (!mounted) return;
       refreshHouseState(ref);
-      if (mounted) {
-        showAppMessage(context, 'Joined house successfully!');
-        context.go('/houses');
-      }
+      showAppMessage(context, 'Joined house');
+      joined = true;
+      context.go('/houses');
     } catch (error) {
-      if (mounted) {
-        showAppMessage(context, apiErrorMessage(error), error: true);
-        await _controller.start();
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted && !joined) {
         setState(() => _processing = false);
+        if (_inForeground) await _camera(() => _controller.start());
       }
     }
   }
@@ -166,10 +243,18 @@ class _Corner extends StatelessWidget {
         height: 32,
         decoration: BoxDecoration(
           border: Border(
-            top: top ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-            bottom: top ? BorderSide.none : const BorderSide(color: Colors.white, width: 4),
-            left: left ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-            right: left ? BorderSide.none : const BorderSide(color: Colors.white, width: 4),
+            top: top
+                ? const BorderSide(color: Colors.white, width: 4)
+                : BorderSide.none,
+            bottom: top
+                ? BorderSide.none
+                : const BorderSide(color: Colors.white, width: 4),
+            left: left
+                ? const BorderSide(color: Colors.white, width: 4)
+                : BorderSide.none,
+            right: left
+                ? BorderSide.none
+                : const BorderSide(color: Colors.white, width: 4),
           ),
         ),
       ),

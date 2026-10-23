@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using ChoreWars.Application.Interfaces.Services;
 using ChoreWars.Application.DTOs.Chat;
+using ChoreWars.Domain.Exceptions;
 
 namespace ChoreWars.Presentation.Hubs;
 
@@ -63,6 +64,21 @@ public class ChatHub : Hub
         // Returning the persisted message gives the sender an immediate,
         // authoritative result even if its broadcast callback reconnects at
         // exactly the same time. The client de-duplicates it by message Id.
+        return message;
+    }
+
+    public async Task<ChatMessageResponse> SendText(Guid roomId, string content, Guid clientMessageId)
+    {
+        ChatMessageResponse message;
+        try
+        {
+            message = await _chatService.CreateTextMessageAsync(roomId, CurrentUserId, content, clientMessageId, Context.ConnectionAborted);
+        }
+        catch (DomainException exception)
+        {
+            throw new HubException(exception.Message);
+        }
+        await Clients.Group(RoomGroup(roomId)).SendAsync("MessageReceived", message, Context.ConnectionAborted);
         return message;
     }
 }

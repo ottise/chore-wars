@@ -13,6 +13,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../chat/data/models/action_proposal_model.dart';
 import '../../../chat/providers/action_proposal_providers.dart';
+import '../../../chat/presentation/screens/capture_photo_screen.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
@@ -56,7 +57,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           if (detail.asData?.value.occurrence.assignedUserId == currentUserId &&
               detail.asData?.value.occurrence.status == ChoreStatus.assigned)
             IconButton(
-              tooltip: 'AI gợi ý đổi việc',
+              tooltip: 'AI swap suggestions',
               icon: const Icon(Icons.auto_awesome_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
@@ -71,7 +72,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           if (detail.asData?.value.occurrence.evidenceId != null ||
               detail.asData?.value.occurrence.assignedUserId == currentUserId)
             IconButton(
-              tooltip: 'Ảnh minh chứng và nhận xét AI',
+              tooltip: 'Photo evidence & AI feedback',
               icon: const Icon(Icons.add_a_photo_outlined),
               onPressed: () => Navigator.of(context)
                   .push<bool>(
@@ -174,7 +175,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           profile?.id ??
           (authState is AuthAuthenticated ? authState.user.userId : null);
       if (currentUserId == null) {
-        throw StateError('Không xác định được tài khoản hiện tại.');
+        throw StateError('Unable to identify the current account.');
       }
 
       final season = await ref.read(
@@ -182,7 +183,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       );
       final seasonId = season?['id']?.toString();
       if (seasonId == null || seasonId.isEmpty) {
-        throw StateError('Nhà chưa có mùa giải đang hoạt động.');
+        throw StateError('This household has no active season.');
       }
 
       final response = await ref
@@ -211,7 +212,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       if (candidates.isEmpty) {
         showAppMessage(
           context,
-          'Hiện không có việc đang chờ của thành viên khác để đổi.',
+          'No eligible chores from other members are available to swap.',
           error: true,
         );
         return;
@@ -229,9 +230,9 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
             houseId: widget.houseId,
             type: ProposalType.choreSwap,
             title:
-                'Đổi ${detail.occurrence.choreName} với ${selection.occurrence.choreName}',
+                'Swap ${detail.occurrence.choreName} with ${selection.occurrence.choreName}',
             description: selection.note.trim().isEmpty
-                ? '${detail.occurrence.assignedUserDisplayName} đề xuất đổi việc với ${selection.occurrence.assignedUserDisplayName}.'
+                ? '${detail.occurrence.assignedUserDisplayName} proposes a swap with ${selection.occurrence.assignedUserDisplayName}.'
                 : selection.note.trim(),
             targetUserIds: [selection.targetUserId],
             payloadJson: jsonEncode({
@@ -243,7 +244,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       if (mounted) {
         showAppMessage(
           context,
-          'Đã gửi đề xuất đổi việc. Thành viên kia có thể phản hồi trong Chat.',
+          'Swap proposal sent. The other member can respond in Chat.',
         );
       }
     } catch (error) {
@@ -278,7 +279,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
               .where((item) => item.assignedUserId == targetUserId)
               .toList();
           return AlertDialog(
-            title: const Text('Đề xuất đổi việc'),
+            title: const Text('Propose a Swap'),
             content: SizedBox(
               width: 520,
               child: SingleChildScrollView(
@@ -287,14 +288,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Việc của bạn: ${source.choreName}',
+                      'Your chore: ${source.choreName}',
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 18),
                     DropdownButtonFormField<String>(
                       initialValue: targetUserId,
                       decoration: const InputDecoration(
-                        labelText: 'Thành viên muốn đổi',
+                        labelText: 'Member to swap with',
                         border: OutlineInputBorder(),
                       ),
                       items: memberNames.entries
@@ -321,7 +322,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                       initialValue: targetOccurrence.id,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Việc muốn nhận',
+                        labelText: 'Chore to take',
                         border: OutlineInputBorder(),
                       ),
                       items: memberChores
@@ -350,8 +351,8 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                       maxLines: 3,
                       maxLength: 1000,
                       decoration: const InputDecoration(
-                        labelText: 'Ghi chú (không bắt buộc)',
-                        hintText: 'Ví dụ: Tối nay mình bận, bạn đổi giúp nhé.',
+                        labelText: 'Note (optional)',
+                        hintText: 'Example: I am busy tonight. Could you swap with me?',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -362,7 +363,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Hủy'),
+                child: const Text('Cancel'),
               ),
               FilledButton.icon(
                 onPressed: () => Navigator.pop(
@@ -374,7 +375,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.swap_horiz_rounded),
-                label: const Text('Gửi đề xuất'),
+                label: const Text('Send Proposal'),
               ),
             ],
           );
@@ -401,14 +402,27 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           builder: (context, setModalState) {
             Future<void> pick(ImageSource source) async {
               try {
-                final photo = await picker.pickImage(
-                  source: source,
-                  maxWidth: 1024,
-                  maxHeight: 1024,
-                  imageQuality: 85,
-                );
+                final photo = source == ImageSource.camera
+                    ? await Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).push<XFile>(
+                        MaterialPageRoute(
+                          builder: (_) => const CapturePhotoScreen(
+                            title: 'Capture Photo Evidence',
+                            captureLabel: 'Use This Photo',
+                          ),
+                        ),
+                      )
+                    : await picker.pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 1024,
+                        maxHeight: 1024,
+                        imageQuality: 85,
+                      );
                 if (photo != null) {
                   final bytes = await photo.readAsBytes();
+                  if (!context.mounted) return;
                   setModalState(() {
                     selectedImageBytes = bytes;
                   });
@@ -417,7 +431,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                 if (context.mounted) {
                   showAppMessage(
                     context,
-                    'Không thể chọn ảnh: $e',
+                    'Unable to select photo: $e',
                     error: true,
                   );
                 }
@@ -455,7 +469,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hoàn thành việc nhà',
+                              'Complete Chore',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
@@ -463,7 +477,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             Text(
                               '+${detail.karmaPoints} Karma Points',
                               style: const TextStyle(
-                                color: Color(0xFF8A6100),
+                                color: AppTheme.onAmber,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -479,7 +493,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Ảnh minh chứng (tùy chọn)',
+                    'Photo evidence (optional)',
                     style: Theme.of(context).textTheme.labelLarge
                         ?.copyWith(fontWeight: FontWeight.w600),
                   ),
@@ -523,7 +537,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                         TextButton.icon(
                           onPressed: () => pick(ImageSource.camera),
                           icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                          label: const Text('Chụp lại'),
+                          label: const Text('Retake'),
                         ),
                         const SizedBox(width: 12),
                         TextButton.icon(
@@ -532,7 +546,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             Icons.photo_library_rounded,
                             size: 18,
                           ),
-                          label: const Text('Chọn ảnh khác'),
+                          label: const Text('Choose Another Photo'),
                         ),
                       ],
                     ),
@@ -559,7 +573,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            'Chụp ảnh kết quả để mọi người cùng thấy',
+                            'Take a photo of the result to share with your household',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppTheme.muted,
@@ -576,7 +590,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                                     Icons.camera_alt_rounded,
                                     size: 18,
                                   ),
-                                  label: const Text('Chụp ảnh'),
+                                  label: const Text('Take Photo'),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -587,7 +601,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                                     Icons.photo_library_rounded,
                                     size: 18,
                                   ),
-                                  label: const Text('Thư viện'),
+                                  label: const Text('Gallery'),
                                 ),
                               ),
                             ],
@@ -612,7 +626,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     ),
                     icon: const Icon(Icons.check_circle_rounded),
                     label: const Text(
-                      'Xác nhận hoàn thành',
+                      'Confirm Completion',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -749,7 +763,7 @@ class _DetailBody extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => Container(
           height: 120,
-          color: Colors.grey.shade200,
+          color: AppTheme.surfaceHigh,
           child: const Center(
             child: Icon(Icons.broken_image_outlined, size: 36),
           ),
@@ -773,7 +787,7 @@ class _DetailBody extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Minh chứng hoàn thành',
+                  'Completion Evidence',
                   style: Theme.of(context).textTheme.titleSmall
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
@@ -848,7 +862,7 @@ class _DetailBody extends StatelessWidget {
                   Text(
                     detail.description,
                     style: const TextStyle(
-                      color: Color(0xFFE5E1FF),
+                      color: AppTheme.lavender,
                       height: 1.4,
                     ),
                   ),
@@ -880,7 +894,7 @@ class _DetailBody extends StatelessWidget {
                   icon: Icons.bolt_rounded,
                   label: 'Karma',
                   value: '+${detail.karmaPoints}',
-                  valueColor: const Color(0xFF8A6100),
+                  valueColor: AppTheme.onAmber,
                 ),
                 if (chore.penaltyCount > 0) ...[
                   const Divider(height: 28),
@@ -910,11 +924,17 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: busy ? null : onComplete,
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.green),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.green,
+              foregroundColor: Colors.white,
+            ),
             icon: busy
                 ? const SizedBox.square(
                     dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.check_rounded),
             label: const Text('Complete chore'),
@@ -931,7 +951,7 @@ class _DetailBody extends StatelessWidget {
           FilledButton.icon(
             onPressed: busy ? null : onSwap,
             icon: const Icon(Icons.swap_horiz_rounded),
-            label: const Text('Đổi việc với thành viên khác'),
+            label: const Text('Swap with Another Member'),
           ),
         ],
         if (onCreateBounty != null) ...[
@@ -939,12 +959,12 @@ class _DetailBody extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: busy ? null : onCreateBounty,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF08C00),
+              backgroundColor: AppTheme.orange,
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.volunteer_activism_rounded),
             label: const Text(
-              'Tạo Bounty (Thuê người làm thay)',
+              'Post Bounty (Pay for Help)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),

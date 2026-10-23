@@ -4,6 +4,8 @@
 
 Nhóm 4 thành viên; yêu cầu môn tối thiểu 12 giao diện, dịch vụ thanh toán, đăng nhập, product hoàn chỉnh và 3 ngoại vi điện thoại.
 
+- [UI/UX mở app và xác thực — Intro → Welcome → Login/Register](ui-ux-launch-auth-redesign-plan.vi.md): hướng thiết kế riêng cho Chore Wars từ ảnh tham khảo Locket, storyboard animation, luồng phiên/router, manifest file và nghiệm thu; đang ở bước kế hoạch, chưa sửa UI.
+
 - Đặc tả AI triển khai theo mục 10.6: [Data & Metric](../ai/data-metric-specification.vi.md), [Learning Tasks](../ai/learning-task-specification.vi.md), [Demo & Evaluation](../ai/demo-evaluation-specification.vi.md). Trạng thái lock/nghiệm thu được ghi trong từng tài liệu.
 
 - [Trạng thái triển khai AI và bằng chứng kiểm chứng — 22/10/2026](../reports/ai-implementation-status-2026-10-22.vi.md): source Python/C#/Flutter, kết quả demo/training và các phần chưa nghiệm thu. [Hướng dẫn chạy AI](../../ai-service/README.md). Các ghi chú “chưa code” trong mô tả kế hoạch lịch sử bên dưới không phải trạng thái triển khai hiện tại.

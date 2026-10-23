@@ -37,10 +37,7 @@ class ActionProposalService {
   }) async {
     final response = await _dio.post(
       ApiEndpoints.respondProposal(proposalId),
-      data: {
-        'status': status.toBackendString(),
-        'reason': reason,
-      },
+      data: {'status': status.toBackendString(), 'reason': reason},
     );
     return ActionProposalModel.fromJson(response.data as Map<String, dynamic>);
   }
@@ -50,8 +47,13 @@ class ActionProposalService {
     final data = response.data;
     if (data is List) {
       return data
-          .map((item) => ActionProposalModel.fromJson(
-              item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map)))
+          .map(
+            (item) => ActionProposalModel.fromJson(
+              item is Map<String, dynamic>
+                  ? item
+                  : Map<String, dynamic>.from(item as Map),
+            ),
+          )
           .toList();
     }
     return [];

@@ -25,6 +25,10 @@ public static class EventScopeResolver
             Guid? actual;
             switch (topic)
             {
+                case KafkaTopics.CHAT_MESSAGE_CREATED:
+                    var messageId = Read("MessageId");
+                    actual = await db.ChatMessages.Where(m => m.Id == messageId).Select(m => (Guid?)m.Room.HouseId).SingleOrDefaultAsync(ct);
+                    break;
                 case KafkaTopics.CHORE_COMPLETED:
                 case KafkaTopics.CHORE_OVERDUE:
                 case KafkaTopics.DEADLINE_REMINDER:

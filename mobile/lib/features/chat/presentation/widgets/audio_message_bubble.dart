@@ -1,64 +1,196 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../providers/voice_note_provider.dart';
 
-class AudioMessageBubble extends ConsumerWidget {
+class AudioMessageBubble extends ConsumerStatefulWidget {
+  const AudioMessageBubble({
+    super.key,
+    required this.attachmentId,
+    this.isMe = false,
+  });
   final String attachmentId;
-  const AudioMessageBubble({super.key, required this.attachmentId});
+  final bool isMe;
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final audio = ref.watch(audioPlaybackProvider);
-    return StreamBuilder(
-      stream: audio.player.playerStateStream,
-      builder: (context, _) {
-        final playing = audio.activeId == attachmentId && audio.player.playing;
-        return SizedBox(
-          width: 240,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: playing ? 'Pause voice note' : 'Play voice note',
-                    icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                    onPressed: () async {
-                      try {
-                        if (playing) {
-                          await audio.player.pause();
-                        } else {
-                          final bytes = await ref.read(
-                            privateMediaProvider(attachmentId).future,
-                          );
-                          await audio.playBytes(attachmentId, bytes);
-                        }
-                      } catch (_) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Cannot play this voice note. Check your connection and room access.',
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  const Text('Voice note'),
-                ],
-              ),
-              if (audio.activeId == attachmentId)
-                StreamBuilder(
-                  stream: audio.player.positionStream,
-                  builder: (context, snapshot) => Text(
-                    '${snapshot.data?.inSeconds ?? 0}s / ${audio.player.duration?.inSeconds ?? 0}s',
-                  ),
-                ),
-            ],
+  ConsumerState<AudioMessageBubble> createState() => _AudioMessageBubbleState();
+}
+
+class _AudioMessageBubbleState extends ConsumerState<AudioMessageBubble> {
+  bool _loading = false;
+  Duration? _duration;
+  String _time(Duration value) =>
+      '${value.inMinutes}:${(value.inSeconds % 60).toString().padLeft(2, '0')}';
+
+  Future<void> _toggle(bool playing) async {
+    final audio = ref.read(audioPlaybackProvider);
+    try {
+      if (playing) {
+        await audio.player.pause();
+      } else if (audio.activeId == widget.attachmentId &&
+          audio.player.processingState != ProcessingState.idle) {
+        if (audio.player.processingState == ProcessingState.completed) {
+          await audio.player.seek(Duration.zero);
+        }
+        await audio.player.play();
+      } else {
+        setState(() => _loading = true);
+        final bytes = await ref.read(
+          privateMediaProvider(widget.attachmentId).future,
+        );
+        if (!mounted) return;
+        await audio.playBytes(widget.attachmentId, bytes);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cannot play this voice note. Check your connection and room access.',
+            ),
           ),
         );
-      },
+      }
+    } finally {
+      if (mounted && _loading) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final audio = ref.watch(audioPlaybackProvider);
+    final colors = Theme.of(context).colorScheme;
+    return ListenableBuilder(
+      listenable: audio,
+      builder: (context, _) => StreamBuilder<PlayerState>(
+        stream: audio.player.playerStateStream,
+        builder: (context, _) {
+          final active = audio.activeId == widget.attachmentId;
+          final completed =
+              active &&
+              audio.player.processingState == ProcessingState.completed;
+          final playing = active && audio.player.playing && !completed;
+          return StreamBuilder<Duration?>(
+            stream: audio.player.durationStream,
+            builder: (context, _) {
+              if (active && audio.player.duration != null) {
+                _duration = audio.player.duration;
+              }
+              return StreamBuilder<Duration>(
+                stream: audio.player.positionStream,
+                builder: (context, snapshot) {
+                  final position = active
+                      ? (snapshot.data ?? audio.player.position)
+                      : Duration.zero;
+                  final total = _duration?.inMilliseconds ?? 0;
+                  final progress = total > 0
+                      ? (position.inMilliseconds / total).clamp(0.0, 1.0)
+                      : 0.0;
+                  return Container(
+                    width: 260,
+                    padding: const EdgeInsets.fromLTRB(10, 12, 14, 12),
+                    decoration: BoxDecoration(
+                      color: widget.isMe
+                          ? colors.primaryFixed
+                          : colors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: colors.primary.withValues(alpha: .12),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton.filled(
+                          tooltip: playing
+                              ? 'Pause voice note'
+                              : completed
+                              ? 'Replay voice note'
+                              : 'Play voice note',
+                          style: IconButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            foregroundColor: colors.onPrimary,
+                            disabledBackgroundColor: colors.primaryFixedDim,
+                          ),
+                          onPressed: _loading ? null : () => _toggle(playing),
+                          icon: _loading
+                              ? SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: colors.primary,
+                                  ),
+                                )
+                              : Icon(
+                                  playing
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  size: 27,
+                                ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.mic_rounded,
+                                    size: 14,
+                                    color: colors.primary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      'Voice message',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: colors.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Semantics(
+                                label: 'Voice message progress',
+                                value: '${(progress * 100).round()} percent',
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 5,
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: colors.primary,
+                                  backgroundColor: colors.primary.withValues(
+                                    alpha: .12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _loading
+                                    ? 'Loading audio…'
+                                    : _duration == null
+                                    ? 'Tap to listen'
+                                    : '${_time(position)} / ${_time(_duration!)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

@@ -12,6 +12,37 @@ namespace IntegrationTests.Infrastructure;
 
 public class SignalRRevocationTests
 {
+    [PostgresTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TextRetryThroughHubReturnsThePersistedMessageAndOneOutboxEvent(bool everyone)
+    {
+        await using var fixture = await PostgresFixture.CreateAsync();
+        var seed = await CoreConcurrencyTests.Seed(fixture);
+        await using var factory = new ApiFactory(fixture);
+        Guid room;
+        await using (var scope = factory.Services.CreateAsyncScope())
+            room = (await scope.ServiceProvider.GetRequiredService<IChatService>().GetHouseRoomAsync(seed.HouseId, seed.Users[0])).Id;
+        await using var connection = await Connect(factory, seed.Users[0]);
+        await connection.InvokeAsync("JoinRoom", room);
+        var request = Guid.NewGuid();
+        var content = everyone ? "@all alo" : $"@{{{seed.Users[1]}}} xem lịch giúp mình";
+        var first = await connection.InvokeAsync<ChatMessageResponse>("SendText", room, content, request);
+        var retry = await connection.InvokeAsync<ChatMessageResponse>("SendText", room, content, request);
+        Assert.Equal(first.Id, retry.Id); Assert.Equal(request, retry.ClientMessageId);
+        await using var check = factory.Services.CreateAsyncScope();
+        var db = check.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(1, await db.ChatMessages.CountAsync());
+        Assert.Equal(1, await db.OutboxMessages.CountAsync());
+        var payload = System.Text.Json.JsonSerializer.Deserialize<ChoreWars.Application.Events.ChatMessageCreatedEvent>((await db.OutboxMessages.SingleAsync()).Payload)!;
+        Assert.Equal(everyone ? 2 : 1, payload.MentionedIds.Length);
+        Assert.DoesNotContain(seed.Users[0], payload.MentionedIds);
+        var error = await Assert.ThrowsAsync<Microsoft.AspNetCore.SignalR.HubException>(() =>
+            connection.InvokeAsync<ChatMessageResponse>("SendText", room, $"@{{{Guid.NewGuid()}}} alo", Guid.NewGuid()));
+        Assert.Contains("Only active members", error.Message);
+        Assert.Equal(1, await db.ChatMessages.CountAsync());
+    }
+
     private static async Task<HubConnection> Connect(ApiFactory factory, Guid userId)
     {
         using var scope=factory.Services.CreateScope();

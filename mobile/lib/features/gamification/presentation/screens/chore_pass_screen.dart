@@ -227,7 +227,7 @@ class _PassHeader extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Available · Covers one assignment',
-                style: TextStyle(color: Color(0xFFE5E1FF)),
+                style: TextStyle(color: AppTheme.lavender),
               ),
             ],
           ),

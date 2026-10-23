@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'ai_setup_view.dart';
+
 import '../../../core/storage/session_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/api_error_message.dart';
@@ -28,7 +30,7 @@ class AiHousekeeperScreen extends ConsumerWidget {
     return house.when(
       loading: () => const Scaffold(body: LoadingView()),
       error: (error, _) => Scaffold(
-        appBar: AppBar(title: const Text('Quản gia AI')),
+        appBar: AppBar(title: const Text('AI Housekeeper')),
         body: ErrorView(
           error: error,
           onRetry: () => ref.invalidate(houseDetailProvider(houseId)),
@@ -36,38 +38,64 @@ class AiHousekeeperScreen extends ConsumerWidget {
       ),
       data: (value) {
         final owner = value.myRole == HouseRole.owner;
-        return DefaultTabController(
-          length: owner ? 4 : 3,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Quản gia AI'),
-              bottom: TabBar(
-                isScrollable: true,
-                tabs: [
-                  const Tab(text: 'Đóng góp'),
-                  if (owner) const Tab(text: 'Đánh giá'),
-                  const Tab(text: 'Đề xuất'),
-                  const Tab(text: 'Cài đặt'),
-                ],
+        final key = (house: houseId, path: 'settings');
+        return ref
+            .watch(aiDataProvider(key))
+            .when(
+              loading: () => const Scaffold(body: LoadingView()),
+              error: (error, _) => Scaffold(
+                appBar: AppBar(title: const Text('Assistant')),
+                body: ErrorView(
+                  error: error,
+                  onRetry: () => ref.invalidate(aiDataProvider(key)),
+                ),
               ),
-            ),
-            body: TabBarView(
-              children: [
-                _Profiles(
-                  key: ValueKey((houseId, ref.watch(sessionEpochProvider))),
-                  houseId: houseId,
-                ),
-                if (owner) AiEvaluationDashboard(houseId: houseId),
-                _Commands(
-                  key: ValueKey(ref.watch(sessionEpochProvider)),
-                  houseId: houseId,
-                  owner: owner,
-                ),
-                _Settings(houseId: houseId, owner: owner),
-              ],
-            ),
-          ),
-        );
+              data: (settings) {
+                if (settings['configured'] == false ||
+                    settings['enabled'] != true) {
+                  return AiSetupView(
+                    houseId: houseId,
+                    owner: owner,
+                    settings: settings,
+                  );
+                }
+                return DefaultTabController(
+                  length: owner ? 4 : 3,
+                  child: Scaffold(
+                    appBar: AppBar(
+                      title: const Text('AI Housekeeper'),
+                      bottom: TabBar(
+                        isScrollable: true,
+                        tabs: [
+                          const Tab(text: 'Contributions'),
+                          if (owner) const Tab(text: 'Evaluation'),
+                          const Tab(text: 'Suggestions'),
+                          const Tab(text: 'Settings'),
+                        ],
+                      ),
+                    ),
+                    body: TabBarView(
+                      children: [
+                        _Profiles(
+                          key: ValueKey((
+                            houseId,
+                            ref.watch(sessionEpochProvider),
+                          )),
+                          houseId: houseId,
+                        ),
+                        if (owner) AiEvaluationDashboard(houseId: houseId),
+                        _Commands(
+                          key: ValueKey(ref.watch(sessionEpochProvider)),
+                          houseId: houseId,
+                          owner: owner,
+                        ),
+                        _Settings(houseId: houseId, owner: owner),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
       },
     );
   }
@@ -126,13 +154,13 @@ class _ProfilesState extends ConsumerState<_Profiles> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: period,
-              decoration: const InputDecoration(labelText: 'Khoảng thời gian'),
+              decoration: const InputDecoration(labelText: 'Time Range'),
               items: [
                 for (final entry in {
-                  'all-time': 'Toàn bộ lịch sử',
-                  '30d': '30 ngày gần nhất',
-                  '90d': '90 ngày gần nhất',
-                  if (seasons.isNotEmpty) 'season': 'Theo mùa',
+                  'all-time': 'All Time',
+                  '30d': 'Last 30 Days',
+                  '90d': 'Last 90 Days',
+                  if (seasons.isNotEmpty) 'season': 'By Season',
                 }.entries)
                   DropdownMenuItem(value: entry.key, child: Text(entry.value)),
               ],
@@ -146,30 +174,30 @@ class _ProfilesState extends ConsumerState<_Profiles> {
             if (period == 'season')
               DropdownButtonFormField<String>(
                 initialValue: seasonId,
-                decoration: const InputDecoration(labelText: 'Mùa'),
+                decoration: const InputDecoration(labelText: 'Season'),
                 items: [
                   for (final item in seasons)
                     DropdownMenuItem(
                       value: item['id'].toString(),
-                      child: Text(item['name']?.toString() ?? 'Mùa'),
+                      child: Text(item['name']?.toString() ?? 'Season'),
                     ),
                 ],
                 onChanged: (value) => setState(() => seasonId = value),
               ),
             const SizedBox(height: 16),
             Text(
-              'Ghi nhận việc đã làm',
+              'Recorded Contributions',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             const Text(
-              'Khối lượng chuẩn và lịch sử nhận trách nhiệm giúp giải thích đóng góp. Chúng không đánh giá tính cách hoặc tạo nghĩa vụ làm thêm.',
+              'Standard workload and responsibility history explain contributions. They do not assess personality or create extra obligations.',
             ),
             if (data['telemetry_complete'] == false)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'Dữ liệu đang được đồng bộ. Chưa đủ để kết luận.',
+                  'Data is syncing. There is not enough information to draw conclusions.',
                   style: TextStyle(color: AppTheme.orange),
                 ),
               ),
@@ -177,7 +205,7 @@ class _ProfilesState extends ConsumerState<_Profiles> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Text(
-                  'Chưa có hoạt động đủ bằng chứng. Hoàn thành công việc theo luồng thông thường để bắt đầu ghi nhận.',
+                  'No activities with sufficient evidence yet. Complete chores through the normal workflow to begin recording contributions.',
                 ),
               ),
             for (final raw in items) ...[
@@ -189,61 +217,61 @@ class _ProfilesState extends ConsumerState<_Profiles> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        names[raw['member_id']] ?? 'Thành viên',
+                        names[raw['member_id']] ?? 'Member',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '${raw['completed_count']} việc thực sự hoàn thành · ${raw['standard_minutes']} phút effort chuẩn',
+                        '${raw['completed_count']} chores actually completed · ${raw['standard_minutes']} standard effort minutes',
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Bounty: nhận ${raw['bounty_occurrence_count']} việc, tự hoàn thành ${raw['bounty_self_completed']}, người khác hoàn thành ${raw['bounty_other_completed']}.',
+                        'Bounty: accepted ${raw['bounty_occurrence_count']} chores, self-completed ${raw['bounty_self_completed']}, completed by others ${raw['bounty_other_completed']}.',
                       ),
                       Text(
-                        'Chưa đến hạn: ${raw['bounty_pending']} · Quá hạn còn mở: ${raw['bounty_overdue_open']}',
+                        'Not yet due: ${raw['bounty_pending']} · Open overdue: ${raw['bounty_overdue_open']}',
                       ),
                       ExpansionTile(
-                        title: const Text('Trách nhiệm và điểm số'),
+                        title: const Text('Responsibilities & Points'),
                         children: [
                           ListTile(
                             title: Text(
-                              'Đã nhận trách nhiệm: ${raw['responsibility_count'] ?? 0} lượt',
+                              'Responsibilities accepted: ${raw['responsibility_count'] ?? 0} episodes',
                             ),
                             subtitle: Text(
-                              'Nguồn: ${raw['responsibility_source_counts'] ?? {}}\nHoàn thành theo nguồn: ${raw['completion_source_counts'] ?? {}}',
+                              'Source: ${raw['responsibility_source_counts'] ?? {}}\nCompletions by source: ${raw['completion_source_counts'] ?? {}}',
                             ),
                           ),
                           ListTile(
                             title: Text(
-                              'Đúng hạn: ${raw['on_time_episode_count'] ?? 0} / ${raw['on_time_episode_denominator'] ?? 0} episode đủ kết quả',
+                              'On time: ${raw['on_time_episode_count'] ?? 0} / ${raw['on_time_episode_denominator'] ?? 0} eligible outcome episodes',
                             ),
                             subtitle: Text(
-                              'Còn chờ: ${raw['pending_episode_count'] ?? 0} · Bị loại/censored: ${raw['censored_episode_count'] ?? 0}',
+                              'Pending: ${raw['pending_episode_count'] ?? 0} · Excluded/censored: ${raw['censored_episode_count'] ?? 0}',
                             ),
                           ),
                           ListTile(
                             title: Text(
-                              'Đề nghị điều chỉnh: ${raw['adjustment_request_status_counts'] ?? {}}',
+                              'Adjustment requests: ${raw['adjustment_request_status_counts'] ?? {}}',
                             ),
                             subtitle: const Text(
-                              'Phân biệt yêu cầu, chấp thuận và từ chối; không suy ra động cơ.',
+                              'Requests, approvals and rejections are reported separately; motives are not inferred.',
                             ),
                           ),
                           ListTile(
                             title: Text(
-                              'Đứng đầu ${raw['season_wins'] ?? 0} · Đứng cuối ${raw['season_bottoms'] ?? 0} / ${raw['ranked_seasons'] ?? 0} mùa',
+                              'Ranked first ${raw['season_wins'] ?? 0} · Ranked last ${raw['season_bottoms'] ?? 0} / ${raw['ranked_seasons'] ?? 0} seasons',
                             ),
                             subtitle: Text(
-                              'Các khoản Karma: ${raw['ledger_breakdown'] ?? {}}',
+                              'Karma breakdown: ${raw['ledger_breakdown'] ?? {}}',
                             ),
                           ),
                           ListTile(
                             title: Text(
-                              'Đã đăng ${raw['bounty_posted_count'] ?? 0} bounty',
+                              'Posted ${raw['bounty_posted_count'] ?? 0} bounty',
                             ),
                             subtitle: Text(
-                              'Mức thưởng đã đăng: ${(raw['bounty_posted_amounts'] as List? ?? []).take(20).join(', ')}',
+                              'Posted reward amounts: ${(raw['bounty_posted_amounts'] as List? ?? []).take(20).join(', ')}',
                             ),
                           ),
                         ],
@@ -251,14 +279,14 @@ class _ProfilesState extends ConsumerState<_Profiles> {
                       ExpansionTile(
                         tilePadding: EdgeInsets.zero,
                         title: Text(
-                          '${(raw['evidence_ids'] as List? ?? []).length} bằng chứng nghiệp vụ',
+                          '${(raw['evidence_ids'] as List? ?? []).length} activity evidence',
                         ),
                         children: [
                           for (final id
                               in (raw['evidence_ids'] as List? ?? []).take(20))
                             ListTile(
                               dense: true,
-                              title: const Text('Mở bằng chứng nghiệp vụ'),
+                              title: const Text('Open Activity Evidence'),
                               subtitle: Text(id.toString()),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => Navigator.of(context).push(
@@ -298,6 +326,14 @@ class _Commands extends ConsumerStatefulWidget {
 
 class _CommandsState extends ConsumerState<_Commands> {
   final input = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    input.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
   bool busy = false;
   String? error, requestId;
   Map<String, dynamic>? recommendation, interpretation;
@@ -334,12 +370,12 @@ class _CommandsState extends ConsumerState<_Commands> {
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          'Xem trước rồi quyết định',
+          'Preview Before Deciding',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),
         const Text(
-          'AI không tự thay đổi lịch, điểm hoặc thanh toán. Lịch mới vẫn cần quy trình duyệt của nhà.',
+          'AI does not automatically change schedules, points or payments. New schedules still require household approval.',
         ),
         const SizedBox(height: 20),
         TextField(
@@ -348,13 +384,13 @@ class _CommandsState extends ConsumerState<_Commands> {
           maxLines: 5,
           maxLength: 8000,
           decoration: const InputDecoration(
-            labelText: 'Bạn muốn làm gì?',
-            hintText: 'Ví dụ: tối thứ Ba tôi bận từ 19 đến 21 giờ',
+            labelText: 'What would you like to do?',
+            hintText: 'Example: I am busy on Tuesday from 7 PM to 9 PM',
             border: OutlineInputBorder(),
           ),
         ),
         FilledButton.tonalIcon(
-          onPressed: busy
+          onPressed: busy || input.text.trim().isEmpty
               ? null
               : () => action(() async {
                   final value = await ref.read(aiRepositoryProvider).post(
@@ -365,7 +401,7 @@ class _CommandsState extends ConsumerState<_Commands> {
                   if (mounted) setState(() => interpretation = value);
                 }),
           icon: const Icon(Icons.chat_bubble_outline),
-          label: const Text('Hiểu yêu cầu'),
+          label: const Text('Interpret Request'),
         ),
         AiVoiceControls(
           controller: input,
@@ -382,9 +418,11 @@ class _CommandsState extends ConsumerState<_Commands> {
                 if ((interpretation!['missing_fields'] as List? ?? [])
                     .isNotEmpty)
                   Text(
-                    'Cần làm rõ: ${(interpretation!['missing_fields'] as List).join(', ')}',
+                    'Needs clarification: ${(interpretation!['missing_fields'] as List).join(', ')}',
                   ),
-                const Text('Đây là bản diễn giải, chưa áp dụng thay đổi.'),
+                const Text(
+                  'This is an interpretation; no changes have been applied.',
+                ),
                 if (interpretation!['availability'] is Map)
                   TextButton(
                     onPressed: () => Navigator.of(context).push(
@@ -395,7 +433,7 @@ class _CommandsState extends ConsumerState<_Commands> {
                         ),
                       ),
                     ),
-                    child: const Text('Xem lại và xác nhận lịch bận / rảnh'),
+                    child: const Text('Review & Confirm Availability'),
                   ),
               ],
             ),
@@ -422,11 +460,13 @@ class _CommandsState extends ConsumerState<_Commands> {
                     if (mounted) setState(() => recommendation = value);
                   }),
             icon: const Icon(Icons.calendar_month_outlined),
-            label: const Text('Đề xuất lịch mùa nháp'),
+            label: const Text('Suggest Draft Schedule'),
           ),
           if (season == null ||
               !(season['status'] == 0 || season['status'] == 'DRAFT'))
-            const Text('Tạo hoặc chọn mùa nháp để đề xuất lịch.'),
+            const Text(
+              'Create or choose a draft season to request a schedule.',
+            ),
         ],
         Wrap(
           spacing: 8,
@@ -448,27 +488,27 @@ class _CommandsState extends ConsumerState<_Commands> {
                         ),
                       ),
                 child: Text(switch (kind) {
-                  'REPLAN' => 'Sắp lại lịch',
-                  'URGENT' => 'Chiến dịch khẩn cấp',
-                  _ => 'Học từ mùa trước',
+                  'REPLAN' => 'Replan Schedule',
+                  'URGENT' => 'Urgent Campaign',
+                  _ => 'Learn from Previous Seasons',
                 }),
               ),
           ],
         ),
         if (recommendation != null) ...[
           const SizedBox(height: 16),
-          Text('Trạng thái: ${recommendation!['status']}'),
+          Text('Status: ${recommendation!['status']}'),
           Text(result?['reason']?.toString() ?? ''),
           if (result?['metrics'] is Map)
             Text(
-              'Xếp được ${(result!['metrics'] as Map)['coverage_count']} việc · Chênh Karma ${(result['metrics'] as Map)['karma_gap']}',
+              'Scheduled ${(result!['metrics'] as Map)['coverage_count']} chores · Karma gap ${(result['metrics'] as Map)['karma_gap']}',
             ),
           for (final task in tasks)
             ListTile(
-              title: Text(task['name']?.toString() ?? 'Công việc'),
+              title: Text(task['name']?.toString() ?? 'Chore'),
               subtitle: Text(
                 task['assigned_to'] == null
-                    ? 'Chưa tìm được người phù hợp'
+                    ? 'No suitable member found'
                     : '${task['assigned_to']} · ${task['start_at']}',
               ),
             ),
@@ -480,18 +520,18 @@ class _CommandsState extends ConsumerState<_Commands> {
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('Áp dụng vào mùa nháp?'),
+                          title: const Text('Apply to Draft Season?'),
                           content: const Text(
-                            'Lịch nháp sẽ được cập nhật. Sau đó mọi thành viên vẫn phải duyệt lịch.',
+                            'The draft schedule will be updated. Every member must still approve it.',
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Hủy'),
+                              child: const Text('Cancel'),
                             ),
                             FilledButton(
                               onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Áp dụng'),
+                              child: const Text('Apply'),
                             ),
                           ],
                         ),
@@ -509,7 +549,7 @@ class _CommandsState extends ConsumerState<_Commands> {
                         ref.invalidate(activeSeasonProvider(widget.houseId));
                       }
                     }),
-              child: const Text('Áp dụng bản đã xem'),
+              child: const Text('Apply Reviewed Schedule'),
             ),
           TextButton(
             onPressed: busy
@@ -518,7 +558,7 @@ class _CommandsState extends ConsumerState<_Commands> {
                     requestId = null;
                     recommendation = null;
                   }),
-            child: const Text('Tạo đề xuất khác'),
+            child: const Text('Create Another Suggestion'),
           ),
         ],
         if (busy) const LinearProgressIndicator(),
@@ -560,9 +600,9 @@ class _Settings extends ConsumerWidget {
             builder: (data) => Column(
               children: [
                 SwitchListTile(
-                  title: const Text('Bật AI cho nhà'),
+                  title: const Text('Enable Household AI'),
                   subtitle: const Text(
-                    'Các luồng thủ công vẫn hoạt động khi AI không khả dụng.',
+                    'Manual workflows remain available when AI is unavailable.',
                   ),
                   value: data['Enabled'] == true || data['enabled'] == true,
                   onChanged: (value) => update('settings', {
@@ -572,9 +612,9 @@ class _Settings extends ConsumerWidget {
                   }),
                 ),
                 SwitchListTile(
-                  title: const Text('Gợi ý từ tin nhắn mới'),
+                  title: const Text('Suggestions from New Messages'),
                   subtitle: const Text(
-                    'Chỉ xử lý tin nhắn của thành viên đã bật đồng ý; kết quả riêng tư và cần xác nhận.',
+                    'Only messages from consenting members are processed; results are private and require confirmation.',
                   ),
                   value: data['chat_auto_insights_enabled'] == true,
                   onChanged: data['enabled'] == true
@@ -591,9 +631,9 @@ class _Settings extends ConsumerWidget {
           houseId: houseId,
           path: 'me/consent',
           builder: (data) => SwitchListTile(
-            title: const Text('Cho phép phân tích tin nhắn của tôi'),
+            title: const Text('Allow Analysis of My Messages'),
             subtitle: const Text(
-              'Cho phép phân tích khi bạn yêu cầu; tin nhắn mới có thể được xử lý nếu nhà bật gợi ý tự động. Thu hồi sẽ xóa kết quả dẫn xuất.',
+              'Allow analysis when requested; new messages may be processed if household suggestions are enabled. Revoking consent removes derived results.',
             ),
             value:
                 data['ChatAnalysisEnabled'] == true ||
@@ -605,11 +645,11 @@ class _Settings extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Đóng góp được ghi nhận theo sự kiện nghiệp vụ. Số lần nhận bounty không tạo thêm nghĩa vụ. Chưa có timer hoặc model thời lượng.',
+          'Contributions are recorded from application events. Bounty acceptances do not create extra obligations. No timer or duration model is used.',
         ),
         ListTile(
           leading: const Icon(Icons.event_available),
-          title: const Text('Xác nhận lịch bận / rảnh theo ngày'),
+          title: const Text('Confirm Daily Availability'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) =>
@@ -619,7 +659,7 @@ class _Settings extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.insights_outlined),
-          title: const Text('Đánh giá trách nhiệm của tôi'),
+          title: const Text('Evaluate My Responsibilities'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => AiRiskInsightsScreen(houseId: houseId),
@@ -628,7 +668,7 @@ class _Settings extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.chat_bubble_outline),
-          title: const Text('Gợi ý riêng từ tin nhắn'),
+          title: const Text('Private Chat Insights'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) =>
@@ -638,7 +678,7 @@ class _Settings extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.volunteer_activism_outlined),
-          title: const Text('Bounty phù hợp'),
+          title: const Text('Matching Bounties'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => AiInsightsScreen(houseId: houseId),

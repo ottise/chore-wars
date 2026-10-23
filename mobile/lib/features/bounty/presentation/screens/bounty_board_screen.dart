@@ -57,7 +57,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         if (context.mounted) {
           showAppMessage(
             context,
-            'Hãy tạo mùa giải (Season) trước khi đăng Bounty.',
+            'Create a season before posting a bounty.',
             error: true,
           );
         }
@@ -79,7 +79,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       if (occurrences.isEmpty) {
         showAppMessage(
           context,
-          'Không có công việc nào khả dụng để tạo Bounty.',
+          'No eligible chores available for a bounty.',
           error: true,
         );
         return;
@@ -96,7 +96,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
               const Padding(
                 padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Text(
-                  'Chọn việc nhà bạn muốn nhờ làm thay',
+                  'Choose a chore to request help with',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -113,7 +113,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                     );
                     return ListTile(
                       leading: const CircleAvatar(
-                        backgroundColor: Color(0xFFF3E8FF),
+                        backgroundColor: AppTheme.lavender,
                         child: Icon(
                           Icons.cleaning_services_rounded,
                           color: AppTheme.purple,
@@ -125,8 +125,8 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                       ),
                       subtitle: Text(
                         dueDate == null
-                            ? 'Chưa có hạn'
-                            : 'Hạn: ${DateFormat('dd/MM HH:mm').format(dueDate.toLocal())}',
+                            ? 'No deadline'
+                            : 'Due: ${DateFormat('dd/MM HH:mm').format(dueDate.toLocal())}',
                       ),
                       trailing: const Icon(
                         Icons.arrow_forward_ios_rounded,
@@ -167,25 +167,25 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       context: context,
       builder: (context) {
         final currency = NumberFormat.currency(
-          locale: 'vi_VN',
-          symbol: 'đ',
+          locale: 'en_US',
+          symbol: '₫',
           decimalDigits: 0,
         );
         return AlertDialog(
-          title: const Text('Nhận Bounty này?'),
+          title: const Text('Accept This Bounty?'),
           content: Text(
-            'Bạn đồng ý nhận làm "${bounty.choreName}" thay cho ${bounty.postedByDisplayName}?\n\n'
-            'Phần thưởng: ${currency.format(bounty.amount)}\n'
-            'Hạn chót: ${DateFormat('dd/MM HH:mm').format(bounty.expiresAt)}',
+            'Do you agree to complete "${bounty.choreName}" on behalf of ${bounty.postedByDisplayName}?\n\n'
+            'Reward: ${currency.format(bounty.amount)}\n'
+            'Deadline: ${DateFormat('dd/MM HH:mm').format(bounty.expiresAt)}',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Xác nhận nhận việc'),
+              child: const Text('Confirm Acceptance'),
             ),
           ],
         );
@@ -202,7 +202,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       if (mounted) {
         showAppMessage(
           context,
-          'Đã nhận Bounty thành công! Hãy hoàn thành đúng hạn nhé.',
+          'Bounty accepted. Please complete it before the deadline.',
         );
       }
     } catch (e) {
@@ -217,28 +217,28 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     if (houseId == null || houseId.isEmpty) return;
 
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xác nhận đã nhận tiền?'),
+        title: const Text('Confirm Payment Received?'),
         content: Text(
-          'Xác nhận khoản tiền ${currency.format(payment.amount)} giữa '
-          '${payment.debtorDisplayName} và ${payment.creditorDisplayName} đã được thanh toán xong?\n\n'
-          '(Chỉ người nhận xác nhận sau khi thực nhận tiền; đây là xác nhận thủ công).',
+          'Confirm the payment of ${currency.format(payment.amount)} between '
+          '${payment.debtorDisplayName} and ${payment.creditorDisplayName} has been settled?\n\n'
+          '(Only the recipient should confirm after receiving the money; this is a manual confirmation.)',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Đã thanh toán'),
+            child: const Text('Paid'),
           ),
         ],
       ),
@@ -253,7 +253,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       ref.invalidate(paymentListProvider(houseId));
       ref.invalidate(bountyBoardProvider(houseId));
       if (mounted) {
-        showAppMessage(context, 'Đã cập nhật thanh toán thành công!');
+        showAppMessage(context, 'Payment updated successfully.');
       }
     } catch (e) {
       if (mounted) {
@@ -267,7 +267,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     final houseId = widget.houseId;
     if (houseId == null || houseId.isEmpty) {
       return const Scaffold(
-        body: EmptyState(message: 'Vui lòng chọn một ngôi nhà để xem Bounty.'),
+        body: EmptyState(message: 'Choose a house to view bounties.'),
       );
     }
 
@@ -284,11 +284,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bounties & Công nợ'),
+        title: const Text('Bounties & Payments'),
         actions: [
           if (widget.houseId != null)
             IconButton(
-              tooltip: 'Gợi ý bounty tự nguyện',
+              tooltip: 'Optional Bounty Suggestions',
               icon: const Icon(Icons.auto_awesome_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
@@ -297,11 +297,6 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                 ),
               ),
             ),
-          IconButton(
-            tooltip: 'Tạo Bounty mới',
-            onPressed: () => _openCreateBounty(context),
-            icon: const Icon(Icons.add_rounded),
-          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -311,15 +306,15 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
           indicatorColor: AppTheme.purple,
           tabs: [
             const Tab(
-              text: 'Chờ nhận',
+              text: 'Available',
               icon: Icon(Icons.explore_outlined, size: 20),
             ),
             const Tab(
-              text: 'Tôi đăng',
+              text: 'Posted by Me',
               icon: Icon(Icons.outbox_rounded, size: 20),
             ),
             const Tab(
-              text: 'Tôi nhận',
+              text: 'Accepted by Me',
               icon: Icon(Icons.handshake_outlined, size: 20),
             ),
             Tab(
@@ -331,10 +326,10 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   size: 20,
                 ),
               ),
-              text: 'Công nợ',
+              text: 'Payments',
             ),
             const Tab(
-              text: 'Lịch sử',
+              text: 'History',
               icon: Icon(Icons.history_rounded, size: 20),
             ),
           ],
@@ -368,7 +363,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         heroTag: 'bounty-fab',
         onPressed: () => _openCreateBounty(context),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Tạo Bounty'),
+        label: const Text('Post Bounty'),
         backgroundColor: AppTheme.purple,
         foregroundColor: Colors.white,
       ),
@@ -404,20 +399,14 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Chưa có Bounty nào đang chờ nhận',
+                    'No Available Bounties',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Bạn bận rộn hoặc muốn nhờ người làm thay?\nHãy bấm nút Tạo Bounty để đăng việc có thưởng!',
+                    'Need help with a chore?\nPost a bounty to offer a cash reward.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.muted, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => _openCreateBounty(context),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Tạo Bounty mới'),
                   ),
                 ],
               ),
@@ -479,20 +468,14 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Bạn chưa đăng Bounty nào',
+                    'You Have Not Posted Any Bounties',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Đăng Bounty khi bạn muốn nhờ bạn cùng nhà làm việc thay mình với mức thưởng tiền mặt.',
+                    'Post a bounty to offer a cash reward for a housemate to complete your chore.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.muted, height: 1.4),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => _openCreateBounty(context),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Tạo Bounty ngay'),
                   ),
                 ],
               ),
@@ -555,12 +538,12 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Bạn chưa nhận làm Bounty nào',
+                    'You Have Not Accepted Any Bounties',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Hãy chuyển sang tab "Chờ nhận" để nhận việc nhà từ bạn cùng phòng và nhận tiền thưởng!',
+                    'Open the "Available" tab to accept a chore and earn a cash reward.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.muted, height: 1.4),
                   ),
@@ -606,8 +589,8 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
             .toList();
 
         final currency = NumberFormat.currency(
-          locale: 'vi_VN',
-          symbol: 'đ',
+          locale: 'en_US',
+          symbol: '₫',
           decimalDigits: 0,
         );
 
@@ -633,10 +616,10 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.08),
+                        color: AppTheme.red.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.2),
+                          color: AppTheme.red.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -647,15 +630,15 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                               Icon(
                                 Icons.arrow_upward_rounded,
                                 size: 16,
-                                color: Colors.red,
+                                color: AppTheme.red,
                               ),
                               SizedBox(width: 4),
                               Text(
-                                'Bạn cần trả',
+                                'You Owe',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.red,
+                                  color: AppTheme.red,
                                 ),
                               ),
                             ],
@@ -666,7 +649,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.red,
+                              color: AppTheme.red,
                             ),
                           ),
                         ],
@@ -678,10 +661,10 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.08),
+                        color: AppTheme.green.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.green.withValues(alpha: 0.2),
+                          color: AppTheme.green.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -692,15 +675,15 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                               Icon(
                                 Icons.arrow_downward_rounded,
                                 size: 16,
-                                color: Colors.green,
+                                color: AppTheme.green,
                               ),
                               SizedBox(width: 4),
                               Text(
-                                'Bạn chờ nhận',
+                                'You Are Owed',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.green,
+                                  color: AppTheme.green,
                                 ),
                               ),
                             ],
@@ -711,7 +694,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green,
+                              color: AppTheme.green,
                             ),
                           ),
                         ],
@@ -740,7 +723,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Các bên tự thanh toán tiền mặt/chuyển khoản, sau đó bấm "Đã thanh toán" để xác nhận.',
+                        'Settle payments directly in cash or by transfer, then select "Paid" to confirm.',
                         style: TextStyle(fontSize: 11, color: AppTheme.purple),
                       ),
                     ),
@@ -757,11 +740,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                         Icon(
                           Icons.check_circle_outline_rounded,
                           size: 56,
-                          color: Colors.green,
+                          color: AppTheme.green,
                         ),
                         SizedBox(height: 12),
                         Text(
-                          'Không có công nợ nào còn thiếu!',
+                          'No Outstanding Payments',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -769,7 +752,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Mọi khoản thanh toán trong nhà đã được xử lý xong.',
+                          'All household payments have been settled.',
                           style: TextStyle(color: AppTheme.muted, fontSize: 13),
                         ),
                       ],
@@ -825,12 +808,12 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   Icon(Icons.history_rounded, size: 64, color: AppTheme.muted),
                   SizedBox(height: 16),
                   Text(
-                    'Chưa có lịch sử thanh toán nào',
+                    'No Payment History Yet',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Các khoản thù lao bounty và tiền bồi thường đã hoàn tất sẽ hiển thị ở đây.',
+                    'Completed bounty payments and compensation appear here.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.muted, height: 1.4),
                   ),
@@ -871,8 +854,8 @@ class _AvailableBountyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
     final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
@@ -881,7 +864,7 @@ class _AvailableBountyCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+        side: BorderSide(color: AppTheme.outline.withValues(alpha: 0.15)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -919,7 +902,7 @@ class _AvailableBountyCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Đăng bởi: ${bounty.postedByDisplayName}${isMine ? " (Bạn)" : ""}',
+                          'Posted by: ${bounty.postedByDisplayName}${isMine ? " (You)" : ""}',
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppTheme.muted,
@@ -934,13 +917,13 @@ class _AvailableBountyCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
+                      color: AppTheme.amberContainer,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       currency.format(bounty.amount),
                       style: const TextStyle(
-                        color: Color(0xFFB45309),
+                        color: AppTheme.onAmber,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -958,7 +941,7 @@ class _AvailableBountyCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Hạn hoàn thành: $date',
+                    'Due: $date',
                     style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ],
@@ -969,7 +952,7 @@ class _AvailableBountyCard extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: onTap,
-                    child: const Text('Bounty do bạn đăng (Xem chi tiết)'),
+                    child: const Text('Your Bounty (View Details)'),
                   ),
                 )
               else
@@ -978,7 +961,7 @@ class _AvailableBountyCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onAccept,
                     icon: const Icon(Icons.handshake_rounded, size: 18),
-                    label: const Text('Nhận làm Bounty này'),
+                    label: const Text('Accept Bounty'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.purple,
                       shape: RoundedRectangleBorder(
@@ -1004,8 +987,8 @@ class _MyPostedBountyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
     final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
@@ -1014,36 +997,36 @@ class _MyPostedBountyCard extends StatelessWidget {
     String statusText;
     switch (bounty.status) {
       case BountyStatus.open:
-        statusColor = Colors.amber;
-        statusText = 'Đang chờ người nhận';
+        statusColor = AppTheme.orange;
+        statusText = 'Awaiting Acceptance';
         break;
       case BountyStatus.claimed:
-        statusColor = Colors.blue;
+        statusColor = AppTheme.purple;
         statusText =
-            'Đã có người nhận: ${bounty.newAssigneeDisplayName ?? "Thành viên"}';
+            'Accepted by: ${bounty.newAssigneeDisplayName ?? "Member"}';
         break;
       case BountyStatus.completed:
-        statusColor = Colors.green;
-        statusText = 'Đã làm xong (Cần thanh toán)';
+        statusColor = AppTheme.green;
+        statusText = 'Completed (Payment Due)';
         break;
       case BountyStatus.expired:
-        statusColor = Colors.deepOrange;
-        statusText = 'Hết hạn (Gán cưỡng chế đền 120%)';
+        statusColor = AppTheme.orange;
+        statusText = 'Expired (Forced Assignment at 120%)';
         break;
       case BountyStatus.cancelled:
-        statusColor = Colors.grey;
-        statusText = 'Đã hủy';
+        statusColor = AppTheme.outline;
+        statusText = 'Cancelled';
         break;
       default:
-        statusColor = Colors.grey;
-        statusText = 'Không xác định';
+        statusColor = AppTheme.outline;
+        statusText = 'Unknown';
     }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+        side: BorderSide(color: AppTheme.outline.withValues(alpha: 0.15)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -1099,9 +1082,9 @@ class _MyPostedBountyCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    'Đền bù cưỡng chế (120%): ${currency.format(bounty.forcedCompensationAmount)}',
+                    'Forced Compensation (120%): ${currency.format(bounty.forcedCompensationAmount)}',
                     style: const TextStyle(
-                      color: Colors.deepOrange,
+                      color: AppTheme.orange,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -1116,7 +1099,7 @@ class _MyPostedBountyCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Hạn chót: $date',
+                    'Deadline: $date',
                     style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ],
@@ -1143,8 +1126,8 @@ class _MyAcceptedBountyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
     final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
@@ -1153,27 +1136,27 @@ class _MyAcceptedBountyCard extends StatelessWidget {
     String statusText;
     switch (bounty.status) {
       case BountyStatus.claimed:
-        statusColor = Colors.blue;
-        statusText = 'Đang làm (Chưa hoàn thành)';
+        statusColor = AppTheme.purple;
+        statusText = 'In Progress';
         break;
       case BountyStatus.completed:
-        statusColor = Colors.green;
-        statusText = 'Đã hoàn thành! Đang chờ thanh toán';
+        statusColor = AppTheme.green;
+        statusText = 'Completed! Awaiting Payment';
         break;
       case BountyStatus.expired:
-        statusColor = Colors.deepOrange;
-        statusText = 'Quá hạn';
+        statusColor = AppTheme.orange;
+        statusText = 'Overdue';
         break;
       default:
-        statusColor = Colors.grey;
-        statusText = 'Đã nhận';
+        statusColor = AppTheme.outline;
+        statusText = 'Accepted';
     }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+        side: BorderSide(color: AppTheme.outline.withValues(alpha: 0.15)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -1199,14 +1182,14 @@ class _MyAcceptedBountyCard extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.green,
+                      color: AppTheme.green,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
-                'Người giao việc: ${bounty.postedByDisplayName}',
+                'Posted by: ${bounty.postedByDisplayName}',
                 style: const TextStyle(fontSize: 13, color: AppTheme.muted),
               ),
               const SizedBox(height: 8),
@@ -1238,7 +1221,7 @@ class _MyAcceptedBountyCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Hạn chót: $date',
+                    'Deadline: $date',
                     style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ],
@@ -1252,7 +1235,7 @@ class _MyAcceptedBountyCard extends StatelessWidget {
                       '/chores/${bounty.choreOccurrenceId}?houseId=${Uri.encodeComponent(houseId)}',
                     ),
                     icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                    label: const Text('Làm việc & Chụp ảnh hoàn thành'),
+                    label: const Text('Open Chore & Add Photo Evidence'),
                   ),
                 ),
               ],
@@ -1282,8 +1265,8 @@ class _DebtCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
     final date = DateFormat('dd/MM/yyyy HH:mm').format(payment.createdAt);
@@ -1293,39 +1276,39 @@ class _DebtCard extends StatelessWidget {
     Color badgeColor;
 
     if (isDebtor) {
-      title = 'Bạn phải trả cho ${payment.creditorDisplayName}';
-      badge = 'Nợ của bạn';
-      badgeColor = Colors.red;
+      title = 'You owe ${payment.creditorDisplayName}';
+      badge = 'You Owe';
+      badgeColor = AppTheme.red;
     } else if (isCreditor) {
-      title = '${payment.debtorDisplayName} nợ bạn';
-      badge = 'Chờ bạn nhận';
-      badgeColor = Colors.green;
+      title = '${payment.debtorDisplayName} owes you';
+      badge = 'Awaiting Receipt';
+      badgeColor = AppTheme.green;
     } else {
       title = '${payment.debtorDisplayName} → ${payment.creditorDisplayName}';
-      badge = 'Công nợ thành viên';
-      badgeColor = Colors.grey;
+      badge = 'Member Payment';
+      badgeColor = AppTheme.outline;
     }
 
     String reasonText;
     switch (payment.reason) {
       case PaymentReason.bountyPayment:
-        reasonText = 'Thù lao làm thay Bounty';
+        reasonText = 'Bounty Payment';
         break;
       case PaymentReason.forcedReassignment:
-        reasonText = 'Bồi thường cưỡng chế (120% do quá hạn)';
+        reasonText = 'Forced Compensation (120% for Expiry)';
         break;
       case PaymentReason.penalty:
-        reasonText = 'Khoản phạt quá hạn';
+        reasonText = 'Overdue Penalty';
         break;
       default:
-        reasonText = 'Khoản nghĩa vụ thanh toán';
+        reasonText = 'Payment Obligation';
     }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+        side: BorderSide(color: AppTheme.outline.withValues(alpha: 0.15)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1353,14 +1336,14 @@ class _DebtCard extends StatelessWidget {
                           fontSize: 12,
                           color:
                               payment.reason == PaymentReason.forcedReassignment
-                              ? Colors.deepOrange
+                              ? AppTheme.orange
                               : AppTheme.muted,
                         ),
                       ),
                       if (payment.choreName != null &&
                           payment.choreName!.isNotEmpty)
                         Text(
-                          'Việc: ${payment.choreName}',
+                          'Chore: ${payment.choreName}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppTheme.purple,
@@ -1378,8 +1361,8 @@ class _DebtCard extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: isDebtor
-                            ? Colors.red
-                            : (isCreditor ? Colors.green : Colors.black87),
+                            ? AppTheme.red
+                            : (isCreditor ? AppTheme.green : AppTheme.ink),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1415,7 +1398,7 @@ class _DebtCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Tạo lúc: $date',
+                  'Created: $date',
                   style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                 ),
                 const Spacer(),
@@ -1423,13 +1406,13 @@ class _DebtCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onSettle,
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Đã thanh toán'),
+                    label: const Text('Paid'),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 8,
                       ),
-                      backgroundColor: Colors.teal,
+                      backgroundColor: AppTheme.green,
                       textStyle: const TextStyle(fontSize: 13),
                     ),
                   ),
@@ -1450,8 +1433,8 @@ class _PaymentHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'đ',
+      locale: 'en_US',
+      symbol: '₫',
       decimalDigits: 0,
     );
 
@@ -1462,20 +1445,20 @@ class _PaymentHistoryCard extends StatelessWidget {
     String reasonText;
     switch (payment.reason) {
       case PaymentReason.bountyPayment:
-        reasonText = 'Thù lao Bounty';
+        reasonText = 'Bounty Payment';
         break;
       case PaymentReason.forcedReassignment:
-        reasonText = 'Bồi thường quá hạn (120%)';
+        reasonText = 'Expiry Compensation (120%)';
         break;
       default:
-        reasonText = 'Thanh toán';
+        reasonText = 'Payment';
     }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+        side: BorderSide(color: AppTheme.outline.withValues(alpha: 0.15)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1484,12 +1467,12 @@ class _PaymentHistoryCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.12),
+                color: AppTheme.green.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.check_circle_rounded,
-                color: Colors.green,
+                color: AppTheme.green,
                 size: 24,
               ),
             ),
@@ -1513,7 +1496,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                   if (payment.choreName != null &&
                       payment.choreName!.isNotEmpty)
                     Text(
-                      'Việc: ${payment.choreName}',
+                      'Chore: ${payment.choreName}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.purple,
@@ -1521,7 +1504,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 4),
                   Text(
-                    'Hoàn tất: $completedDate',
+                    'Completed: $completedDate',
                     style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
                 ],
@@ -1532,7 +1515,7 @@ class _PaymentHistoryCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Colors.green,
+                color: AppTheme.green,
               ),
             ),
           ],
