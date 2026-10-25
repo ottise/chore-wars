@@ -47,6 +47,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     if (houseId == null || houseId.isEmpty) return;
 
     try {
+      final profile = await ref.read(userProfileProvider.future);
       final dio = ref.read(dioProvider);
       final seasonResponse = await dio.get('/houses/$houseId/seasons/current');
       final season = seasonResponse.data is Map
@@ -71,7 +72,19 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
           ? (occurrencesResponse.data as List)
                 .whereType<Map>()
                 .map((item) => Map<String, dynamic>.from(item))
-                .where((item) => item['status']?.toString() != 'COMPLETED')
+                .where(
+                  (item) =>
+                      item['assignedUserId']?.toString().toLowerCase() ==
+                          profile.id.toLowerCase() &&
+                      [
+                        'ASSIGNED',
+                        'OVERDUE',
+                        'CRITICAL_OVERDUE',
+                        '0',
+                        '2',
+                        '3',
+                      ].contains(item['status']?.toString().toUpperCase()),
+                )
                 .toList()
           : <Map<String, dynamic>>[];
 
@@ -79,7 +92,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       if (occurrences.isEmpty) {
         showAppMessage(
           context,
-          'No eligible chores available for a bounty.',
+          'You have no eligible chores of your own to post a bounty for.',
           error: true,
         );
         return;
@@ -97,13 +110,13 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                 padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Text(
                   'Choose a chore to request help with',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
               Flexible(
                 child: ListView.separated(
                   shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   itemCount: occurrences.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
@@ -115,7 +128,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                       leading: const CircleAvatar(
                         backgroundColor: AppTheme.lavender,
                         child: Icon(
-                          Icons.cleaning_services_rounded,
+                          Icons.cleaning_services_outlined,
                           color: AppTheme.purple,
                         ),
                       ),
@@ -129,7 +142,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                             : 'Due: ${DateFormat('dd/MM HH:mm').format(dueDate.toLocal())}',
                       ),
                       trailing: const Icon(
-                        Icons.arrow_forward_ios_rounded,
+                        Icons.arrow_forward_ios_outlined,
                         size: 16,
                       ),
                       onTap: () => Navigator.pop(context, occurrence),
@@ -311,7 +324,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
             ),
             const Tab(
               text: 'Posted by Me',
-              icon: Icon(Icons.outbox_rounded, size: 20),
+              icon: Icon(Icons.outbox_outlined, size: 20),
             ),
             const Tab(
               text: 'Accepted by Me',
@@ -330,7 +343,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
             ),
             const Tab(
               text: 'History',
-              icon: Icon(Icons.history_rounded, size: 20),
+              icon: Icon(Icons.history_outlined, size: 20),
             ),
           ],
         ),
@@ -362,7 +375,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'bounty-fab',
         onPressed: () => _openCreateBounty(context),
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.add_outlined),
         label: const Text('Post Bounty'),
         backgroundColor: AppTheme.purple,
         foregroundColor: Colors.white,
@@ -400,7 +413,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   const SizedBox(height: 16),
                   const Text(
                     'No Available Bounties',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -417,7 +430,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(bountyBoardProvider(houseId).future),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
             itemCount: available.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -462,14 +475,14 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.outbox_rounded,
+                    Icons.outbox_outlined,
                     size: 64,
                     color: AppTheme.muted,
                   ),
                   const SizedBox(height: 16),
                   const Text(
                     'You Have Not Posted Any Bounties',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -486,7 +499,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(bountyBoardProvider(houseId).future),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
             itemCount: posted.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) => _MyPostedBountyCard(
@@ -539,7 +552,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   const SizedBox(height: 16),
                   const Text(
                     'You Have Not Accepted Any Bounties',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -556,7 +569,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(bountyBoardProvider(houseId).future),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
             itemCount: accepted.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) => _MyAcceptedBountyCard(
@@ -607,7 +620,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(paymentListProvider(houseId).future),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
             children: [
               // Summary cards
               Row(
@@ -628,7 +641,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                           const Row(
                             children: [
                               Icon(
-                                Icons.arrow_upward_rounded,
+                                Icons.arrow_upward_outlined,
                                 size: 16,
                                 color: AppTheme.red,
                               ),
@@ -648,7 +661,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                             currency.format(totalMustPay),
                             style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: AppTheme.red,
                             ),
                           ),
@@ -673,7 +686,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                           const Row(
                             children: [
                               Icon(
-                                Icons.arrow_downward_rounded,
+                                Icons.arrow_downward_outlined,
                                 size: 16,
                                 color: AppTheme.green,
                               ),
@@ -693,7 +706,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                             currency.format(totalToReceive),
                             style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: AppTheme.green,
                             ),
                           ),
@@ -724,7 +737,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                     Expanded(
                       child: Text(
                         'Settle payments directly in cash or by transfer, then select "Paid" to confirm.',
-                        style: TextStyle(fontSize: 11, color: AppTheme.purple),
+                        style: TextStyle(fontSize: 12, color: AppTheme.purple),
                       ),
                     ),
                   ],
@@ -747,7 +760,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                           'No Outstanding Payments',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         SizedBox(height: 4),
@@ -805,11 +818,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history_rounded, size: 64, color: AppTheme.muted),
+                  Icon(Icons.history_outlined, size: 64, color: AppTheme.muted),
                   SizedBox(height: 16),
                   Text(
                     'No Payment History Yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   SizedBox(height: 8),
                   Text(
@@ -826,7 +839,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
         return RefreshIndicator(
           onRefresh: () => ref.refresh(paymentListProvider(houseId).future),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
             itemCount: history.length,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) =>
@@ -883,7 +896,7 @@ class _AvailableBountyCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
-                      Icons.volunteer_activism_rounded,
+                      Icons.volunteer_activism_outlined,
                       color: AppTheme.purple,
                       size: 24,
                     ),
@@ -897,7 +910,7 @@ class _AvailableBountyCard extends StatelessWidget {
                           bounty.choreName,
                           style: const TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -918,13 +931,13 @@ class _AvailableBountyCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: AppTheme.amberContainer,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       currency.format(bounty.amount),
                       style: const TextStyle(
                         color: AppTheme.onAmber,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
                     ),
@@ -935,7 +948,7 @@ class _AvailableBountyCard extends StatelessWidget {
               Row(
                 children: [
                   const Icon(
-                    Icons.alarm_rounded,
+                    Icons.alarm_outlined,
                     size: 16,
                     color: AppTheme.muted,
                   ),
@@ -960,7 +973,7 @@ class _AvailableBountyCard extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: onAccept,
-                    icon: const Icon(Icons.handshake_rounded, size: 18),
+                    icon: const Icon(Icons.handshake_outlined, size: 18),
                     label: const Text('Accept Bounty'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.purple,
@@ -1043,14 +1056,14 @@ class _MyPostedBountyCard extends StatelessWidget {
                       bounty.choreName,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   Text(
                     currency.format(bounty.amount),
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontSize: 16,
                       color: AppTheme.purple,
                     ),
@@ -1085,7 +1098,7 @@ class _MyPostedBountyCard extends StatelessWidget {
                     'Forced Compensation (120%): ${currency.format(bounty.forcedCompensationAmount)}',
                     style: const TextStyle(
                       color: AppTheme.orange,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
                   ),
@@ -1093,7 +1106,7 @@ class _MyPostedBountyCard extends StatelessWidget {
               Row(
                 children: [
                   const Icon(
-                    Icons.schedule_rounded,
+                    Icons.schedule_outlined,
                     size: 14,
                     color: AppTheme.muted,
                   ),
@@ -1173,14 +1186,14 @@ class _MyAcceptedBountyCard extends StatelessWidget {
                       bounty.choreName,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   Text(
                     '+${currency.format(bounty.amount)}',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       fontSize: 16,
                       color: AppTheme.green,
                     ),
@@ -1215,7 +1228,7 @@ class _MyAcceptedBountyCard extends StatelessWidget {
               Row(
                 children: [
                   const Icon(
-                    Icons.schedule_rounded,
+                    Icons.schedule_outlined,
                     size: 14,
                     color: AppTheme.muted,
                   ),
@@ -1326,7 +1339,7 @@ class _DebtCard extends StatelessWidget {
                         title,
                         style: const TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1359,7 +1372,7 @@ class _DebtCard extends StatelessWidget {
                       currency.format(payment.amount),
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: isDebtor
                             ? AppTheme.red
                             : (isCreditor ? AppTheme.green : AppTheme.ink),
@@ -1379,7 +1392,7 @@ class _DebtCard extends StatelessWidget {
                         badge,
                         style: TextStyle(
                           color: badgeColor,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1392,14 +1405,14 @@ class _DebtCard extends StatelessWidget {
             Row(
               children: [
                 const Icon(
-                  Icons.calendar_today_rounded,
+                  Icons.calendar_today_outlined,
                   size: 13,
                   color: AppTheme.muted,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Created: $date',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                 ),
                 const Spacer(),
                 if (canSettle)
@@ -1471,7 +1484,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.check_circle_rounded,
+                Icons.check_circle_outlined,
                 color: AppTheme.green,
                 size: 24,
               ),
@@ -1485,7 +1498,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                     '${payment.debtorDisplayName} → ${payment.creditorDisplayName}',
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1505,7 +1518,7 @@ class _PaymentHistoryCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Completed: $completedDate',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ],
               ),
@@ -1514,7 +1527,7 @@ class _PaymentHistoryCard extends StatelessWidget {
               currency.format(payment.amount),
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 color: AppTheme.green,
               ),
             ),

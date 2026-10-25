@@ -62,7 +62,7 @@ class _AchievementShareCardState extends State<AchievementShareCard> {
               color: Theme.of(context).colorScheme.surface,
               child: Column(
                 children: [
-                  const Icon(Icons.workspace_premium, size: 64),
+                  const Icon(Icons.workspace_premium_outlined, size: 64),
                   const SizedBox(height: 12),
                   Text(
                     'Chore Wars',
@@ -87,7 +87,7 @@ class _AchievementShareCardState extends State<AchievementShareCard> {
           ),
           FilledButton.icon(
             onPressed: _busy || !widget.achievement.isUnlocked ? null : _share,
-            icon: const Icon(Icons.share),
+            icon: const Icon(Icons.share_outlined),
             label: const Text('Share PNG'),
           ),
         ],

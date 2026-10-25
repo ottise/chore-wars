@@ -39,13 +39,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           prefixIcon: Icon(icon, size: 20),
           fillColor: colors.surfaceContainerLowest,
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(
               color: colors.outlineVariant.withValues(alpha: .5),
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: colors.primary, width: 1.5),
           ),
         );
@@ -93,7 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         style: theme.textTheme.titleMedium
                                             ?.copyWith(
                                               color: colors.onSurface,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                       ),
                                       const SizedBox(height: 2),
@@ -114,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: theme.textTheme.headlineLarge?.copyWith(
                                   fontSize: 34,
                                   height: 1.12,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   letterSpacing: -1,
                                   color: colors.onSurface,
                                 ),
@@ -220,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: FilledButton.styleFrom(
                                   minimumSize: const Size.fromHeight(54),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                                 child: _isLoading
@@ -238,7 +238,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           Text('Sign In'),
                                           SizedBox(width: 10),
                                           Icon(
-                                            Icons.arrow_forward_rounded,
+                                            Icons.arrow_forward_outlined,
                                             size: 18,
                                           ),
                                         ],

@@ -1,3 +1,21 @@
+import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
+import 'package:chore_wars/core/widgets/house_shell.dart';
+import 'package:chore_wars/features/chat/data/models/chat_message_model.dart';
+import 'package:chore_wars/features/chat/data/models/chat_room_model.dart';
+import 'package:chore_wars/features/chat/data/repositories/chat_repository.dart';
+import 'package:chore_wars/features/chat/providers/chat_providers.dart';
+import 'package:chore_wars/features/chat/presentation/screens/chat_room_screen.dart';
+import 'package:chore_wars/features/chat/presentation/widgets/chat_notification_button.dart';
+import 'package:chore_wars/features/chore/domain/entities/chore_models.dart';
+import 'package:chore_wars/features/chore/presentation/providers/chore_providers.dart';
+import 'package:chore_wars/features/chore/presentation/screens/chore_list_screen.dart';
+import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
+import 'package:chore_wars/features/chat/presentation/screens/assistant_chat_screen.dart';
+import 'package:chore_wars/features/notifications/domain/entities/notification_models.dart';
+import 'package:chore_wars/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:chore_wars/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:chore_wars/features/auth/presentation/screens/profile_screen.dart';
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -42,7 +60,11 @@ PaymentObligation payment(String id, PaymentStatus status) => PaymentObligation(
   createdAt: DateTime.utc(2026, 10, 24),
 );
 
-Future<void> mount(WidgetTester tester, Widget screen) async {
+Future<void> mount(
+  WidgetTester tester,
+  Widget screen, {
+  double textScale = 1.2,
+}) async {
   final dio = Dio();
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -59,6 +81,32 @@ Future<void> mount(WidgetTester tester, Widget screen) async {
       key: UniqueKey(),
       overrides: [
         dioProvider.overrideWithValue(dio),
+        activeSeasonProvider.overrideWith(
+          (ref, id) async => {
+            'id': 'season',
+            'name': 'Autumn Harmony',
+            'status': 2,
+          },
+        ),
+        choreTemplatesProvider.overrideWith((ref, id) async => []),
+        chatRepositoryProvider.overrideWithValue(_PreviewChatRepository()),
+        chatNotificationsEnabledProvider.overrideWith((ref, id) async => true),
+        actionProposalProvider('room').overrideWith(_PreviewProposals.new),
+        houseMembersProvider.overrideWith((ref, id) async => []),
+        activeUrgentEventForHouseProvider.overrideWith((ref, id) async => null),
+        myChoresProvider.overrideWith(
+          (ref, id) async => [
+            ChoreOccurrence.fromJson({
+              'id': 'occurrence',
+              'choreId': 'chore',
+              'choreName': 'Floor Mopping',
+              'dueDate': '2026-10-24T08:00:00Z',
+              'status': 2,
+              'karmaPoints': 10,
+            }),
+          ],
+        ),
+        notificationNotifierProvider.overrideWith(_PreviewNotifications.new),
         userProfileProvider.overrideWith(
           (ref) async => const UserProfile(
             id: 'me',
@@ -171,45 +219,33 @@ Future<void> mount(WidgetTester tester, Widget screen) async {
           ],
         ),
         paymentListProvider.overrideWith(
-          (ref, id) async => [
-            payment('pending', PaymentStatus.pending),
-            payment('paid', PaymentStatus.paid),
-          ],
+          (ref, id) async => id == 'empty-house'
+              ? []
+              : [
+                  payment('pending', PaymentStatus.pending),
+                  payment('paid', PaymentStatus.paid),
+                ],
         ),
       ],
       child: RepaintBoundary(
         key: _previewKey,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: Platform.environment['UI_FONT_PATH'] == null
-              ? AppTheme.lightTheme
-              : AppTheme.lightTheme.copyWith(
-                  appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
-                    titleTextStyle: AppTheme
-                        .lightTheme
-                        .appBarTheme
-                        .titleTextStyle
-                        ?.copyWith(fontFamily: 'Roboto'),
-                  ),
-                  listTileTheme: AppTheme.lightTheme.listTileTheme.copyWith(
-                    titleTextStyle: AppTheme
-                        .lightTheme
-                        .listTileTheme
-                        .titleTextStyle
-                        ?.copyWith(fontFamily: 'Roboto'),
-                    subtitleTextStyle: AppTheme
-                        .lightTheme
-                        .listTileTheme
-                        .subtitleTextStyle
-                        ?.copyWith(fontFamily: 'Roboto'),
-                  ),
-                ),
+          theme: AppTheme.lightTheme,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
-                .copyWith(textScaler: const TextScaler.linear(1.2)),
+                .copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
-          home: screen,
+          home:
+              Platform.environment['UI_REVIEW_DIR'] != null &&
+                  screen is! NotificationsScreen
+              ? HouseShell(
+                  houseId: 'house',
+                  location: _location(screen),
+                  child: screen,
+                )
+              : screen,
         ),
       ),
     ),
@@ -217,7 +253,144 @@ Future<void> mount(WidgetTester tester, Widget screen) async {
   await tester.pumpAndSettle();
 }
 
+String _location(Widget screen) {
+  const base = '/houses/house';
+  return switch (screen) {
+    ProfileScreen() => '$base/account',
+    RewardCatalogScreen() => '$base/rewards',
+    AchievementsScreen() => '$base/achievements',
+    KarmaHistoryScreen() => '$base/karma/history',
+    SeasonRewardScreen() => '$base/seasons/season/rewards',
+    LeaderboardScreen() => '$base/seasons/season/leaderboard',
+    CreateSeasonScreen() => '$base/seasons/new',
+    PaymentObligationsScreen() => '$base/payments',
+    ChoreListScreen() => '$base/chores',
+    AssistantChatScreen() => '$base/chat/assistant',
+    ChatRoomScreen() => '$base/chat/everyone',
+    _ => '$base/settings',
+  };
+}
+
+class _PreviewProposals extends ActionProposalNotifier {
+  _PreviewProposals() : super('room');
+  @override
+  AsyncValue<List<ActionProposalModel>> build() => const AsyncValue.data([]);
+}
+
+class _PreviewChatRepository implements ChatRepository {
+  @override
+  Future<ChatRoomModel> getHouseRoom(String houseId) async =>
+      ChatRoomModel(id: 'room', houseId: houseId, name: 'Household');
+  @override
+  Future<({List<ChatMessageModel> items, int totalCount})> getMessages(
+    String roomId, {
+    int page = 1,
+    int pageSize = 30,
+  }) async => (
+    items: [
+      ChatMessageModel(
+        id: 'reply',
+        roomId: roomId,
+        senderId: 'me',
+        senderName: 'Chi',
+        content: 'It is almost done. Dinner is ready too!',
+        createdAt: DateTime.utc(2026, 10, 24, 16, 41),
+      ),
+      ChatMessageModel(
+        id: 'question',
+        roomId: roomId,
+        senderId: 'other',
+        senderName: 'Housemate',
+        content: 'Did anyone start the laundry yet?',
+        createdAt: DateTime.utc(2026, 10, 24, 16, 40),
+      ),
+    ],
+    totalCount: 2,
+  );
+  @override
+  Future<void> connectToHub(
+    String roomId,
+    void Function(ChatMessageModel) onMessageReceived, {
+    void Function()? onProposalsChanged,
+  }) async {}
+  @override
+  Future<void> disconnectHub(String roomId) async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnsupportedError(
+    'Unexpected chat action in layout preview: ${invocation.memberName}',
+  );
+}
+
+class _PreviewNotifications extends NotificationNotifier {
+  @override
+  NotificationState build() => NotificationState(
+    notifications: [
+      AppNotification.fromJson({
+        'id': 'bounty',
+        'userId': 'me',
+        'title': 'New Bounty!',
+        'message': 'A new bounty has been posted in your household.',
+        'type': 'BOUNTY_CREATED',
+        'houseId': 'house',
+        'createdAt': '2026-10-24T08:00:00Z',
+      }),
+      AppNotification.fromJson({
+        'id': 'chore',
+        'userId': 'me',
+        'title': 'Chore Overdue',
+        'message': 'An assigned chore is overdue.',
+        'type': 'CHORE_OVERDUE',
+        'houseId': 'house',
+        'createdAt': '2026-10-23T08:00:00Z',
+      }),
+    ],
+  );
+}
+
+Future<void> capture(
+  WidgetTester tester,
+  String? directory,
+  String name,
+) async {
+  if (directory == null) return;
+  final boundary =
+      _previewKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    await File('$directory/$name.png')
+        .writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    final appFont = FontLoader('BeVietnamPro');
+    for (final weight in ['Regular', 'Medium', 'SemiBold']) {
+      appFont.addFont(
+        File('assets/fonts/be_vietnam_pro/BeVietnamPro-$weight.ttf')
+            .readAsBytes()
+            .then(ByteData.sublistView),
+      );
+    }
+    await appFont.load();
+  });
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.llfbandit.record/messages'),
+          (call) async => null,
+        );
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.llfbandit.record/messages'),
+          null,
+        );
+  });
   testWidgets(
     'all reference screens render on a narrow phone with larger text',
     (tester) async {
@@ -241,7 +414,7 @@ void main() {
           await Directory(previewDir).create(recursive: true);
         });
       }
-      for (final screen in const <Widget>[
+      const screens = <Widget>[
         LeaderboardScreen(houseId: 'house', seasonId: 'season'),
         SeasonRewardScreen(houseId: 'house', seasonId: 'season'),
         RewardCatalogScreen(houseId: 'house'),
@@ -249,23 +422,16 @@ void main() {
         KarmaHistoryScreen(houseId: 'house'),
         CreateSeasonScreen(houseId: 'house'),
         HouseSettingsScreen(houseId: 'house'),
+        ProfileScreen(houseId: 'house'),
+        NotificationsScreen(),
+        ChoreListScreen(houseId: 'house'),
+        AssistantChatScreen(houseId: 'house'),
+        ChatRoomScreen(houseId: 'house'),
         PaymentObligationsScreen(houseId: 'house'),
-      ]) {
+      ];
+      for (final screen in screens) {
         await mount(tester, screen);
-        if (previewDir != null) {
-          final boundary =
-              _previewKey.currentContext!.findRenderObject()!
-                  as RenderRepaintBoundary;
-          await tester.runAsync(() async {
-            final image = await boundary.toImage();
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            await File('$previewDir/${screen.runtimeType}.png')
-                .writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
-          });
-        }
+        await capture(tester, previewDir, 'large-${screen.runtimeType}');
         expect(
           tester.takeException(),
           isNull,
@@ -277,6 +443,21 @@ void main() {
           tester.takeException(),
           isNull,
           reason: screen.runtimeType.toString(),
+        );
+      }
+      tester.view.physicalSize = const Size(390, 844);
+      for (final screen in screens) {
+        await mount(tester, screen, textScale: 1);
+        await capture(tester, previewDir, 'default-${screen.runtimeType}');
+        if (screen is ChoreListScreen) {
+          await tester.tap(find.text('Mine'));
+          await tester.pumpAndSettle();
+          await capture(tester, previewDir, 'default-PersonalChores');
+        }
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${screen.runtimeType} at default scale',
         );
       }
     },
@@ -291,6 +472,7 @@ void main() {
       expect(find.text('Overdue penalty'), findsOneWidget);
       expect(find.text('Dishes completed'), findsNothing);
       expect(find.text('Coffee redeemed'), findsNothing);
+      await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Spent'));
       await tester.tap(find.widgetWithText(ChoiceChip, 'Spent'));
       await tester.pumpAndSettle();
       expect(find.text('Coffee redeemed'), findsOneWidget);

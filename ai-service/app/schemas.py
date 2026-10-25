@@ -154,6 +154,14 @@ class AvailabilityCandidate(Contract):
         return self
 
 
+class UrgentCandidate(Contract):
+    deadline_minutes: int | None = Field(default=None, ge=1, le=1440)
+    ready_by: AwareDatetime | None = None
+    guest_count: int | None = Field(default=None, ge=1, le=10000)
+    participant_ids: list[UUID] = Field(default_factory=list, max_length=50)
+    resources: list[str] = Field(default_factory=list, max_length=30)
+
+
 class LanguageResult(Contract):
     intent: Literal[
         "availability",
@@ -172,6 +180,7 @@ class LanguageResult(Contract):
     evidence_quotes: list[str] = Field(default_factory=list)
     requires_confirmation: Literal[True] = True
     availability: AvailabilityCandidate | None = None
+    urgent: UrgentCandidate | None = None
 
 
 class VisionInput(Contract):

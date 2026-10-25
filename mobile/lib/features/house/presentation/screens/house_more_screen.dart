@@ -32,7 +32,7 @@ class HouseMoreScreen extends ConsumerWidget {
           color: highlighted
               ? colors.primaryFixed.withValues(alpha: .25)
               : colors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           child: ListTile(
             dense: true,
             minTileHeight: 60,
@@ -54,13 +54,13 @@ class HouseMoreScreen extends ConsumerWidget {
             subtitle: Text(
               subtitle,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 height: 1.4,
                 color: colors.onSurfaceVariant,
               ),
             ),
             trailing: Icon(
-              Icons.chevron_right_rounded,
+              Icons.chevron_right_outlined,
               size: 20,
               color: colors.onSurfaceVariant,
             ),
@@ -79,13 +79,13 @@ class HouseMoreScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Row(
               children: [
-                Icon(Icons.circle, size: 7, color: dot),
+                Icon(Icons.circle_outlined, size: 7, color: dot),
                 const SizedBox(width: 7),
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: .6,
                     color: colors.onSurfaceVariant,
                   ),
@@ -110,11 +110,11 @@ class HouseMoreScreen extends ConsumerWidget {
               'House Management',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
             ),
             Text(
               'Season governance & settings',
-              style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -140,7 +140,7 @@ class HouseMoreScreen extends ConsumerWidget {
                             ? 'In Review'
                             : 'Ended'}',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: active
                         ? AppTheme.green
                         : colors.onPrimaryFixedVariant,
@@ -208,7 +208,7 @@ class HouseMoreScreen extends ConsumerWidget {
                 link(
                   'Create New Season',
                   'Set dates, rules & assignment preferences',
-                  Icons.add_rounded,
+                  Icons.add_outlined,
                   '$base/seasons/new',
                   accent: const Color(0xFF386A43),
                 ),
@@ -235,14 +235,14 @@ class HouseMoreScreen extends ConsumerWidget {
               link(
                 'System Notifications',
                 'Chore updates & household alerts',
-                Icons.notifications_none_rounded,
+                Icons.notifications_none_outlined,
                 '/notifications',
               ),
               const Divider(indent: 18, endIndent: 18),
               link(
                 'Karma History',
                 'Your recorded points & penalties',
-                Icons.history_rounded,
+                Icons.history_outlined,
                 '$base/karma/history',
               ),
               const Divider(indent: 18, endIndent: 18),
@@ -263,14 +263,14 @@ class HouseMoreScreen extends ConsumerWidget {
             Center(
               child: TextButton.icon(
                 onPressed: () => context.go('/houses'),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                icon: const Icon(Icons.swap_horiz_outlined, size: 18),
                 label: const Text('Switch House'),
               ),
             ),
             Center(
               child: Text(
                 h.name,
-                style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+                style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
               ),
             ),
           ],

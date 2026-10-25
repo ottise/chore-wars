@@ -1,4 +1,5 @@
 using ChoreWars.Application.Interfaces.Services;
+using ChoreWars.Domain.Exceptions;
 using Microsoft.Extensions.Options;
 namespace ChoreWars.Infrastructure.Storage;
 public class MediaStorageOptions { public string RootPath { get; set; } = Path.Combine(AppContext.BaseDirectory,"private-media"); }
@@ -12,6 +13,10 @@ public sealed class FileMediaStorage(IOptions<MediaStorageOptions> options) : IM
         await using var stream = new FileStream(file,FileMode.CreateNew,FileAccess.Write,FileShare.None,81920,true);
         await stream.WriteAsync(data,ct);
     }
-    public Task<Stream> ReadAsync(string key, CancellationToken ct) => Task.FromResult<Stream>(new FileStream(FilePath(key),FileMode.Open,FileAccess.Read,FileShare.Read,81920,true));
+    public Task<Stream> ReadAsync(string key, CancellationToken ct) {
+        try { return Task.FromResult<Stream>(new FileStream(FilePath(key),FileMode.Open,FileAccess.Read,FileShare.Read,81920,true)); }
+        catch (FileNotFoundException) { throw new NotFoundException("Media file is unavailable."); }
+        catch (DirectoryNotFoundException) { throw new NotFoundException("Media file is unavailable."); }
+    }
     public Task DeleteAsync(string key, CancellationToken ct) { File.Delete(FilePath(key)); return Task.CompletedTask; }
 }

@@ -1,3 +1,6 @@
+import 'app_page_frame.dart';
+import 'app_bottom_bar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +22,21 @@ class HouseShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final base = '/houses/$houseId';
+    final redesigned =
+        [
+          '$base/account',
+          '$base/chores',
+          '$base/rewards',
+          '$base/achievements',
+          '$base/karma/history',
+          '$base/payments',
+          '$base/seasons/new',
+          '$base/chat/everyone',
+          '$base/chat/assistant',
+          '$base/chat/notifications',
+        ].contains(location) ||
+        RegExp('^${RegExp.escape(base)}/seasons/[^/]+/(leaderboard|rewards)\$')
+            .hasMatch(location);
     final house = ref.watch(houseDetailProvider(houseId)).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
     final paths = [
@@ -43,34 +61,34 @@ class HouseShell extends ConsumerWidget {
       'bounties' || 'payments' => 4,
       _ => null,
     };
-    const labels = ['Overview', 'Chore', 'Chat', 'Bonus', 'Bounty'];
-    const icons = [
-      Icons.home_rounded,
-      Icons.checklist_rounded,
-      Icons.chat_bubble_rounded,
-      Icons.stars_rounded,
-      Icons.local_offer_rounded,
-    ];
     final colors = Theme.of(context).colorScheme;
-    final barColor = colors.surfaceContainerLowest;
-    final activeColor = colors.primaryFixed;
-    final inkColor = colors.onSurfaceVariant;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final conversation =
         location == '$base/chat/everyone' || location == '$base/chat/assistant';
+    final selfContainedHeader =
+        redesigned &&
+        ([
+              '$base/account',
+              '$base/karma/history',
+              '$base/seasons/new',
+              '$base/payments',
+            ].contains(location) ||
+            RegExp('^${RegExp.escape(base)}/seasons/[^/]+/rewards\$')
+                .hasMatch(location));
     return Scaffold(
+      backgroundColor: redesigned ? AppPageFrame.background : null,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            if (!keyboard && !conversation)
+            if (!keyboard && !conversation && !selfContainedHeader)
               Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
+                  constraints: BoxConstraints(maxWidth: redesigned ? 480 : 800),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
+                      horizontal: 20,
                       vertical: 6,
                     ),
                     child: Row(
@@ -87,12 +105,16 @@ class HouseShell extends ConsumerWidget {
                                 ),
                                 backgroundColor: colors.primaryFixed,
                                 foregroundColor: colors.onPrimaryFixedVariant,
-                                shape: const StadiumBorder(),
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(12),
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.circle, size: 7),
+                                  const Icon(Icons.circle_outlined, size: 7),
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
@@ -101,13 +123,13 @@ class HouseShell extends ConsumerWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 3),
                                   const Icon(
-                                    Icons.expand_more_rounded,
+                                    Icons.expand_more_outlined,
                                     size: 15,
                                   ),
                                 ],
@@ -131,7 +153,7 @@ class HouseShell extends ConsumerWidget {
                                   '$base/qr-invite',
                                   extra: house,
                                 ),
-                          icon: const Icon(Icons.qr_code_rounded, size: 20),
+                          icon: const Icon(Icons.qr_code_outlined, size: 20),
                         ),
                         const SizedBox(width: 12),
                         const SizedBox(width: 44, child: NotificationBell()),
@@ -148,7 +170,11 @@ class HouseShell extends ConsumerWidget {
                                 ),
                                 backgroundColor: colors.surfaceContainerLowest,
                                 foregroundColor: colors.onSurface,
-                                shape: const StadiumBorder(),
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(12),
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -166,7 +192,7 @@ class HouseShell extends ConsumerWidget {
                                                 .toUpperCase()
                                           : '?',
                                       style: const TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -199,86 +225,9 @@ class HouseShell extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: keyboard || conversation
+      bottomNavigationBar: keyboard
           ? null
-          : SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-              child: Center(
-                heightFactor: 1,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(36),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 20,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: barColor,
-                      borderRadius: BorderRadius.circular(36),
-                      clipBehavior: Clip.antiAlias,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < labels.length; i++)
-                              Expanded(
-                                child: Semantics(
-                                  selected: selected == i,
-                                  child: TextButton(
-                                    key: ValueKey('house-tab-$i'),
-                                    style: TextButton.styleFrom(
-                                      minimumSize: const Size(0, 56),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 2,
-                                        vertical: 6,
-                                      ),
-                                      shape: const StadiumBorder(),
-                                      backgroundColor: selected == i
-                                          ? activeColor
-                                          : Colors.transparent,
-                                      foregroundColor: selected == i
-                                          ? colors.onPrimaryFixedVariant
-                                          : inkColor,
-                                      overlayColor: inkColor.withValues(
-                                        alpha: .08,
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 10,
-                                        height: 1.2,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      if (location != paths[i]) {
-                                        context.go(paths[i]);
-                                      }
-                                    },
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(icons[i], size: 23),
-                                        const SizedBox(height: 3),
-                                        Text(labels[i], maxLines: 1),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          : AppBottomBar(paths: paths, selected: selected),
     );
   }
 }

@@ -97,7 +97,7 @@ class BountyDetailScreen extends ConsumerWidget {
             entity: bountyId,
             kind: AiObservedView.bountyOpened,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               children: [
                 Text(
                   bounty.choreName,
@@ -164,7 +164,7 @@ class BountyDetailScreen extends ConsumerWidget {
                     onPressed: bounty.status == BountyStatus.open
                         ? () => _accept(context, ref, bounty)
                         : null,
-                    icon: const Icon(Icons.volunteer_activism),
+                    icon: const Icon(Icons.volunteer_activism_outlined),
                     label: const Text('ACCEPT BOUNTY'),
                   ),
                 ),

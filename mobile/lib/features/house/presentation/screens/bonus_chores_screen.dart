@@ -79,7 +79,7 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
           : _chores.isEmpty
           ? const Center(child: Text('No available bonus chores right now.'))
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               itemCount: _chores.length,
               itemBuilder: (ctx, i) {
                 final c = _chores[i];

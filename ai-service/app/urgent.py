@@ -1,7 +1,8 @@
-from datetime import timedelta
+from datetime import timedelta, timezone
 from uuid import NAMESPACE_URL, UUID, uuid5
+from typing import Literal
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
 from app.allocation import find_start
 from app.schemas import Context, Contract, Task
@@ -11,12 +12,14 @@ class MicroTask(Contract):
     key: str = Field(min_length=1, max_length=40)
     name: str = Field(min_length=1, max_length=100)
     description: str = Field(max_length=500)
-    difficulty: str = Field(pattern="^(EASY|MEDIUM|HARD)$")
+    difficulty: Literal["EASY", "MEDIUM", "HARD"]
     dependencies: list[str] = Field(default_factory=list, max_length=20)
     resources: list[str] = Field(default_factory=list, max_length=10)
+    assigned_to: UUID | None = None
 
 
 class Decomposition(Contract):
+    title: str = Field(default="Urgent task plan", min_length=1, max_length=150)
     chores: list[MicroTask] = Field(min_length=1, max_length=20)
     missing_fields: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
@@ -26,6 +29,8 @@ class UrgentInput(Contract):
     context: Context
     text: str = Field(min_length=1, max_length=8000)
     deadline_minutes: int = Field(ge=1, le=1440)
+    ready_by: AwareDatetime | None = None
+    guest_count: int | None = Field(default=None, ge=1, le=10000)
     participant_ids: list[UUID] = Field(min_length=1, max_length=50)
     resources: list[str] = Field(default_factory=list, max_length=30)
 
@@ -50,7 +55,11 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
     members = {m.id: m for m in context.members if m.id in request.participant_ids}
     if set(members) != set(request.participant_ids):
         raise ValueError("Only active participants are allowed")
-    deadline = context.as_of + timedelta(minutes=request.deadline_minutes)
+    if any(t.assigned_to is not None and t.assigned_to not in members for t in chores.values()):
+        raise ValueError("Explicit assignees must be participants")
+    deadline = request.ready_by or context.as_of + timedelta(minutes=request.deadline_minutes)
+    if not context.as_of < deadline <= context.as_of + timedelta(days=1):
+        raise ValueError("Choose a future deadline within 24 hours")
     waiting = set(chores)
     scheduled = {}
     tasks = list(context.tasks)
@@ -81,6 +90,8 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
             )
             options = []
             for actor, member in sorted(members.items(), key=lambda pair: str(pair[0])):
+                if item.assigned_to is not None and actor != item.assigned_to:
+                    continue
                 candidate = Task(
                     id=identity,
                     template_id=identity,
@@ -123,6 +134,8 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
     timeline = list(scheduled.values())
     return {
         "status": "READY",
+        "title": decomposition.title,
+        "guest_count": request.guest_count,
         "tasks": timeline,
         "deadline_at": deadline,
         "limitations": decomposition.limitations,
@@ -131,6 +144,9 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
         "urgent_payload": {
             "SeasonId": str(context.season_id),
             "DeadlineMinutes": request.deadline_minutes,
+            "ReadyByUtc": request.ready_by.astimezone(timezone.utc).isoformat().replace("+00:00", "Z") if request.ready_by else None,
+            "GuestCount": request.guest_count,
+            "Title": decomposition.title,
             "PlanVersion": "blitz-v1",
             "Chores": [
                 {

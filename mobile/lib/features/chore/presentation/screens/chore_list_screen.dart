@@ -1,3 +1,4 @@
+import '../../../../core/widgets/app_page_frame.dart';
 import '../../../chat/providers/action_proposal_providers.dart';
 import '../../../chat/presentation/widgets/urgent_event_banner.dart';
 
@@ -74,7 +75,11 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _tabController.index == _Tab.team.index
+      ? _buildScreen(context)
+      : AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     final activeSeason = ref.watch(activeSeasonProvider(widget.houseId));
     final urgent = ref
         .watch(activeUrgentEventForHouseProvider(widget.houseId))
@@ -101,12 +106,12 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
           ),
           tooltip: 'Back to Overview',
           onPressed: () => context.go('/houses/${widget.houseId}'),
-          icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          icon: const Icon(Icons.arrow_back_outlined, size: 20),
         ),
         titleSpacing: 0,
         title: const Text(
           'Chores',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
         actions: [
           if (seasonStatus == 2)
@@ -115,12 +120,19 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                 minimumSize: const Size(0, 36),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 textStyle: const TextStyle(
-                  fontSize: 11,
+                  fontFamily: AppPageFrame.fontFamily,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
-                backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-                shape: const StadiumBorder(),
+                backgroundColor: urgent == null
+                    ? Theme.of(context).colorScheme.surfaceContainerLowest
+                    : Theme.of(context).colorScheme.errorContainer,
+                foregroundColor: urgent == null
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                    : Theme.of(context).colorScheme.onErrorContainer,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
               ),
               onPressed: () =>
                   context.push('/houses/${widget.houseId}/urgent-event'),
@@ -133,14 +145,17 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                 minimumSize: const Size(0, 36),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 textStyle: const TextStyle(
-                  fontSize: 11,
+                  fontFamily: AppPageFrame.fontFamily,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
                 backgroundColor: Theme.of(context).colorScheme.tertiaryFixed,
                 foregroundColor: Theme.of(context)
                     .colorScheme
                     .onTertiaryFixedVariant,
-                shape: const StadiumBorder(),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
               ),
               onPressed: () =>
                   context.push('/houses/${widget.houseId}/unresolved-chores'),
@@ -165,7 +180,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
               onPressed: () => context.push(
                 '/houses/${widget.houseId}/chores/new?routine=true',
               ),
-              icon: const Icon(Icons.add_rounded),
+              icon: const Icon(Icons.add_outlined),
               label: const Text('Add Routine'),
             )
           : null,
@@ -262,14 +277,14 @@ class _RoutinesTab extends ConsumerWidget {
           // Availability Banner
           if (isDraft && seasonId != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Material(
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(12),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   leading: Icon(
-                    Icons.calendar_today_rounded,
+                    Icons.calendar_today_outlined,
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                   title: const Text(
@@ -279,7 +294,7 @@ class _RoutinesTab extends ConsumerWidget {
                   subtitle: const Text(
                     "Tell us when you're free so we can assign chores fairly",
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_outlined),
                   onTap: () => context.push(
                     '/houses/$houseId/seasons/$seasonId/availability',
                   ),
@@ -296,7 +311,7 @@ class _RoutinesTab extends ConsumerWidget {
                   ref.invalidate(choreTemplatesProvider(houseId)),
               child: items.isEmpty
                   ? ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
                         _RoutineEmpty(
@@ -342,10 +357,10 @@ class _RoutinesTab extends ConsumerWidget {
             _GenerateButton(generating: generating, onGenerate: onGenerate),
           if (hasGenerated && items.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: OutlinedButton.icon(
                 onPressed: () => tabController.animateTo(_Tab.team.index),
-                icon: const Icon(Icons.calendar_view_month_rounded),
+                icon: const Icon(Icons.calendar_view_month_outlined),
                 label: const Text('View Team Schedule'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
@@ -368,7 +383,7 @@ class _RoutineTile extends StatelessWidget {
     return ListTile(
       tileColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: Theme.of(context).colorScheme.outlineVariant
               .withValues(alpha: .25),
@@ -382,8 +397,8 @@ class _RoutineTile extends StatelessWidget {
             : Theme.of(context).colorScheme.primaryFixed,
         child: Icon(
           chore.type == ChoreType.bonus
-              ? Icons.auto_awesome_rounded
-              : Icons.repeat_rounded,
+              ? Icons.auto_awesome_outlined
+              : Icons.repeat_outlined,
           color: chore.type == ChoreType.bonus
               ? Theme.of(context).colorScheme.tertiary
               : Theme.of(context).colorScheme.primary,
@@ -420,7 +435,7 @@ class _GenerateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
@@ -455,7 +470,7 @@ class _GenerateButton extends StatelessWidget {
                       color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.auto_awesome_rounded),
+                : const Icon(Icons.auto_awesome_outlined),
             label: Text(generating ? 'Generating…' : 'Generate Schedule'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
@@ -479,7 +494,7 @@ class _MyChoresTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (seasonId == null) {
       return const EmptyView(
-        icon: Icons.event_busy_rounded,
+        icon: Icons.event_busy_outlined,
         title: 'No active season',
         message: 'Create a season first to see your assigned chores.',
       );
@@ -497,14 +512,14 @@ class _MyChoresTab extends ConsumerWidget {
         data: (items) {
           if (items.isEmpty) {
             return const EmptyView(
-              icon: Icons.task_alt_rounded,
+              icon: Icons.task_alt_outlined,
               title: 'No chores assigned',
               message: "The schedule hasn't been generated yet, or you're all caught up!",
             );
           }
           final grouped = _groupByDate(items);
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             itemCount: grouped.length,
             itemBuilder: (ctx, i) {
               final entry = grouped.entries.elementAt(i);
@@ -678,7 +693,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                           m.displayName.isNotEmpty
                               ? m.displayName[0].toUpperCase()
                               : '?',
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ),
                       label: Text(m.displayName),
@@ -700,7 +715,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                     message: 'Generate the schedule first.',
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                     itemCount: grouped.length,
                     itemBuilder: (ctx, i) {
                       final entry = grouped.entries.elementAt(i);
@@ -751,7 +766,7 @@ class _TeamOccurrenceTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: .25)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -790,7 +805,7 @@ class _OccurrenceTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: overdue
               ? colors.error.withValues(alpha: .35)
@@ -798,52 +813,62 @@ class _OccurrenceTile extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: overdue ? colors.errorContainer : colors.primaryFixed,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            overdue
-                ? Icons.warning_amber_rounded
-                : Icons.cleaning_services_outlined,
-            color: overdue
-                ? colors.onErrorContainer
-                : colors.onPrimaryFixedVariant,
-            size: 21,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: overdue ? colors.error : colors.primaryFixed,
+              width: 3,
+            ),
           ),
         ),
-        title: Text(
-          chore.choreName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '${overdue ? 'Overdue' : 'Due'} ${DateFormat('HH:mm').format(chore.dueDate)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: overdue ? colors.error : colors.onSurfaceVariant,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: overdue ? colors.errorContainer : colors.primaryFixed,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              overdue
+                  ? Icons.warning_amber_outlined
+                  : Icons.cleaning_services_outlined,
+              color: overdue
+                  ? colors.onErrorContainer
+                  : colors.onPrimaryFixedVariant,
+              size: 21,
+            ),
+          ),
+          title: Text(
+            chore.choreName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${overdue ? 'Overdue' : 'Due'} ${DateFormat('HH:mm').format(chore.dueDate)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: overdue ? colors.error : colors.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              _KarmaTag(points: chore.karmaPoints),
-            ],
+                _KarmaTag(points: chore.karmaPoints),
+              ],
+            ),
           ),
+          trailing: const Icon(Icons.chevron_right_outlined, size: 18),
+          onTap: () => context.push('/houses/$houseId/chores/${chore.id}'),
         ),
-        trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-        onTap: () => context.push('/houses/$houseId/chores/${chore.id}'),
       ),
     );
   }
@@ -864,7 +889,7 @@ class _KarmaTag extends StatelessWidget {
       child: Text(
         '$points Karma',
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: colors.onTertiaryFixedVariant,
         ),
@@ -891,14 +916,14 @@ class _DayHeader extends StatelessWidget {
               label,
               style: TextStyle(
                 color: colors.primary,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           Text(
             '$count chores',
-            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10),
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -929,15 +954,10 @@ class _RoutineEmpty extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.primaryFixed,
-              ),
+            Padding(
+              padding: const EdgeInsets.all(4),
               child: Icon(
-                Icons.update_rounded,
+                Icons.update_outlined,
                 size: 28,
                 color: colors.onPrimaryFixedVariant,
               ),
@@ -947,7 +967,7 @@ class _RoutineEmpty extends StatelessWidget {
               'No Routines Configured Yet',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -967,7 +987,7 @@ class _RoutineEmpty extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: onCreate,
-                  icon: const Icon(Icons.add_rounded, size: 18),
+                  icon: const Icon(Icons.add_outlined, size: 18),
                   label: const Text('Create First Routine'),
                 ),
               ),
@@ -993,18 +1013,13 @@ class _RoutinePresetTile extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
         child: Row(
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: colors.primaryFixed,
-                borderRadius: BorderRadius.circular(12),
-              ),
+            Padding(
+              padding: const EdgeInsets.all(4),
               child: Icon(
                 switch (preset) {
-                  RoutinePreset.deepClean => Icons.auto_awesome_rounded,
-                  RoutinePreset.dishes => Icons.flatware_rounded,
-                  RoutinePreset.recycling => Icons.recycling_rounded,
+                  RoutinePreset.deepClean => Icons.auto_awesome_outlined,
+                  RoutinePreset.dishes => Icons.flatware_outlined,
+                  RoutinePreset.recycling => Icons.recycling_outlined,
                 },
                 size: 20,
                 color: colors.primary,
@@ -1018,14 +1033,14 @@ class _RoutinePresetTile extends StatelessWidget {
                   Text(
                     preset.title,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     '${preset.schedule} · +${preset.karma} Karma',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: colors.onSurfaceVariant,
                     ),
                   ),

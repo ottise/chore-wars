@@ -1,4 +1,6 @@
+import '../../../../core/widgets/app_page_frame.dart';
 import '../widgets/voice_note_recorder.dart';
+import 'assistant_chat_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,24 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
+  Future<void> _openAssistant([String? prompt]) async {
+    if (!mounted) return;
+    FocusScope.of(context).unfocus();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => FractionallySizedBox(
+        heightFactor: .95,
+        child: AssistantChatScreen(
+          houseId: widget.houseId,
+          initialPrompt: prompt,
+          embedded: true,
+        ),
+      ),
+    );
+  }
+
   final ScrollController _scrollController = ScrollController();
   String? _roomId;
   bool _isLoadingRoom = true;
@@ -84,7 +104,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     if (_isLoadingRoom) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -102,10 +124,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         ref.watch(houseMembersProvider(widget.houseId)).asData?.value ?? [];
     final house = ref.watch(houseDetailProvider(widget.houseId)).asData?.value;
     final colors = Theme.of(context).colorScheme;
-    final background = Color.alphaBlend(
-      colors.primaryFixed.withValues(alpha: .4),
-      colors.surface,
-    );
+    final background = colors.surface;
     final names = {
       for (final member in members) member.userId: member.displayName,
     };
@@ -116,7 +135,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         leading: IconButton(
           tooltip: 'Back to Chat',
           onPressed: () => context.go('/houses/${widget.houseId}/chat'),
-          icon: const Icon(Icons.arrow_back_rounded, size: 21),
+          icon: const Icon(Icons.arrow_back_outlined, size: 21),
         ),
         titleSpacing: 0,
         title: Column(
@@ -124,19 +143,28 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           children: [
             const Text(
               'Household Chat',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               '${house?.name ?? 'My House'}${members.isEmpty ? '' : ' · ${members.where((m) => m.isActive).length} members'}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
             ),
           ],
         ),
         backgroundColor: background,
         elevation: 0,
-        actions: [ChatNotificationButton(houseId: widget.houseId)],
+        actions: [
+          IconButton(
+            tooltip: 'Ask Assistant',
+            icon: const Icon(Icons.auto_awesome_outlined),
+            onPressed: () => _openAssistant(),
+          ),
+          ChatNotificationButton(houseId: widget.houseId),
+        ],
       ),
       backgroundColor: background,
       body: Column(
@@ -169,50 +197,54 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     child: Text('Say hello to your household.'),
                   );
                 }
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  itemCount: totalItems,
-                  itemBuilder: (context, index) {
-                    // Render proposals first
-                    if (index < activeProposals.length) {
-                      final proposal = activeProposals[index];
-                      return InteractiveActionCard(
-                        proposal: proposal,
-                        currentUserId: currentUser?.id ?? '',
-                      );
-                    }
-
-                    // Render messages
-                    final msgIndex = index - activeProposals.length;
-                    final message = chatNotifier.messages[msgIndex];
-                    final isMe = message.senderId == currentUser?.id;
-
-                    bool showDateSeparator = false;
-                    if (msgIndex == chatNotifier.messages.length - 1) {
-                      showDateSeparator = true;
-                    } else {
-                      final prevMessage = chatNotifier.messages[msgIndex + 1];
-                      if (!DateUtils.isSameDay(
-                        message.createdAt.toLocal(),
-                        prevMessage.createdAt.toLocal(),
-                      )) {
-                        showDateSeparator = true;
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    controller: _scrollController,
+                    reverse: true,
+                    itemCount: totalItems,
+                    itemBuilder: (context, index) {
+                      // Render proposals first
+                      if (index < activeProposals.length) {
+                        final proposal = activeProposals[index];
+                        return InteractiveActionCard(
+                          proposal: proposal,
+                          currentUserId: currentUser?.id ?? '',
+                        );
                       }
-                    }
 
-                    return Column(
-                      children: [
-                        if (showDateSeparator)
-                          ChatDateSeparator(date: message.createdAt),
-                        MessageBubble(
-                          message: message,
-                          isMe: isMe,
-                          memberNames: names,
-                        ),
-                      ],
-                    );
-                  },
+                      // Render messages
+                      final msgIndex = index - activeProposals.length;
+                      final message = chatNotifier.messages[msgIndex];
+                      final isMe = message.senderId == currentUser?.id;
+
+                      bool showDateSeparator = false;
+                      if (msgIndex == chatNotifier.messages.length - 1) {
+                        showDateSeparator = true;
+                      } else {
+                        final prevMessage = chatNotifier.messages[msgIndex + 1];
+                        if (!DateUtils.isSameDay(
+                          message.createdAt.toLocal(),
+                          prevMessage.createdAt.toLocal(),
+                        )) {
+                          showDateSeparator = true;
+                        }
+                      }
+
+                      return Column(
+                        children: [
+                          if (showDateSeparator)
+                            ChatDateSeparator(date: message.createdAt),
+                          MessageBubble(
+                            message: message,
+                            isMe: isMe,
+                            memberNames: names,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -233,14 +265,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               ))
                 ChatMentionTarget(id: member.userId, label: member.displayName),
             ],
-            onAgentRequest: (prompt) async {
-              if (!mounted) return;
-              FocusScope.of(context).unfocus();
-              await context.push(
-                '/houses/${widget.houseId}/chat/assistant',
-                extra: prompt,
-              );
-            },
+            onAgentRequest: (prompt) => _openAssistant(prompt),
             onSendMessage: (content) =>
                 ref.read(chatMessagesProvider(_roomId!)).sendMessage(content),
             onSendImage: (bytes, filename) async {

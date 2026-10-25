@@ -7,7 +7,6 @@ import '../../domain/entities/house_models.dart';
 import '../providers/house_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class MemberManagementScreen extends ConsumerWidget {
   const MemberManagementScreen({required this.houseId, super.key});
 
@@ -42,7 +41,7 @@ class MemberManagementScreen extends ConsumerWidget {
               );
             }
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               itemCount: active.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) => _MemberRow(
@@ -72,9 +71,7 @@ class MemberManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
-        content: Text(
-          '${member.displayName} will be removed from this house.',
-        ),
+        content: Text('${member.displayName} will be removed from this house.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -98,7 +95,9 @@ class MemberManagementScreen extends ConsumerWidget {
         showAppMessage(context, '${member.displayName} removed.');
       }
     } catch (error) {
-      if (context.mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (context.mounted) {
+        showAppMessage(context, apiErrorMessage(error), error: true);
+      }
     }
   }
 
@@ -128,16 +127,20 @@ class MemberManagementScreen extends ConsumerWidget {
     );
     if (confirmed != true) return;
     try {
-      await ref.read(houseRepositoryProvider).transferOwnership(
-        houseId: houseId,
-        newOwnerId: member.userId,
-      );
+      await ref
+          .read(houseRepositoryProvider)
+          .transferOwnership(houseId: houseId, newOwnerId: member.userId);
       refreshHouseState(ref, houseId: houseId);
       if (context.mounted) {
-        showAppMessage(context, 'Ownership transferred to ${member.displayName}.');
+        showAppMessage(
+          context,
+          'Ownership transferred to ${member.displayName}.',
+        );
       }
     } catch (error) {
-      if (context.mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (context.mounted) {
+        showAppMessage(context, apiErrorMessage(error), error: true);
+      }
     }
   }
 }
@@ -169,7 +172,7 @@ class _MemberRow extends StatelessWidget {
               : '?',
           style: const TextStyle(
             color: AppTheme.purple,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),

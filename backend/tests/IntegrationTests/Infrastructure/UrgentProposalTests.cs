@@ -60,7 +60,10 @@ public class UrgentProposalTests
         var occurrence = await db.ChoreOccurrences.Include(o => o.Chore).SingleAsync(o => o.Chore.Name == "Clean table");
         Assert.Equal(15, occurrence.SnapshotMinutes); Assert.Equal(10, occurrence.SnapshotKarma);
         Assert.Equal(ChoreEffort.EASY, occurrence.SnapshotDifficulty); Assert.Equal(saved.ExpiresAt, occurrence.DueDate);
-        Assert.Equal(3, await db.Notifications.CountAsync(n => n.TargetId == proposal.Id));
+        Assert.Equal(3, await db.Notifications.CountAsync(n => n.TargetId == proposal.Id && n.TargetType == "ActionProposal"));
+        var invitations = await db.Notifications.Where(n => n.TargetId == proposal.Id && n.TargetType == "AI_REQUEST").ToListAsync();
+        Assert.Equal(data.Users.Skip(1).Order(), invitations.Select(n => n.UserId).Order());
+        Assert.All(invitations, n => Assert.Contains("Open Assistant", n.Message));
         var active = await scope.ServiceProvider.GetRequiredService<IActionProposalService>().GetActiveProposalsAsync(saved.RoomId, data.Users[0]);
         Assert.Contains(active, p => p.Id == proposal.Id);
     }

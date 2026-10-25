@@ -107,7 +107,7 @@ class _AiAvailabilityReviewScreenState
                   ? 'Choose Date'
                   : date!.toIso8601String().substring(0, 10),
             ),
-            trailing: const Icon(Icons.calendar_today),
+            trailing: const Icon(Icons.calendar_today_outlined),
             onTap: saving
                 ? null
                 : () async {

@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,17 +18,15 @@ class LeaderboardScreen extends ConsumerWidget {
   final String houseId, seasonId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AppPageFrame(builder: (context) => _buildScreen(context, ref));
+
+  Widget _buildScreen(BuildContext context, WidgetRef ref) {
     final key = (houseId: houseId, seasonId: seasonId);
     final rankings = ref.watch(leaderboardProvider(key));
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Leaderboard',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppPageBar(title: 'Leaderboard'),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(leaderboardProvider(key));
@@ -51,7 +52,7 @@ class LeaderboardScreen extends ConsumerWidget {
             );
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
                 Text(
                   'Season standings',
@@ -98,8 +99,8 @@ class LeaderboardScreen extends ConsumerWidget {
                                 child: Text(
                                   'Chore contribution',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
                                   ),
                                 ),
                               ),
@@ -107,20 +108,23 @@ class LeaderboardScreen extends ConsumerWidget {
                                 onPressed: () => context.push(
                                   '/houses/$houseId/karma/history',
                                 ),
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(44, 32),
+                                ),
                                 child: const Text(
                                   'View History',
-                                  style: TextStyle(fontSize: 11),
+                                  style: TextStyle(fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
                           for (final member in sorted)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Row(
                                 children: [
                                   CircleAvatar(
-                                    radius: 16,
+                                    radius: 14,
                                     backgroundColor: colors.primaryFixed,
                                     foregroundColor: colors.primary,
                                     child: Text(
@@ -145,7 +149,7 @@ class LeaderboardScreen extends ConsumerWidget {
                                         Text(
                                           'Rank #${member.rank}',
                                           style: TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             color: colors.onSurfaceVariant,
                                           ),
                                         ),
@@ -154,7 +158,7 @@ class LeaderboardScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   SizedBox(
-                                    width: 100,
+                                    width: 90,
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.end,
@@ -162,7 +166,7 @@ class LeaderboardScreen extends ConsumerWidget {
                                         Text(
                                           '${member.choresCompleted} completed',
                                           style: const TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -176,6 +180,9 @@ class LeaderboardScreen extends ConsumerWidget {
                                             8,
                                           ),
                                           minHeight: 5,
+                                          color: member.rank == 1
+                                              ? AppPageFrame.accent
+                                              : colors.tertiaryFixedDim,
                                         ),
                                       ],
                                     ),
@@ -186,7 +193,7 @@ class LeaderboardScreen extends ConsumerWidget {
                           Text(
                             'Share of completed chores this season',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 12,
                               color: colors.onSurfaceVariant,
                             ),
                           ),
@@ -210,26 +217,82 @@ class _PodiumPlace extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final winner = member.rank == 1;
+    final positive = member.totalKarma >= 0;
+    final scoreColor = positive ? const Color(0xFF008568) : colors.error;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (winner)
-          Icon(
-            Icons.workspace_premium_rounded,
-            color: colors.tertiary,
-            size: 24,
-          ),
-        CircleAvatar(
-          radius: winner ? 27 : 23,
-          backgroundColor: winner
-              ? colors.primaryFixed
-              : colors.surfaceContainerHighest,
-          foregroundColor: colors.primary,
-          child: Text(
-            member.displayName.isEmpty
-                ? '?'
-                : member.displayName.characters.first.toUpperCase(),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        SizedBox(
+          height: winner ? 90 : 76,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              if (winner)
+                Positioned(
+                  top: 0,
+                  child: Icon(
+                    Icons.workspace_premium_outlined,
+                    size: 22,
+                    color: colors.tertiary,
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Container(
+                  width: winner ? 64 : 56,
+                  height: winner ? 64 : 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: winner
+                        ? colors.primaryFixed
+                        : colors.surfaceContainerHighest,
+                    border: Border.all(
+                      color: winner
+                          ? AppPageFrame.accent
+                          : colors.surfaceContainerLowest,
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    member.displayName.isEmpty
+                        ? '?'
+                        : member.displayName.characters.first.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: winner ? colors.primary : colors.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: winner ? colors.tertiary : colors.onSurfaceVariant,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colors.surfaceContainerLowest,
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    '#${member.rank}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -239,20 +302,27 @@ class _PodiumPlace extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(
-            vertical: winner ? 22 : 16,
-            horizontal: 4,
+            horizontal: 8,
+            vertical: winner ? 14 : 12,
           ),
           decoration: BoxDecoration(
-            color: colors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                winner
+                    ? colors.tertiaryFixed.withValues(alpha: .25)
+                    : colors.surfaceContainerLow,
+                colors.surfaceContainerLowest,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: winner
-                  ? colors.tertiaryFixedDim
-                  : colors.outlineVariant.withValues(alpha: .4),
+              color: winner ? colors.tertiaryFixedDim : colors.outlineVariant,
             ),
           ),
           child: Column(
@@ -260,25 +330,33 @@ class _PodiumPlace extends StatelessWidget {
               Text(
                 '#${member.rank}',
                 style: TextStyle(
-                  fontSize: winner ? 28 : 23,
-                  fontWeight: FontWeight.w800,
+                  fontSize: winner ? 28 : 24,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
                   color: winner ? colors.tertiary : colors.onSurface,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '${member.totalKarma > 0 ? '+' : ''}${member.totalKarma} Karma',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: member.totalKarma < 0 ? colors.error : colors.primary,
+              const SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(
+                  color: scoreColor.withValues(alpha: .06),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${member.totalKarma > 0 ? '+' : ''}${member.totalKarma} Karma',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scoreColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 '${member.choresCompleted} tasks done',
-                style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+                style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
               ),
             ],
           ),

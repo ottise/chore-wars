@@ -21,6 +21,13 @@ void main() {
         'tối nay tôi bận',
       );
       expect(chatAgentMentionPattern.hasMatch('email@agent.example'), isFalse);
+      expect(
+        chatAgentPrompt(
+          '@agent @{$member} clean the table',
+          memberNames: {member: 'B'},
+        ),
+        'B clean the table',
+      );
     },
   );
   test('QR only accepts invite codes or codes within invitation links', () {
@@ -79,7 +86,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Giúp mình rửa chén');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.tap(find.byTooltip('Send Message'));
       await tester.pumpAndSettle();
       expect(sent, '@{$member} Giúp mình rửa chén');
       expect(find.byType(InputChip), findsNothing);
@@ -174,7 +181,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Tối mai tôi bận');
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.tap(find.byTooltip('Send Message'));
       await tester.pumpAndSettle();
       expect(calls, ['sent:@agent Tối mai tôi bận', 'agent:Tối mai tôi bận']);
     },

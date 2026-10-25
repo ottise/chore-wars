@@ -288,7 +288,7 @@ class _AiEvaluationDashboardState extends ConsumerState<AiEvaluationDashboard> {
                   subtitle: Text(
                     '${(row['metadata'] as Map?)?['data_source']} · ${(row['metadata'] as Map?)?['evaluation_mode']}\n${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(row['evaluated_at']).toLocal())}',
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(Icons.chevron_right_outlined),
                   onTap: () => context.push(
                     '/houses/${widget.houseId}/ai/evaluations/${row['id']}',
                   ),

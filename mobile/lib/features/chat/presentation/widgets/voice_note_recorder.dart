@@ -176,14 +176,16 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
               : _recording
               ? _stop
               : _start,
-          icon: Icon(_recording ? Icons.stop_circle : Icons.mic),
+          icon: Icon(
+            _recording ? Icons.stop_circle_outlined : Icons.mic_outlined,
+          ),
         ),
       if (_recording) Text('${_seconds}s / 60s'),
       if (_path != null) ...[
         IconButton(
           tooltip: 'Preview recording',
           onPressed: _busy ? null : _preview,
-          icon: const Icon(Icons.play_arrow),
+          icon: const Icon(Icons.play_arrow_outlined),
         ),
         IconButton(
           tooltip: 'Discard recording',
@@ -195,7 +197,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
           onPressed: _busy ? null : _send,
           icon: _busy
               ? const CircularProgressIndicator()
-              : const Icon(Icons.send),
+              : const Icon(Icons.send_outlined),
         ),
       ],
     ],

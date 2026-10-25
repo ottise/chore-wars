@@ -23,6 +23,80 @@ namespace IntegrationTests.Infrastructure;
 public class AIHousekeeperTests
 {
     [PostgresFact]
+    public async Task PromptUrgentPlanNotifiesOnlyNamedTargetAndRequiresApproval()
+    {
+        var client=new Mock<IAIHousekeeperClient>();
+        await using var f=await Fixture(s=>s.AddScoped(_=>client.Object));
+        var data=await CoreConcurrencyTests.Seed(f);
+        var readyBy=DateTime.UtcNow.AddHours(2);
+        client.Setup(c=>c.PostAsync(data.HouseId,data.Users[0],"/v1/urgent/plan",It.IsAny<object>(),It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.SerializeToElement(new{status="READY",urgent_payload=new UrgentEventPayload {
+                SeasonId=data.SeasonId,DeadlineMinutes=120,ReadyByUtc=readyBy,GuestCount=10,Title="Party preparation",PlanVersion="blitz-v1",
+                Chores=[new(){Name="Clean table",PlanKey="table",PlannedOffsetMinutes=0,AssignedUserId=data.Users[1],Difficulty=ChoreEffort.EASY,KarmaPoints=0}]
+            }}));
+        await using var scope=f.Services.CreateAsyncScope();
+        var database=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        foreach (var user in data.Users)
+            foreach (var day in Enum.GetValues<DayOfWeek>())
+                database.MemberAvailabilities.Add(new MemberAvailability{Id=Guid.NewGuid(),SeasonId=data.SeasonId,UserId=user,
+                    DayOfWeek=day,IsAvailable=true,Slots=[new(){Id=Guid.NewGuid(),StartMinute=0,EndMinute=1440}]});
+        await database.SaveChangesAsync();
+        await scope.ServiceProvider.GetRequiredService<IChatService>().GetHouseRoomAsync(data.HouseId,data.Users[0]);
+        var service=scope.ServiceProvider.GetRequiredService<IAIHousekeeperService>();
+        var request=new AIGenerateRequest {
+            ClientRequestId=Guid.NewGuid(),SeasonId=data.SeasonId,Kind=AIConstants.Urgent,
+            Text="Member 1 should clean the table within 60 minutes",DeadlineMinutes=60,
+            ReadyBy=new DateTimeOffset(readyBy),GuestCount=10,
+            ParticipantIds=[data.Users[0],data.Users[1]]
+        };
+        var plan=await service.RequestUrgentAsync(data.HouseId,data.Users[0],request,default);
+        var id=plan.GetProperty("id").GetGuid();
+        Assert.NotEqual(JsonValueKind.Null,plan.GetProperty("proposal_id").ValueKind);
+        await service.RequestUrgentAsync(data.HouseId,data.Users[0],request,default);
+        await service.AcceptAsync(data.HouseId,data.Users[0],id,default);
+        var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var proposal=await db.ActionProposals.SingleAsync();
+        Assert.Equal(ProposalStatus.PENDING,proposal.Status);
+        Assert.Contains("10 guests",proposal.Description);
+        Assert.Single(await db.ChoreOccurrences.ToListAsync());
+        var notice=Assert.Single(await db.Notifications.ToListAsync());
+        Assert.Equal(data.Users[1],notice.UserId);
+        Assert.Equal(proposal.Id,notice.TargetId);
+        Assert.Equal(NotificationTargets.AiRequest,notice.TargetType);
+        var approved=await scope.ServiceProvider.GetRequiredService<IActionProposalService>().RespondProposalAsync(proposal.Id,
+            new ChoreWars.Application.DTOs.Proposal.RespondProposalRequest{Status=ConfirmationStatus.CONFIRMED},data.Users[1]);
+        Assert.Equal(ProposalStatus.APPROVED,approved.Status);
+        var task=await db.ChoreOccurrences.Include(o=>o.Chore).SingleAsync(o=>o.Chore.Name=="Clean table");
+        Assert.Equal(data.Users[1],task.AssignedUserId);
+        Assert.Equal(readyBy,task.DueDate);
+    }
+
+    [PostgresFact]
+    public async Task PrivateAssistantDoesNotRequireBackgroundAnalysisOrGrantChatConsent()
+    {
+        var client=new Mock<IAIHousekeeperClient>();
+        client.Setup(c=>c.PostAsync(It.IsAny<Guid>(),It.IsAny<Guid>(),"/v1/interpret",It.IsAny<object>(),It.IsAny<CancellationToken>()))
+            .ReturnsAsync(JsonSerializer.SerializeToElement(new{summary="Please confirm tomorrow's availability."}));
+        await using var f=await Fixture(s=>s.AddScoped(_=>client.Object));
+        var data=await CoreConcurrencyTests.Seed(f);
+        await using var scope=f.Services.CreateAsyncScope();
+        var service=scope.ServiceProvider.GetRequiredService<IAIHousekeeperService>();
+        await service.SettingsAsync(data.HouseId,data.Users[0],false,false,default);
+        var result=await service.InterpretAsync(data.HouseId,data.Users[1],new AITextRequest{Text="I am busy tomorrow evening."},false,default);
+        Assert.False(string.IsNullOrWhiteSpace(result.GetProperty("summary").GetString()));
+        var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False((await db.HouseAiSettings.SingleAsync()).Enabled);
+        Assert.Empty(await db.MemberAiConsents.ToListAsync());
+        Assert.Empty(await db.AIChatInsights.ToListAsync());
+        await Assert.ThrowsAsync<ConflictException>(()=>service.InterpretAsync(data.HouseId,data.Users[1],new AITextRequest{Text="I am busy tomorrow evening."},true,default));
+        await service.SettingsAsync(data.HouseId,data.Users[0],true,true,default);
+        await Assert.ThrowsAsync<ForbiddenException>(()=>service.InterpretAsync(data.HouseId,data.Users[1],new AITextRequest{Text="I am busy tomorrow evening."},true,default));
+        await Assert.ThrowsAsync<ForbiddenException>(()=>service.ChatInsightsAsync(data.HouseId,data.Users[1],default));
+        await Assert.ThrowsAsync<ForbiddenException>(()=>service.InterpretAsync(data.HouseId,Guid.NewGuid(),new AITextRequest{Text="Hello"},false,default));
+        client.Verify(c=>c.PostAsync(It.IsAny<Guid>(),It.IsAny<Guid>(),"/v1/interpret",It.IsAny<object>(),It.IsAny<CancellationToken>()),Times.Once);
+    }
+
+    [PostgresFact]
     public async Task DraftEvidenceUploadIsRejectedBeforeStorageAndDoesNotBlockRegeneration() {
         var storage=new Mock<IMediaStorage>();
         await using var f=await Fixture(s=>s.AddScoped(_=>storage.Object));var data=await CoreConcurrencyTests.Seed(f,SeasonStatus.DRAFT);

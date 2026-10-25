@@ -228,7 +228,7 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
                         Navigator.pop(context, true);
                       }
                     }),
-              icon: const Icon(Icons.check),
+              icon: const Icon(Icons.check_outlined),
               label: const Text('Complete with This Photo'),
             ),
           ],

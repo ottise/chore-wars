@@ -20,6 +20,7 @@ class AppNotification {
   });
 
   bool get isChat => type == 'CHAT_MESSAGE' || type == 'CHAT_MENTION';
+  bool get isTaskRequest => metadata['targetType'] == 'AI_REQUEST';
   String? get houseId => metadata['houseId']?.toString();
   String? get targetId => metadata['targetId']?.toString();
   String? get destination {
@@ -29,6 +30,8 @@ class AppNotification {
     if (isChat) return '$base/chat/everyone';
     final target = targetId;
     return switch (metadata['targetType']) {
+      'AI_REQUEST' => '$base/chat/assistant',
+      'ActionProposal' => '$base/chat/everyone',
       'BOUNTY' when target != null && target.isNotEmpty =>
         '/bounties/${Uri.encodeComponent(target)}?houseId=${Uri.encodeQueryComponent(house)}',
       'CHORE' when target != null && target.isNotEmpty =>

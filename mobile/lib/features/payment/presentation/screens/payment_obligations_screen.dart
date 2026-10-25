@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 import 'package:flutter/material.dart';
@@ -31,7 +33,9 @@ class _PaymentObligationsScreenState
       payment.status != PaymentStatus.paid &&
       payment.status != PaymentStatus.cancelled;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     if (houseId == null || houseId!.isEmpty) {
       return const Scaffold(
         body: EmptyState(
@@ -42,12 +46,7 @@ class _PaymentObligationsScreenState
 
     final payments = ref.watch(paymentListProvider(houseId!));
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Payment Obligations',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppPageBar(title: 'Payment Obligations', centerTitle: true),
       body: payments.when(
         loading: () => const LoadingWidget(),
         error: (error, stackTrace) => ErrorState(
@@ -63,41 +62,50 @@ class _PaymentObligationsScreenState
             onRefresh: () => ref.refresh(paymentListProvider(houseId!).future),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
-                SegmentedButton<bool>(
-                  style: ButtonStyle(
-                    backgroundColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? Theme.of(context).colorScheme.surfaceContainerLowest
-                          : Theme.of(context).colorScheme.surfaceContainerLow,
-                    ),
-                    foregroundColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    side: const WidgetStatePropertyAll(BorderSide.none),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: SegmentedButton<bool>(
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLowest
+                            : Theme.of(context).colorScheme.surfaceContainerLow,
+                      ),
+                      foregroundColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      side: const WidgetStatePropertyAll(BorderSide.none),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
+                    segments: [
+                      ButtonSegment(
+                        value: false,
+                        label: Text('Active (${active.length})'),
+                      ),
+                      const ButtonSegment(
+                        value: true,
+                        label: Text('Settled History'),
+                      ),
+                    ],
+                    selected: {_history},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (value) =>
+                        setState(() => _history = value.first),
                   ),
-                  segments: [
-                    ButtonSegment(
-                      value: false,
-                      label: Text('Active (${active.length})'),
-                    ),
-                    const ButtonSegment(
-                      value: true,
-                      label: Text('Settled History'),
-                    ),
-                  ],
-                  selected: {_history},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (value) =>
-                      setState(() => _history = value.first),
                 ),
                 const SizedBox(height: 20),
                 if (visible.isEmpty)
@@ -106,7 +114,7 @@ class _PaymentObligationsScreenState
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
-                        vertical: 40,
+                        vertical: 28,
                       ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -123,21 +131,54 @@ class _PaymentObligationsScreenState
                       ),
                       child: Column(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primaryFixed,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(
-                              _history
-                                  ? Icons.history_rounded
-                                  : Icons.account_balance_wallet_outlined,
-                              size: 34,
-                              color: Theme.of(context).colorScheme.primary,
+                          SizedBox(
+                            width: 84,
+                            height: 84,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 76,
+                                  height: 76,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryFixed,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(
+                                    _history
+                                        ? Icons.history_outlined
+                                        : Icons.account_balance_wallet_outlined,
+                                    size: 30,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                  ),
+                                ),
+                                if (!_history)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerLowest,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.check_circle_outlined,
+                                        color: Color(0xFF00A880),
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
                           Text(
                             _history
                                 ? 'No Settled Payments Yet'
@@ -181,7 +222,7 @@ class _PaymentObligationsScreenState
                   'Payments are confirmed manually by the recipient after the money is received.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1.5,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

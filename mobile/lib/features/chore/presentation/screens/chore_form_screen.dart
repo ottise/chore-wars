@@ -61,7 +61,7 @@ class ChoreEditLoaderScreen extends ConsumerWidget {
         if (match == null) {
           return const Scaffold(
             body: EmptyView(
-              icon: Icons.search_off_rounded,
+              icon: Icons.search_off_outlined,
               title: 'Chore not found',
               message: 'It may have been deleted by another house member.',
             ),
@@ -155,7 +155,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     body: Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           TextFormField(
             controller: _name,
@@ -196,12 +196,12 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
             segments: const [
               ButtonSegment(
                 value: ChoreType.normal,
-                icon: Icon(Icons.repeat_rounded),
+                icon: Icon(Icons.repeat_outlined),
                 label: Text('Normal'),
               ),
               ButtonSegment(
                 value: ChoreType.bonus,
-                icon: Icon(Icons.auto_awesome_rounded),
+                icon: Icon(Icons.auto_awesome_outlined),
                 label: Text('Bonus'),
               ),
             ],
@@ -361,7 +361,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
           ),
           if (_frequency == ChoreFrequency.custom) ...[
             TextButton.icon(
-              icon: const Icon(Icons.calendar_month),
+              icon: const Icon(Icons.calendar_month_outlined),
               label: const Text('Add custom date'),
               onPressed: () async {
                 final date = await showDatePicker(
@@ -404,7 +404,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
             if (_apiError!.toLowerCase().contains('season')) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                icon: const Icon(Icons.add_task_rounded),
+                icon: const Icon(Icons.add_task_outlined),
                 label: const Text('Start new season'),
                 onPressed: () =>
                     context.push('/houses/${widget.houseId}/seasons/new'),

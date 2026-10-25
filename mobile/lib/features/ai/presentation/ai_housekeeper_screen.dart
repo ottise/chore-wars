@@ -288,7 +288,9 @@ class _ProfilesState extends ConsumerState<_Profiles> {
                               dense: true,
                               title: const Text('Open Activity Evidence'),
                               subtitle: Text(id.toString()),
-                              trailing: const Icon(Icons.chevron_right),
+                              trailing: const Icon(
+                                Icons.chevron_right_outlined,
+                              ),
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) => AiEvidenceDetailScreen(
@@ -648,7 +650,7 @@ class _Settings extends ConsumerWidget {
           'Contributions are recorded from application events. Bounty acceptances do not create extra obligations. No timer or duration model is used.',
         ),
         ListTile(
-          leading: const Icon(Icons.event_available),
+          leading: const Icon(Icons.event_available_outlined),
           title: const Text('Confirm Daily Availability'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(

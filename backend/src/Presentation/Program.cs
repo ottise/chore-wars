@@ -43,6 +43,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddPresentationServices();
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.PostConfigure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(options =>
+{
+    if (!Path.IsPathRooted(options.RootPath))
+        options.RootPath = Path.Combine(builder.Environment.ContentRootPath, options.RootPath);
+});
 builder.Services.AddApplicationServices();
 builder.Services.AddHealthChecks().AddCheck<ChoreWars.Presentation.Health.DatabaseReadinessCheck>("database",tags:new[]{"ready"});
 builder.Services.AddJwtAuthentication(builder.Configuration);

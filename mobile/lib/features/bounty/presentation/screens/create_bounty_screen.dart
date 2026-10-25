@@ -74,7 +74,7 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           children: [
             Text('Chore', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 4),

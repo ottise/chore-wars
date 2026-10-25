@@ -83,7 +83,7 @@ class _RewardFormScreenState extends ConsumerState<RewardFormScreen> {
     body: Form(
       key: _form,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           TextFormField(
             controller: _name,

@@ -68,7 +68,7 @@ class ChoreCard extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              Icons.schedule_rounded,
+                              Icons.schedule_outlined,
                               size: 17,
                               color: _statusColor,
                             ),
@@ -79,7 +79,7 @@ class ChoreCard extends StatelessWidget {
                               style: TextStyle(
                                 color: _statusColor,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -105,7 +105,7 @@ class _KarmaPill extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: AppTheme.yellow.withValues(alpha: 0.25),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -114,7 +114,7 @@ class _KarmaPill extends StatelessWidget {
         style: const TextStyle(
           color: AppTheme.onAmber,
           fontSize: 12,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
         ),
       ),
     ),

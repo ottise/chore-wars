@@ -50,9 +50,62 @@ class _Inbox extends NotificationNotifier {
 }
 
 void main() {
+  testWidgets('incoming AI task request shows a banner and opens Assistant', (
+    tester,
+  ) async {
+    final inbox = _Inbox();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(
+            body: ChatNotificationBanner(
+              location: '/houses/house-A',
+              child: SizedBox(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/houses/house-A/chat/assistant',
+          builder: (_, _) => const Scaffold(body: Text('Assistant task inbox')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationNotifierProvider.overrideWith(() => inbox)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    inbox.receive(
+      _notice(
+        'Party preparation request',
+        'URGENT_EVENT',
+        targetType: 'AI_REQUEST',
+        targetId: 'proposal',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Party preparation request'), findsOneWidget);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Assistant task inbox'), findsOneWidget);
+    expect(inbox.read, ['Party preparation request']);
+  });
   test(
     'notification destinations use known target types and encoded identifiers',
     () {
+      expect(
+        _notice(
+          'request',
+          'URGENT_EVENT',
+          targetType: 'AI_REQUEST',
+          targetId: 'proposal',
+        ).destination,
+        '/houses/house-A/chat/assistant',
+      );
       expect(
         _notice(
           'n',

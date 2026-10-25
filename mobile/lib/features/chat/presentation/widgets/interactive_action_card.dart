@@ -28,11 +28,11 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   IconData _getTypeIcon(ProposalType type) {
     switch (type) {
       case ProposalType.choreSwap:
-        return Icons.swap_horiz_rounded;
+        return Icons.swap_horiz_outlined;
       case ProposalType.urgentEvent:
-        return Icons.bolt_rounded;
+        return Icons.bolt_outlined;
       case ProposalType.seasonApproval:
-        return Icons.assignment_turned_in_rounded;
+        return Icons.assignment_turned_in_outlined;
       case ProposalType.scheduleReplan:
         return Icons.calendar_month_outlined;
     }
@@ -41,7 +41,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   Color _getTypeColor(ProposalType type) {
     switch (type) {
       case ProposalType.choreSwap:
-        return AppTheme.orange;
+        return AppTheme.purple;
       case ProposalType.urgentEvent:
         return AppTheme.orange;
       case ProposalType.seasonApproval:
@@ -149,13 +149,6 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     : Theme.of(context).dividerColor.withValues(alpha: 0.3)),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +174,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   _getTypeLabel(proposal.type),
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                     color: _getTypeColor(proposal.type),
                   ),
@@ -192,7 +185,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.check_circle_rounded,
+                      Icons.check_circle_outlined,
                       color: AppTheme.green,
                       size: 16,
                     ),
@@ -201,7 +194,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                       'Approved',
                       style: TextStyle(
                         color: AppTheme.green,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
                     ),
@@ -211,13 +204,13 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                 const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.cancel_rounded, color: AppTheme.red, size: 16),
+                    Icon(Icons.cancel_outlined, color: AppTheme.red, size: 16),
                     SizedBox(width: 4),
                     Text(
                       'Rejected',
                       style: TextStyle(
                         color: AppTheme.red,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
                     ),
@@ -237,7 +230,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.access_time_rounded,
+                        Icons.access_time_outlined,
                         color: AppTheme.orange,
                         size: 13,
                       ),
@@ -247,7 +240,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                         style: TextStyle(
                           color: AppTheme.orange,
                           fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -261,7 +254,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           Text(
             proposal.title,
             style: Theme.of(context).textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           if (proposal.description.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -300,17 +293,17 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                 switch (conf.status) {
                   case ProposalConfirmationStatus.confirmed:
                     statusColor = AppTheme.green;
-                    statusIcon = Icons.check_circle_rounded;
+                    statusIcon = Icons.check_circle_outlined;
                     statusLabel = 'Approve';
                     break;
                   case ProposalConfirmationStatus.rejected:
                     statusColor = AppTheme.red;
-                    statusIcon = Icons.cancel_rounded;
+                    statusIcon = Icons.cancel_outlined;
                     statusLabel = 'Reject';
                     break;
                   case ProposalConfirmationStatus.pending:
                     statusColor = AppTheme.orange;
-                    statusIcon = Icons.hourglass_top_rounded;
+                    statusIcon = Icons.hourglass_top_outlined;
                     statusLabel = 'Pending';
                     break;
                 }
@@ -320,7 +313,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                   label: Text(
                     isMe ? 'You ($statusLabel)' : statusLabel,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: statusColor,
                       fontWeight: FontWeight.w600,
                     ),
@@ -351,7 +344,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                     child: ElevatedButton.icon(
                       onPressed: () =>
                           _respond(ProposalConfirmationStatus.confirmed),
-                      icon: const Icon(Icons.bolt_rounded, size: 18),
+                      icon: const Icon(Icons.bolt_outlined, size: 18),
                       label: const Text('Tham gia ngay'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.green,
@@ -495,7 +488,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           children: [
             Text(
               'Deadline: $deadline minutes after everyone agrees',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
             ...chores.map((raw) {

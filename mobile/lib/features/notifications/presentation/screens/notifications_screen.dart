@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +46,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     final state = ref.watch(notificationNotifierProvider);
     final colors = Theme.of(context).colorScheme;
     final scoped = state.notifications
@@ -61,16 +66,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         )
         .toList();
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 4,
-        title: Text(
-          widget.chatOnly ? 'Chat Notifications' : 'Notifications',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
+      appBar: AppPageBar(
+        title: widget.chatOnly ? 'Chat Notifications' : 'System Notifications',
         actions: [
           TextButton(
             style: TextButton.styleFrom(
               textStyle: const TextStyle(
+                fontFamily: AppPageFrame.fontFamily,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -103,7 +105,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           if (!widget.chatOnly)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
               child: Row(
                 children: [
                   for (final entry in {
@@ -134,7 +136,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   .loadNotifications(),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
                   if (state.isLoading) const LinearProgressIndicator(),
                   if (state.error != null)
@@ -154,7 +156,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       child: Column(
                         children: [
                           Icon(
-                            Icons.notifications_none_rounded,
+                            Icons.notifications_none_outlined,
                             size: 42,
                             color: colors.primary,
                           ),
@@ -179,7 +181,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 colors.surfaceContainerLowest,
                               ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           side: BorderSide(
                             color: item.isRead
                                 ? colors.outlineVariant.withValues(alpha: .25)
@@ -202,7 +204,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   if (context.mounted &&
                                       ref.read(sessionEpochProvider) == epoch &&
                                       item.destination != null) {
-                                    context.push(item.destination!);
+                                    context.go(item.destination!);
                                   }
                                 }),
                           child: Padding(
@@ -225,7 +227,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                               style: TextStyle(
                                                 fontWeight: item.isRead
                                                     ? FontWeight.w500
-                                                    : FontWeight.w700,
+                                                    : FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              DateFormat.MMMd('en_US')
+                                                  .add_jm()
+                                                  .format(
+                                                    item.createdAt.toLocal(),
+                                                  ),
+                                              textAlign: TextAlign.right,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: colors.onSurfaceVariant,
                                               ),
                                             ),
                                           ),
@@ -237,7 +254,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                               child: Tooltip(
                                                 message: 'Unread',
                                                 child: Icon(
-                                                  Icons.circle,
+                                                  Icons.circle_outlined,
                                                   size: 7,
                                                   color: colors.primary,
                                                 ),
@@ -250,17 +267,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                         item.message,
                                         style: TextStyle(
                                           color: colors.onSurfaceVariant,
-                                          fontSize: 12,
+                                          fontSize: 14,
                                           height: 1.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        DateFormat('dd/MM · HH:mm')
-                                            .format(item.createdAt),
-                                        style: TextStyle(
-                                          color: colors.onSurfaceVariant,
-                                          fontSize: 10,
                                         ),
                                       ),
                                       if (item.destination != null) ...[
@@ -302,14 +310,14 @@ class _NotificationIcon extends StatelessWidget {
     final alert = type == 'CHORE_OVERDUE' || type == 'URGENT_EVENT';
     final bounty = type.startsWith('BOUNTY_') || type == 'PAYMENT_DUE';
     final icon = alert
-        ? Icons.warning_amber_rounded
+        ? Icons.warning_amber_outlined
         : bounty
         ? Icons.card_giftcard_outlined
         : type.startsWith('CHORE_')
-        ? Icons.task_alt_rounded
+        ? Icons.task_alt_outlined
         : type.startsWith('CHAT_')
-        ? Icons.alternate_email_rounded
-        : Icons.notifications_none_rounded;
+        ? Icons.alternate_email_outlined
+        : Icons.notifications_none_outlined;
     return Container(
       width: 40,
       height: 40,

@@ -17,16 +17,7 @@ class WebPreviewFrame extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: AppTheme.canvas,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x220F0A2A),
-                  blurRadius: 28,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
+            decoration: const BoxDecoration(color: AppTheme.canvas),
             child: child,
           ),
         ),

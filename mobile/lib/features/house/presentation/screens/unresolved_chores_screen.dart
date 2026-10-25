@@ -48,9 +48,7 @@ class _UnresolvedChoresScreenState
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref
-          .read(dioProvider)
-          .post('/occurrences/$id/take-responsibility');
+      await ref.read(dioProvider).post('/occurrences/$id/take-responsibility');
       ref.invalidate(unresolvedChoresProvider(widget.houseId));
       refreshHouseState(ref, houseId: widget.houseId);
     } catch (error) {
@@ -80,7 +78,7 @@ class _UnresolvedChoresScreenState
           data: (items) => items.isEmpty
               ? const Center(child: Text('No unresolved chores.'))
               : ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   children: [
                     for (final item in items)
                       Card(

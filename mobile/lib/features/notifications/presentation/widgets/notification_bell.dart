@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../providers/notification_providers.dart';
 
 class NotificationBell extends ConsumerWidget {
@@ -15,7 +16,7 @@ class NotificationBell extends ConsumerWidget {
       icon: Badge(
         isLabelVisible: unreadCount > 0,
         label: Text(unreadCount > 99 ? '99+' : unreadCount.toString()),
-        child: const Icon(Icons.notifications_none),
+        child: const Icon(Icons.notifications_none_outlined),
       ),
     );
   }

@@ -100,6 +100,14 @@ public class ActionProposalService : IActionProposalService
                 proposal.Status=ProposalStatus.APPROVED;
             }
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (_notificationService != null && proposal.Type == ProposalType.URGENT_EVENT)
+            {
+                foreach (var targetId in targetIds)
+                    await _notificationService.CreateNotificationAsync(
+                        targetId, houseId, "A household task needs your approval",
+                        $"{proposal.Title}. Open Assistant to review and confirm your participation.",
+                        nameof(NotificationType.URGENT_EVENT), ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest, proposal.Id, cancellationToken);
+            }
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
         catch
@@ -303,7 +311,12 @@ public class ActionProposalService : IActionProposalService
                     throw new ConflictException("Urgent events can only be created during an active season.");
                 if (_clock.GetUtcNow().UtcDateTime >= season.EndDate)
                     throw new ConflictException("This season has reached its cutoff.");
-                if (_clock.GetUtcNow().UtcDateTime.AddMinutes(urgent.DeadlineMinutes) > season.EndDate)
+                var urgentDeadline=urgent.ReadyByUtc ?? _clock.GetUtcNow().UtcDateTime.AddMinutes(urgent.DeadlineMinutes);
+                if (urgent.ReadyByUtc.HasValue && (urgent.ReadyByUtc.Value.Kind!=DateTimeKind.Utc || urgentDeadline<=_clock.GetUtcNow().UtcDateTime || urgentDeadline>_clock.GetUtcNow().UtcDateTime.AddDays(1)))
+                    throw new DomainException("Choose a future urgent deadline within 24 hours.");
+                if (urgent.GuestCount is <1 or >10000 || urgent.Title?.Length>150)
+                    throw new DomainException("Invalid party size or plan title.");
+                if (urgentDeadline > season.EndDate)
                     throw new ConflictException("The urgent deadline must fit inside the active season.");
                 var participants = targetIds.Append(creatorId).ToHashSet();
                 if (urgent.Chores.Any(x => string.IsNullOrWhiteSpace(x.Name) || !participants.Contains(x.AssignedUserId)))
@@ -359,7 +372,8 @@ public class ActionProposalService : IActionProposalService
                     if(_urgentPlanValidation==null)throw new ConflictException("Urgent timeline validation is unavailable.");
                     await _urgentPlanValidation.ValidateAsync(proposal.HouseId,urgent,cancellationToken);
                 }
-                var dueDate = now.AddMinutes(urgent.DeadlineMinutes);
+                var dueDate = urgent.ReadyByUtc ?? now.AddMinutes(urgent.DeadlineMinutes);
+                if (dueDate<=now) throw new ConflictException("The urgent deadline has already passed.");
                 var urgentSeason = await _unitOfWork.Seasons.GetByIdAsync(urgent.SeasonId, cancellationToken)
                     ?? throw new NotFoundException(nameof(ChoreSeason), urgent.SeasonId);
                 if (dueDate > urgentSeason.EndDate) throw new ConflictException("The urgent deadline must fit inside the active season.");

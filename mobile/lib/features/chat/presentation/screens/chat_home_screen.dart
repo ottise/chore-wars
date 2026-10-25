@@ -11,7 +11,7 @@ class ChatHomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Chat')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           for (final entry in [
             (
@@ -31,7 +31,7 @@ class ChatHomeScreen extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Material(
                 color: colors.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
@@ -45,7 +45,7 @@ class ChatHomeScreen extends StatelessWidget {
                   ),
                   title: Text(entry.title),
                   subtitle: Text(entry.subtitle),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: const Icon(Icons.chevron_right_outlined),
                   onTap: () =>
                       context.push('/houses/$houseId/chat/${entry.path}'),
                 ),

@@ -23,10 +23,38 @@ Check `http://127.0.0.1:8011/health/ready`: `status` must be `ready` and
 `provider_configured` must be `true`. This checks database readiness and the presence
 of a provider key; a successful interpretation request is needed to verify inference.
 
-In the app, the owner enables Assistant in AI Settings for each household.
-Automatic analysis of household chat remains a separate opt-in with individual consent.
-Private on-demand assistant requests do not enable automatic chat analysis.
+Assistant uses server configuration for private on-demand requests. It does not
+require the household background-analysis switch. AI configuration, model status,
+learning reports and evaluation dashboards are not exposed in the app. Legacy AI
+settings/evaluation links redirect to Assistant and do not load internal reports.
+
+Household background analysis remains separately controlled by `HouseAiSettings`;
+automatic chat analysis additionally requires individual consent. Private Assistant
+requests do not enable either switch or grant consent. Keep operational configuration
+in the backend environment; never automatically opt users into chat analysis.
+
+The existing telemetry worker and trainer continue processing background jobs.
+Evaluation results remain in backend storage and are not loaded by user pages.
+The owner-authorized operational APIs retain their existing authorization checks.
+
+A 403 from `GET /api/houses/{id}/ai/chat/insights` can indicate missing chat-analysis
+consent or inactive membership; it is not a Gemini health check. Private Assistant
+uses `POST /api/houses/{id}/ai/interpret` and does not fetch chat insights or settings.
 
 The Docker backend on port 8081 is a separate runtime. To use it with AI, start it
 with both `docker-compose.yml` and `docker-compose.ai.yml`; its internal AI URL is
 `http://ai-api:8000`, rather than the host loopback URL.
+
+## Development media storage
+
+The Development backend stores private chat media under
+`backend/src/Presentation/.local-data/private-media`, resolved against the server's
+content root. This directory is ignored by Git and survives switching between
+Debug and Release builds. Deployment-specific absolute `MediaStorage:RootPath`
+values continue to take precedence.
+
+For existing local data, copy files from the old `bin/Debug/net10.0/private-media`
+and `bin/Release/net10.0/private-media` directories into this stable directory.
+Preserve originals and compare hashes before handling any filename collision;
+never overwrite different bytes under an existing storage key. No database IDs,
+room membership or download authorization need to change.

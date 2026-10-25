@@ -109,11 +109,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Profile'), findsOneWidget);
-      expect(find.text('Schedule & Log'), findsOneWidget);
+      expect(find.text('Personal Profile'), findsOneWidget);
+      expect(find.text('Schedule & Routine'), findsOneWidget);
       expect(find.text('My Karma Score'), findsOneWidget);
       expect(find.text('42'), findsOneWidget);
-      await tester.tap(find.text('Schedule & Log'));
+      await tester.tap(find.text('Schedule & Routine'));
       await tester.pumpAndSettle();
       expect(
         find.text('No season is available to configure your schedule.'),

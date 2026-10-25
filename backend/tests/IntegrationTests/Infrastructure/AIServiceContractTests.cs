@@ -14,6 +14,77 @@ namespace IntegrationTests.Infrastructure;
 
 public class AIServiceContractTests
 {
+    [AIPythonFact]
+    public async Task VietnamesePartyPromptPlansAndInvitesTrinhBeforeApproval()
+    {
+        var url=new Uri(Environment.GetEnvironmentVariable("CHOREWARS_TEST_AI_URL")!);
+        Assert.Contains(url.Host,new[]{"localhost","127.0.0.1"});
+        var clock=new Mock<TimeProvider>();
+        clock.Setup(x=>x.GetUtcNow()).Returns(new DateTimeOffset(2026,10,25,9,0,0,TimeSpan.Zero));
+        await using var fixture=await PostgresFixture.CreateAsync(new(){["AI:Enabled"]="true",["AI:BaseUrl"]=url.ToString(),["AI:ServiceKey"]=Environment.GetEnvironmentVariable("CHOREWARS_TEST_AI_KEY")},services=>{
+            services.AddScoped(_=>Mock.Of<IActionProposalRealtimePublisher>());
+            services.AddScoped(_=>Mock.Of<INotificationRealtimePublisher>());
+            services.AddSingleton(clock.Object);
+        });
+        var data=await CoreConcurrencyTests.Seed(fixture);
+        await using var scope=fixture.Services.CreateAsyncScope();
+        var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Users.SingleAsync(u=>u.Id==data.Users[1])).DisplayName="Trinh";
+        foreach(var user in data.Users) {
+            db.MemberConstraints.Add(new MemberConstraint{Id=Guid.NewGuid(),HouseId=data.HouseId,UserId=user,MaxChoresPerWeek=50,MaxEffortMinutesPerDay=480});
+            foreach(var day in Enum.GetValues<DayOfWeek>())
+                db.MemberAvailabilities.Add(new MemberAvailability{Id=Guid.NewGuid(),SeasonId=data.SeasonId,UserId=user,DayOfWeek=day,IsAvailable=true,Slots=[new(){Id=Guid.NewGuid(),StartMinute=0,EndMinute=1440}]});
+        }
+        await db.SaveChangesAsync();
+        await scope.ServiceProvider.GetRequiredService<IChatService>().GetHouseRoomAsync(data.HouseId,data.Users[0]);
+        var service=scope.ServiceProvider.GetRequiredService<IAIHousekeeperService>();
+        const string prompt="10 giờ tối nay tiệc bắt đầu, tôi và Trinh chuẩn bị bữa tiệc cho 10 người bạn. Lên kế hoạch chuẩn bị xong trước 22 giờ và gửi yêu cầu cho Trinh xác nhận.";
+        var interpretation=await service.InterpretAsync(data.HouseId,data.Users[0],new AITextRequest{Text=prompt},false,default);
+        Assert.Equal("urgent",interpretation.GetProperty("intent").GetString());
+        Assert.Empty(interpretation.GetProperty("missing_fields").EnumerateArray());
+        var candidate=interpretation.GetProperty("urgent");
+        Assert.Equal(10,candidate.GetProperty("guest_count").GetInt32());
+        var readyBy=new DateTimeOffset(2026,10,25,15,0,0,TimeSpan.Zero);
+        Assert.Equal(readyBy,candidate.GetProperty("ready_by").GetDateTimeOffset());
+        var request=new AIGenerateRequest{ClientRequestId=Guid.NewGuid(),SeasonId=data.SeasonId,Text=prompt,
+            ReadyBy=readyBy,GuestCount=10,ParticipantIds=candidate.GetProperty("participant_ids").EnumerateArray().Select(x=>x.GetGuid()).ToList()};
+        Assert.Equal(2,request.ParticipantIds.Count);
+        var plan=await service.RequestUrgentAsync(data.HouseId,data.Users[0],request,default);
+        Assert.Equal("READY",plan.GetProperty("result").GetProperty("status").GetString());
+        var proposalId=plan.GetProperty("proposal_id").GetGuid();
+        var invitation=Assert.Single(await db.Notifications.Where(n=>n.TargetType==NotificationTargets.AiRequest).ToListAsync());
+        Assert.Equal(data.Users[1],invitation.UserId);
+        Assert.Equal(proposalId,invitation.TargetId);
+        Assert.Equal(readyBy.UtcDateTime,(await db.ActionProposals.SingleAsync()).ExpiresAt);
+        Assert.Single(await db.ChoreOccurrences.ToListAsync());
+        clock.Setup(x=>x.GetUtcNow()).Returns(new DateTimeOffset(2026,10,25,9,10,0,TimeSpan.Zero));
+        await scope.ServiceProvider.GetRequiredService<IActionProposalService>().RespondProposalAsync(proposalId,
+            new ChoreWars.Application.DTOs.Proposal.RespondProposalRequest{Status=ConfirmationStatus.CONFIRMED},data.Users[1]);
+        var created=await db.ChoreOccurrences.Where(o=>o.Id!=data.OccurrenceId).ToListAsync();
+        Assert.NotEmpty(created);
+        Assert.Contains(created,o=>o.AssignedUserId==data.Users[1]);
+        Assert.All(created,o=>Assert.Equal(readyBy.UtcDateTime,o.DueDate));
+    }
+
+    [AIPythonFact]
+    public async Task PrivateAssistantRoundTripWorksWithoutHouseSettingsOrChatConsent()
+    {
+        var url=new Uri(Environment.GetEnvironmentVariable("CHOREWARS_TEST_AI_URL")!);
+        Assert.Contains(url.Host,new[]{"localhost","127.0.0.1"});
+        await using var fixture=await PostgresFixture.CreateAsync(new(){["AI:Enabled"]="true",["AI:BaseUrl"]=url.ToString(),["AI:ServiceKey"]=Environment.GetEnvironmentVariable("CHOREWARS_TEST_AI_KEY")},services=> {
+            services.AddScoped(_=>Mock.Of<IActionProposalRealtimePublisher>());
+            services.AddScoped(_=>Mock.Of<INotificationRealtimePublisher>());
+        });
+        var data=await CoreConcurrencyTests.Seed(fixture);
+        await using var scope=fixture.Services.CreateAsyncScope();
+        var result=await scope.ServiceProvider.GetRequiredService<IAIHousekeeperService>().InterpretAsync(data.HouseId,data.Users[1],new AITextRequest{Text="I am busy tomorrow from 18:00 to 20:00."},false,default);
+        Assert.False(string.IsNullOrWhiteSpace(result.GetProperty("summary").GetString()));
+        Assert.True(result.GetProperty("requires_confirmation").GetBoolean());
+        var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Empty(await db.HouseAiSettings.ToListAsync());
+        Assert.Empty(await db.MemberAiConsents.ToListAsync());
+    }
+
     private static async Task SyncEvents(PostgresFixture fixture,Guid house,Guid actor)
     {
         await using var scope=fixture.Services.CreateAsyncScope();

@@ -7,6 +7,7 @@ public interface IAIHousekeeperService
 {
     Task<JsonElement> ReadAsync(Guid house, Guid actor, string path, bool ownerOnly, CancellationToken ct);
     Task<JsonElement> GenerateAsync(Guid house, Guid actor, AIGenerateRequest request, CancellationToken ct);
+    Task<JsonElement> RequestUrgentAsync(Guid house, Guid actor, AIGenerateRequest request, CancellationToken ct);
     Task<JsonElement> RecommendationAsync(Guid house, Guid actor, Guid id, CancellationToken ct);
     Task<JsonElement> AcceptAsync(Guid house, Guid actor, Guid id, CancellationToken ct);
     Task<JsonElement> RejectAsync(Guid house, Guid actor, Guid id, CancellationToken ct);

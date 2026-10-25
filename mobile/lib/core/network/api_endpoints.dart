@@ -7,6 +7,7 @@ class ApiEndpoints {
 
   // User
   static const String profile = '/user/profile';
+  static const String avatar = '/user/avatar';
 
   // House
   static const String houses = '/houses';

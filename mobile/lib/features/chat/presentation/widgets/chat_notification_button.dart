@@ -77,7 +77,7 @@ class _ChatNotificationButtonState
                 child: Icon(
                   enabled == false
                       ? Icons.notifications_off_outlined
-                      : Icons.notifications_none_rounded,
+                      : Icons.notifications_none_outlined,
                 ),
               ),
         onPressed: _saving || settings.isLoading

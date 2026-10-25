@@ -39,7 +39,7 @@ class AiProfileDetails extends StatelessWidget {
       ListTile(
         dense: true,
         title: const Text('View Metric Evidence'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_outlined),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => AiEvidenceDetailScreen(

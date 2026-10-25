@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -58,6 +58,41 @@ def test_urgent_dependency_and_resource_timeline(context):
     assert result["urgent_payload"]["PlanVersion"] == "blitz-v1"
     assert all(t["KarmaPoints"] == 0 for t in result["urgent_payload"]["Chores"])
     assert all(t.assigned_to is None for t in context.tasks)
+
+
+def test_urgent_preserves_explicit_assignee_and_rejects_outsider(context):
+    request = urgent(context)
+    member = request.participant_ids[-1]
+    chore = micro("named-task").model_copy(update={"assigned_to": member})
+    result = plan_urgent(request, Decomposition(chores=[chore]))
+    assert result["status"] == "READY"
+    assert result["tasks"][0]["assigned_to"] == str(member)
+    chore.assigned_to = uuid4()
+    with pytest.raises(ValueError, match="Explicit assignees"):
+        plan_urgent(request, Decomposition(chores=[chore]))
+
+
+def test_party_ready_by_stays_absolute_and_guests_are_not_assignees(context):
+    request=urgent(context)
+    ready_by=request.context.as_of.replace(hour=3).astimezone(timezone(timedelta(hours=7)))
+    request=request.model_copy(update={"ready_by":ready_by,"guest_count":10,"deadline_minutes":120})
+    result=plan_urgent(request,Decomposition(title="Party preparation",chores=[micro("table")]))
+    assert result["status"]=="READY"
+    assert result["deadline_at"]==ready_by
+    assert result["urgent_payload"]["ReadyByUtc"].endswith("Z")
+    assert datetime.fromisoformat(result["urgent_payload"]["ReadyByUtc"])==ready_by
+    assert result["guest_count"]==10
+    assert all(t["end_at"]<=ready_by for t in result["tasks"])
+    assert len(request.participant_ids)==3
+
+
+def test_urgent_does_not_reassign_unavailable_named_member(context):
+    request = urgent(context)
+    member = request.context.members[-1]
+    member.availability = []
+    chore = micro("named-task").model_copy(update={"assigned_to": member.id})
+    result = plan_urgent(request, Decomposition(chores=[chore]))
+    assert result["status"] == "INFEASIBLE"
 
 
 def test_urgent_cycle_and_budget_are_explained(context):

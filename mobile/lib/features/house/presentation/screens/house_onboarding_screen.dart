@@ -33,7 +33,7 @@ class HouseOnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 40),
               _OptionCard(
-                icon: Icons.add_home_rounded,
+                icon: Icons.add_home_outlined,
                 title: 'Create a house',
                 description:
                     'You\'ll become the owner and can invite housemates.',
@@ -42,16 +42,15 @@ class HouseOnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _OptionCard(
-                icon: Icons.group_add_rounded,
+                icon: Icons.group_add_outlined,
                 title: 'Join a house',
-                description:
-                    'Enter an invite code shared by your housemate.',
+                description: 'Enter an invite code shared by your housemate.',
                 accentColor: AppTheme.green,
                 onTap: () => context.push('/houses/join'),
               ),
               const SizedBox(height: 16),
               _OptionCard(
-                icon: Icons.qr_code_scanner_rounded,
+                icon: Icons.qr_code_scanner_outlined,
                 title: 'Scan QR code',
                 description: 'Scan the QR code shown by an existing member.',
                 accentColor: AppTheme.orange,
@@ -104,10 +103,7 @@ class _OptionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       description,
@@ -116,7 +112,7 @@ class _OptionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: AppTheme.muted),
+              Icon(Icons.chevron_right_outlined, color: AppTheme.muted),
             ],
           ),
         ),

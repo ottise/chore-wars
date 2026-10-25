@@ -22,7 +22,13 @@ String displayChatMentions(String content, Map<String, String> names) => content
     )
     .replaceAllMapped(chatAgentMentionPattern, (m) => '${m[1]}@Assistant');
 
-String chatAgentPrompt(String content) => content
-    .replaceAll(chatMemberMentionPattern, '')
+String chatAgentPrompt(
+  String content, {
+  Map<String, String> memberNames = const {},
+}) => content
+    .replaceAllMapped(
+      chatMemberMentionPattern,
+      (match) => memberNames[match[1]] ?? '',
+    )
     .replaceAll(RegExp(r'(^|\s)@(agent|all)\b', caseSensitive: false), ' ')
     .trim();

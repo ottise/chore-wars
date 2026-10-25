@@ -62,7 +62,7 @@ class HomeScreen extends ConsumerWidget {
           onRefresh: () => ref.refresh(homeDashboardProvider(houseId).future),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
               Text(
                 _greeting(data.userDisplayName),
@@ -85,7 +85,7 @@ class HomeScreen extends ConsumerWidget {
                   child: FilledButton.tonalIcon(
                     onPressed: () =>
                         context.push('/houses/${data.houseId}/seasons/new'),
-                    icon: const Icon(Icons.add_task_rounded),
+                    icon: const Icon(Icons.add_task_outlined),
                     label: const Text('Start new season'),
                   ),
                 ),
@@ -97,8 +97,8 @@ class HomeScreen extends ConsumerWidget {
                   child: ListTile(
                     leading: Icon(
                       data.currentUserConfirmationStatus == 1
-                          ? Icons.hourglass_top_rounded
-                          : Icons.rate_review_rounded,
+                          ? Icons.hourglass_top_outlined
+                          : Icons.rate_review_outlined,
                     ),
                     title: Text(
                       data.currentUserConfirmationStatus == 1
@@ -111,7 +111,7 @@ class HomeScreen extends ConsumerWidget {
                                 '(${data.confirmedCount}/${data.requiredConfirmationCount} confirmed)'
                           : 'Tap to review and confirm the generated schedule',
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: const Icon(Icons.chevron_right_outlined),
                     onTap: () => context.push(
                       '/houses/${data.houseId}/seasons/${data.seasonId}/review',
                     ),
@@ -202,7 +202,7 @@ class _KarmaCard extends StatelessWidget {
                 radius: 28,
                 backgroundColor: Theme.of(context).colorScheme.secondary,
                 child: Icon(
-                  Icons.bolt,
+                  Icons.bolt_outlined,
                   color: Theme.of(context).colorScheme.onSecondary,
                 ),
               ),
@@ -224,7 +224,7 @@ class _KarmaCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              const Icon(Icons.chevron_right),
+              const Icon(Icons.chevron_right_outlined),
             ],
           ),
         ),
@@ -249,7 +249,7 @@ class _SectionHeader extends StatelessWidget {
           IconButton(
             tooltip: 'View all',
             onPressed: action,
-            icon: const Icon(Icons.arrow_forward),
+            icon: const Icon(Icons.arrow_forward_outlined),
           ),
       ],
     );
@@ -269,7 +269,7 @@ class _ChoreTile extends StatelessWidget {
         leading: const Icon(Icons.cleaning_services_outlined),
         title: Text(chore.name),
         subtitle: Text('Due ${DateFormat('HH:mm').format(chore.dueDate)}'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_outlined),
         onTap: () => context.push(
           '/chores/${chore.id}?name=${Uri.encodeComponent(chore.name)}&due=${Uri.encodeComponent(DateFormat('HH:mm').format(chore.dueDate))}&status=${Uri.encodeComponent(chore.status)}',
         ),
@@ -298,7 +298,7 @@ class _BountyTile extends StatelessWidget {
           ).format(amount),
         ),
         subtitle: const Text('Active bounty'),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right_outlined),
         onTap: onTap,
       ),
     );

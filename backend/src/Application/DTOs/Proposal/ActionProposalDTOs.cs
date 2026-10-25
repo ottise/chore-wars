@@ -57,6 +57,9 @@ public class ChoreSwapPayload
 
 public class UrgentEventPayload
 {
+    public string? Title { get; set; }
+    public DateTime? ReadyByUtc { get; set; }
+    public int? GuestCount { get; set; }
     public string? PlanVersion { get; set; }
     public Guid SeasonId { get; set; }
     public int DeadlineMinutes { get; set; }

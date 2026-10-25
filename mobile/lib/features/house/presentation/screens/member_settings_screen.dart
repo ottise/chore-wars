@@ -127,7 +127,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
             ListTile(
               title: Text(
                 chore.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             for (final item in {
@@ -154,7 +154,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
   Widget _panel(Widget child) => Card(
     margin: EdgeInsets.zero,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
       side: BorderSide(
         color: Theme.of(context).colorScheme.outlineVariant
             .withValues(alpha: .35),
@@ -185,7 +185,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
                   Text(
                     eyebrow,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: colors.onSurfaceVariant,
                     ),
                   ),
@@ -207,7 +207,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
                 value,
                 style: TextStyle(
                   color: colors.onPrimaryFixedVariant,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -230,11 +230,11 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
           children: [
             Text(
               '${min.toInt()}',
-              style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
             ),
             Text(
               '${max.toInt()}',
-              style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -249,7 +249,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
       appBar: AppBar(
         title: const Text(
           'My Settings',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
       body: _isLoading
@@ -257,7 +257,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
           : !_loaded && _error != null
           ? ErrorView(error: _error!, onRetry: _fetchData)
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
                 Text(
                   'Set your capacity and choose chores that suit you.',
@@ -314,7 +314,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
                 const SizedBox(height: 24),
                 const Text(
                   'Chore Preferences',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -383,7 +383,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
           : SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: FilledButton.icon(
                   onPressed: _isSaving || !_loaded ? null : _save,
                   icon: const Icon(Icons.check_rounded, size: 18),

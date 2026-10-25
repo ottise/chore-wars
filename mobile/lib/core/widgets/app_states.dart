@@ -57,7 +57,7 @@ class ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 44),
+          const Icon(Icons.cloud_off_outlined, size: 44),
           const SizedBox(height: 16),
           Text(
             'Couldn\'t load this yet',
@@ -72,7 +72,7 @@ class ErrorView extends StatelessWidget {
           const SizedBox(height: 20),
           OutlinedButton.icon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_outlined),
             label: const Text('Try again'),
           ),
         ],

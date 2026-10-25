@@ -93,7 +93,7 @@ class _AudioMessageBubbleState extends ConsumerState<AudioMessageBubble> {
                       color: widget.isMe
                           ? colors.primaryFixed
                           : colors.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: colors.primary.withValues(alpha: .12),
                       ),
@@ -136,7 +136,7 @@ class _AudioMessageBubbleState extends ConsumerState<AudioMessageBubble> {
                               Row(
                                 children: [
                                   Icon(
-                                    Icons.mic_rounded,
+                                    Icons.mic_outlined,
                                     size: 14,
                                     color: colors.primary,
                                   ),
@@ -146,7 +146,7 @@ class _AudioMessageBubbleState extends ConsumerState<AudioMessageBubble> {
                                       'Voice message',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                         color: colors.onSurface,
                                       ),
                                     ),
@@ -175,7 +175,7 @@ class _AudioMessageBubbleState extends ConsumerState<AudioMessageBubble> {
                                     ? 'Tap to listen'
                                     : '${_time(position)} / ${_time(_duration!)}',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: colors.onSurfaceVariant,
                                 ),
                               ),

@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,16 +29,13 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
   String? _busyId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     final key = (houseId: widget.houseId, seasonId: widget.seasonId);
     final rewards = ref.watch(seasonRewardsProvider(key));
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Season Rewards',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppPageBar(title: 'Season Rewards'),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(seasonRewardsProvider(key));
@@ -49,7 +49,7 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
           ),
           data: (items) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [
               const Text(
                 'Final rank rewards are distributed at the end of each season.',
@@ -63,7 +63,10 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
               Card(
                 margin: EdgeInsets.zero,
                 child: Container(
-                  padding: const EdgeInsets.all(28),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 24,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -76,21 +79,26 @@ class _SeasonRewardScreenState extends ConsumerState<SeasonRewardScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.card_giftcard_rounded,
-                        size: 46,
-                        color: Theme.of(context).colorScheme.primary,
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerLowest
+                              .withValues(alpha: .65),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          Icons.card_giftcard_outlined,
+                          size: 42,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Season Rewards',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Recognition for your household contributions',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                        'Season Prize Pool',
+                        style: Theme.of(context).textTheme.titleLarge
+                            ?.copyWith(fontSize: 18),
                       ),
                     ],
                   ),
@@ -190,12 +198,8 @@ class _RewardCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.tertiaryFixed,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
                   child: Icon(
                     reward.isChorePass
                         ? Icons.shield_outlined
@@ -212,14 +216,15 @@ class _RewardCard extends StatelessWidget {
                         reward.status.label,
                         style: TextStyle(
                           color: colors.primary,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
                         reward.name,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontSize: 16),
                       ),
                       if (reward.description.isNotEmpty) ...[
                         const SizedBox(height: 6),
@@ -227,7 +232,7 @@ class _RewardCard extends StatelessWidget {
                           reward.description,
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.5,
                           ),
                         ),
@@ -277,7 +282,7 @@ class _DeadlineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      const Icon(Icons.schedule_rounded, size: 18),
+      const Icon(Icons.schedule_outlined, size: 18),
       const SizedBox(width: 8),
       Text(label),
       const Spacer(),

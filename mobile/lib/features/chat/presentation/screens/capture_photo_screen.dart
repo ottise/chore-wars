@@ -156,7 +156,7 @@ class _CapturePhotoScreenState extends State<CapturePhotoScreen>
             padding: const EdgeInsets.all(16),
             child: FilledButton.icon(
               onPressed: _camera == null || _capturing ? null : _capture,
-              icon: const Icon(Icons.camera_alt_rounded),
+              icon: const Icon(Icons.camera_alt_outlined),
               label: Text(_capturing ? 'Capturing…' : widget.captureLabel),
             ),
           ),

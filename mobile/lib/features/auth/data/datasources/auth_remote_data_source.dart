@@ -25,11 +25,7 @@ class AuthRemoteDataSource {
   }) async {
     await _dio.post<void>(
       ApiEndpoints.register,
-      data: {
-        'email': email,
-        'password': password,
-        'displayName': displayName,
-      },
+      data: {'email': email, 'password': password, 'displayName': displayName},
     );
   }
 
@@ -58,13 +54,14 @@ class AuthRemoteDataSource {
     return UserProfile.fromJson(response.data!);
   }
 
-  Future<UserProfile> uploadAvatar(String filePath) async {
+  Future<UserProfile> uploadAvatar(List<int> bytes, String filename) async {
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath),
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
     });
     final response = await _dio.post<Map<String, dynamic>>(
-      '/api/user/avatar',
+      ApiEndpoints.avatar,
       data: formData,
+      options: Options(contentType: 'multipart/form-data'),
     );
     return UserProfile.fromJson(response.data!);
   }

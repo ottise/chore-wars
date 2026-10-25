@@ -221,7 +221,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   Widget _panel(Widget child) => Card(
     margin: EdgeInsets.zero,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
       side: BorderSide(
         color: Theme.of(context).colorScheme.outlineVariant
             .withValues(alpha: .35),
@@ -238,12 +238,12 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           : signed
           ? AppTheme.successContainer
           : Theme.of(context).colorScheme.tertiaryFixed,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: Text(
       label,
       style: TextStyle(
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
         color: label == 'Rejected'
             ? Theme.of(context).colorScheme.onErrorContainer
@@ -275,18 +275,18 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
         centerTitle: true,
         title: const Text(
           'Review Schedule',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
             onPressed: _busy ? null : _load,
-            icon: const Icon(Icons.refresh_rounded, size: 21),
+            icon: const Icon(Icons.refresh_outlined, size: 21),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           if (_busy) const LinearProgressIndicator(),
           if (_error != null)
@@ -307,7 +307,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                         label: Text(
                           '${_season!['name'] ?? 'Season'} · Revision ${_season!['scheduleRevision'] ?? 0}',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 12,
                             color: colors.onPrimaryFixedVariant,
                           ),
                         ),
@@ -346,7 +346,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   child: Text(
                     'MEMBER WORKLOAD & KARMA',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: colors.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
@@ -354,7 +354,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                 ),
                 Text(
                   '${members.length} members',
-                  style: TextStyle(fontSize: 10, color: colors.primary),
+                  style: TextStyle(fontSize: 12, color: colors.primary),
                 ),
               ],
             ),
@@ -392,7 +392,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                                       : name.characters.first.toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 18,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w600,
                                     color: id == me
                                         ? colors.onPrimaryContainer
                                         : colors.onTertiaryFixedVariant,
@@ -407,7 +407,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                                     Text(
                                       '$name${id == me ? ' · You' : ''}',
                                       style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     const SizedBox(height: 5),
@@ -415,7 +415,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                                       '$karma Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
                                       style: TextStyle(
                                         color: colors.onSurfaceVariant,
-                                        fontSize: 11,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
@@ -439,7 +439,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                                 child: Text(
                                   'Chore Share ${(share * 100).toStringAsFixed(1)}%',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     color: colors.onSurfaceVariant,
                                   ),
                                 ),
@@ -447,7 +447,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                               Text(
                                 '${member['totalChores'] ?? 0} tasks',
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -478,7 +478,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: colors.errorContainer.withValues(alpha: .25),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: colors.error.withValues(alpha: .2),
                     ),
@@ -501,7 +501,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                             warning.toString(),
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
-                              fontSize: 11,
+                              fontSize: 12,
                               height: 1.5,
                             ),
                           ),
@@ -520,15 +520,15 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                         child: Text(
                           'MEMBER CONFIRMATIONS',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                       Text(
                         '$signedCount/${members.length}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: colors.onSurfaceVariant,
                         ),
                       ),
@@ -573,7 +573,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                 onPressed: _busy || _confirmed || _error != null
                     ? null
                     : () => _act('confirm'),
-                icon: const Icon(Icons.done_all_rounded, size: 18),
+                icon: const Icon(Icons.done_all_outlined, size: 18),
                 label: Text(
                   _confirmed
                       ? 'Confirmed · Waiting for Everyone'
@@ -620,7 +620,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                       ),
                       subtitle: Text(
                         '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
-                        style: const TextStyle(fontSize: 11),
+                        style: const TextStyle(fontSize: 12),
                       ),
                       trailing: _draft && _owner
                           ? TextButton(

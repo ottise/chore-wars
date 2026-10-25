@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,15 +53,22 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final balance = ref.watch(karmaSummaryProvider(widget.houseId));
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Household Rewards',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
+      appBar: AppPageBar(
+        title: 'Household Rewards',
+        actions: [
+          IconButton(
+            tooltip: 'Create Household Reward',
+            onPressed: () =>
+                context.push('/houses/${widget.houseId}/rewards/new'),
+            icon: const Icon(Icons.add_outlined, size: 22),
+          ),
+        ],
       ),
       body: ref
           .watch(customRewardsProvider(widget.houseId))
@@ -79,14 +89,14 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(16),
                       gradient: LinearGradient(
-                        colors: [colors.primary, colors.primaryContainer],
+                        colors: [colors.primaryContainer, colors.primary],
                       ),
                     ),
                     child: Row(
@@ -120,7 +130,7 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 26,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 loading: () => const Text(
@@ -150,18 +160,33 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                               alpha: .16,
                             ),
                           ),
-                          icon: const Icon(Icons.history_rounded, size: 16),
+                          icon: const Icon(Icons.history_outlined, size: 16),
                           label: const Text('History'),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    'Household rewards (${items.where((item) => item.enabled).length} active)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Text(
+                        'Active Rewards (${items.where((item) => item.enabled).length})',
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -193,14 +218,11 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: colors.primaryFixed,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10),
                                   child: Icon(
                                     Icons.card_giftcard_outlined,
+                                    size: 20,
                                     color: colors.primary,
                                   ),
                                 ),
@@ -213,7 +235,8 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                       Text(
                                         item.name,
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
                                         ),
                                       ),
                                       if (item.description.isNotEmpty) ...[
@@ -221,8 +244,8 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                         Text(
                                           item.description,
                                           style: TextStyle(
-                                            fontSize: 12,
-                                            height: 1.4,
+                                            fontSize: 14,
+                                            height: 1.45,
                                             color: colors.onSurfaceVariant,
                                           ),
                                         ),
@@ -233,7 +256,7 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                             ? 'Available'
                                             : 'Unavailable',
                                         style: TextStyle(
-                                          fontSize: 11,
+                                          fontSize: 12,
                                           color: item.enabled
                                               ? colors.primary
                                               : colors.onSurfaceVariant,
@@ -261,11 +284,11 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                 ),
                               ],
                             ),
-                            const Divider(height: 28),
+                            const Divider(height: 20),
                             Row(
                               children: [
                                 Icon(
-                                  Icons.stars_rounded,
+                                  Icons.stars_outlined,
                                   size: 18,
                                   color: colors.primary,
                                 ),
@@ -276,7 +299,23 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
-                                FilledButton(
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(88, 44),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(12),
+                                      ),
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontFamily: AppPageFrame.fontFamily,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                   onPressed: !item.enabled || _busy != null
                                       ? null
                                       : () => _redeem(item.id),
@@ -299,8 +338,8 @@ class _RewardCatalogScreenState extends ConsumerState<RewardCatalogScreen> {
                         : () => context.push(
                             '/houses/${widget.houseId}/rewards/new',
                           ),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Create Household Reward'),
+                    icon: const Icon(Icons.add_outlined),
+                    label: const Text('Create Custom Household Reward'),
                   ),
                 ],
               ),

@@ -7,7 +7,6 @@ import '../../../../core/widgets/primary_button.dart';
 import '../providers/house_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class JoinHouseScreen extends ConsumerStatefulWidget {
   const JoinHouseScreen({super.key});
 
@@ -58,10 +57,10 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
                   onFieldSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
                     labelText: 'Invite code',
-                    prefixIcon: const Icon(Icons.key_rounded),
+                    prefixIcon: const Icon(Icons.key_outlined),
                     suffixIcon: IconButton(
                       tooltip: 'Scan QR code',
-                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
                       onPressed: () => context.push('/houses/qr-join'),
                     ),
                     hintText: 'e.g. AB12CD',
@@ -83,7 +82,7 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
                 Center(
                   child: OutlinedButton.icon(
                     onPressed: () => context.push('/houses/qr-join'),
-                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
                     label: const Text('Or scan QR code'),
                   ),
                 ),

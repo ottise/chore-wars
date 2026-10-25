@@ -16,26 +16,26 @@ class UiPreviewScreen extends StatelessWidget {
       _PreviewItem(
         title: 'Chore list',
         description: 'Today, upcoming, and overdue assignments',
-        icon: Icons.checklist_rounded,
+        icon: Icons.checklist_outlined,
         route: '/houses/$_houseId/chores',
       ),
       _PreviewItem(
         title: 'Create chore',
         description: 'Create a recurring or bonus routine',
-        icon: Icons.add_task_rounded,
+        icon: Icons.add_task_outlined,
         route: '/houses/$_houseId/chores/new',
       ),
       _PreviewItem(
         title: 'Edit / delete',
         description: 'Change the sample dishes routine',
-        icon: Icons.edit_note_rounded,
+        icon: Icons.edit_note_outlined,
         route:
             '/houses/$_houseId/chores/templates/${AppConstants.previewChoreId}/edit',
       ),
       _PreviewItem(
         title: 'Chore detail',
         description: 'Complete or skip an assigned chore',
-        icon: Icons.cleaning_services_rounded,
+        icon: Icons.cleaning_services_outlined,
         route: '/houses/$_houseId/chores/${AppConstants.previewOccurrenceId}',
       ),
     ];
@@ -43,37 +43,37 @@ class UiPreviewScreen extends StatelessWidget {
       _PreviewItem(
         title: 'Leaderboard',
         description: 'Current season house standings',
-        icon: Icons.emoji_events_rounded,
+        icon: Icons.emoji_events_outlined,
         route: '/houses/$_houseId/seasons/$_seasonId/leaderboard',
       ),
       _PreviewItem(
         title: 'Karma',
         description: 'Balance and point breakdown',
-        icon: Icons.bolt_rounded,
+        icon: Icons.bolt_outlined,
         route: '/houses/$_houseId/karma',
       ),
       _PreviewItem(
         title: 'Karma history',
         description: 'Earnings, bonuses, and penalties',
-        icon: Icons.history_rounded,
+        icon: Icons.history_outlined,
         route: '/houses/$_houseId/karma/history',
       ),
       _PreviewItem(
         title: 'Achievements',
         description: 'Unlocked milestones and future goals',
-        icon: Icons.workspace_premium_rounded,
+        icon: Icons.workspace_premium_outlined,
         route: '/houses/$_houseId/achievements',
       ),
       _PreviewItem(
         title: 'Season reward',
         description: 'Claim and review the winner reward',
-        icon: Icons.card_giftcard_rounded,
+        icon: Icons.card_giftcard_outlined,
         route: '/houses/$_houseId/seasons/$_seasonId/rewards',
       ),
       _PreviewItem(
         title: 'Use chore pass',
         description: 'Choose an assignment to pass',
-        icon: Icons.confirmation_number_rounded,
+        icon: Icons.confirmation_number_outlined,
         route:
             '/houses/$_houseId/seasons/$_seasonId/chore-pass/${AppConstants.previewRedemptionId}',
       ),
@@ -120,13 +120,13 @@ class _Hero extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Icon(Icons.sports_martial_arts_rounded, color: AppTheme.yellow),
+            Icon(Icons.sports_martial_arts_outlined, color: AppTheme.yellow),
             SizedBox(width: 10),
             Text(
               'Chore Wars',
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
             ),
@@ -152,7 +152,7 @@ class _Hero extends StatelessWidget {
             backgroundColor: AppTheme.yellow,
             foregroundColor: AppTheme.ink,
           ),
-          icon: const Icon(Icons.arrow_forward_rounded),
+          icon: const Icon(Icons.arrow_forward_outlined),
           label: const Text('Open chore board'),
         ),
       ],
@@ -167,13 +167,13 @@ class _PreviewBadge extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: const Padding(
       padding: EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       child: Text(
         'UI preview',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     ),
   );
@@ -248,7 +248,7 @@ class _PreviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right_rounded, color: AppTheme.muted),
+            const Icon(Icons.chevron_right_outlined, color: AppTheme.muted),
           ],
         ),
       ),

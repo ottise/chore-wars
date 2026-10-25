@@ -66,6 +66,7 @@ Desktop.ini
 /artifacts/
 **/TestResults/
 .data-protection-keys/
+.local-data/
 
 # AI local runtime, private data and trusted model artifacts
 ai-service/.venv/

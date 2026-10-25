@@ -33,7 +33,7 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
       appBar: AppBar(
         title: const Text(
           'House Settings',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
       body: houseAsync.when(
@@ -150,14 +150,14 @@ class _SettingsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final owner = house.myRole == HouseRole.owner;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
         Card(
           margin: EdgeInsets.zero,
           child: Column(
             children: [
               _SettingsRow(
-                icon: Icons.home_rounded,
+                icon: Icons.home_outlined,
                 title: house.name,
                 subtitle: 'Name',
               ),
@@ -170,36 +170,29 @@ class _SettingsBody extends StatelessWidget {
             ],
           ),
         ),
-        const _SectionHeader('Automation & Governance'),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Column(
-            children: [
-              _SettingsRow(
-                icon: Icons.auto_awesome_outlined,
-                title: 'AI Housekeeper',
-                subtitle: 'Contributions & schedule suggestions',
-                onTap: () => context.push('/houses/$houseId/ai'),
-              ),
-              if (owner) ...[
-                const Divider(height: 1, indent: 64),
+        if (owner) ...[
+          const _SectionHeader('Automation & Governance'),
+          Card(
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: [
                 _SettingsRow(
-                  icon: Icons.sync_rounded,
+                  icon: Icons.sync_outlined,
                   title: 'System Recovery',
                   subtitle: 'Track failures & request retries',
                   onTap: () => context.push('/houses/$houseId/failed-events'),
                 ),
                 const Divider(height: 1, indent: 64),
                 _SettingsRow(
-                  icon: Icons.key_rounded,
+                  icon: Icons.key_outlined,
                   title: 'Rotate Invitation Code',
                   subtitle: 'Replace the current invite link & QR',
                   onTap: leavingHouse ? null : onRotate,
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
         const _SectionHeader('Household Invitation'),
         Card(
           margin: EdgeInsets.zero,
@@ -216,19 +209,19 @@ class _SettingsBody extends StatelessWidget {
                 ),
                 title: const Text(
                   'Invite Code',
-                  style: TextStyle(fontSize: 11, color: AppTheme.muted),
+                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
                 ),
                 subtitle: Text(
                   house.inviteCode,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 2,
                     fontSize: 16,
                   ),
                 ),
                 trailing: IconButton(
                   tooltip: 'Copy code',
-                  icon: const Icon(Icons.copy_rounded, size: 20),
+                  icon: const Icon(Icons.copy_outlined, size: 20),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: house.inviteCode));
                     showAppMessage(context, 'Invite code copied!');
@@ -237,7 +230,7 @@ class _SettingsBody extends StatelessWidget {
               ),
               const Divider(height: 1, indent: 64),
               _SettingsRow(
-                icon: Icons.qr_code_rounded,
+                icon: Icons.qr_code_outlined,
                 title: 'Show QR Code',
                 onTap: () =>
                     context.push('/houses/$houseId/qr-invite', extra: house),
@@ -271,7 +264,7 @@ class _SettingsBody extends StatelessWidget {
               ],
               const Divider(height: 1, indent: 64),
               _SettingsRow(
-                icon: Icons.logout_rounded,
+                icon: Icons.logout_outlined,
                 title: leavingHouse ? 'Updating…' : 'Leave Household',
                 subtitle: 'Revoke your access to this household',
                 destructive: true,
@@ -325,7 +318,7 @@ class _SettingsRow extends StatelessWidget {
           : Text(
               subtitle!,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: colors.onSurfaceVariant,
                 height: 1.4,
               ),
@@ -333,7 +326,7 @@ class _SettingsRow extends StatelessWidget {
       trailing: onTap == null
           ? null
           : Icon(
-              Icons.chevron_right_rounded,
+              Icons.chevron_right_outlined,
               size: 18,
               color: destructive ? colors.error : colors.onSurfaceVariant,
             ),
@@ -351,7 +344,7 @@ class _SectionHeader extends StatelessWidget {
     child: Text(
       text,
       style: TextStyle(
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),

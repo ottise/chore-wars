@@ -38,7 +38,7 @@ class _ChatNotificationBannerState
       notificationNotifierProvider.select((state) => state.latestArrival),
       (_, notification) {
         if (notification == null ||
-            !notification.isChat ||
+            !(notification.isChat || notification.isTaskRequest) ||
             notification.isRead) {
           return;
         }
@@ -58,7 +58,7 @@ class _ChatNotificationBannerState
                   notification.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   notification.message,

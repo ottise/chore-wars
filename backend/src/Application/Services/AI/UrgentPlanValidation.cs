@@ -13,9 +13,13 @@ public sealed class UrgentPlanValidation(IUnitOfWork uow, IAIContextBuilder cont
     public async Task ValidateAsync(Guid house, UrgentEventPayload payload, CancellationToken ct)
     {
         if(payload.PlanVersion!="blitz-v1")throw new DomainException("Unsupported urgent plan version.");
+        var now=clock.GetUtcNow().UtcDateTime;
+        var deadline=payload.ReadyByUtc ?? now.AddMinutes(payload.DeadlineMinutes);
+        var remainingMinutes=(deadline-now).TotalMinutes;
+        if (remainingMinutes<=0) throw new ConflictException("The urgent deadline has already passed.");
         var byKey=new Dictionary<string,UrgentChoreItem>();
         foreach(var item in payload.Chores) {
-            if(string.IsNullOrWhiteSpace(item.PlanKey) || item.PlanKey.Length>40 || !byKey.TryAdd(item.PlanKey,item) || item.PlannedOffsetMinutes<0 || item.PlannedOffsetMinutes+ScheduleTime.Effort(item.Difficulty)>payload.DeadlineMinutes || item.Resources.Count>10 || item.Resources.Any(r=>string.IsNullOrWhiteSpace(r)||r.Length>100))throw new DomainException("Invalid urgent timeline.");
+            if(string.IsNullOrWhiteSpace(item.PlanKey) || item.PlanKey.Length>40 || !byKey.TryAdd(item.PlanKey,item) || item.PlannedOffsetMinutes<0 || item.PlannedOffsetMinutes+ScheduleTime.Effort(item.Difficulty)>remainingMinutes || item.Resources.Count>10 || item.Resources.Any(r=>string.IsNullOrWhiteSpace(r)||r.Length>100))throw new DomainException("Invalid urgent timeline.");
         }
         foreach(var item in payload.Chores) {
             foreach(var dependency in item.DependsOn) {
@@ -27,9 +31,8 @@ public sealed class UrgentPlanValidation(IUnitOfWork uow, IAIContextBuilder cont
             }
         }
         var context=await contexts.BuildAsync(house,payload.SeasonId,ct);
-        var now=clock.GetUtcNow().UtcDateTime;
         var occurrences=(await uow.ChoreOccurrences.GetBySeasonIdAsync(payload.SeasonId,ct)).Where(o=>o.Chore.Type==ChoreType.NORMAL).ToList();
-        var additions=payload.Chores.Select(item=>new ChoreOccurrence{Id=Guid.NewGuid(),SeasonId=payload.SeasonId,AssignedUserId=item.AssignedUserId,PlannedStartAt=now.AddMinutes(item.PlannedOffsetMinutes),DueDate=now.AddMinutes(payload.DeadlineMinutes),SnapshotMinutes=ScheduleTime.Effort(item.Difficulty),SnapshotKarma=item.KarmaPoints,Chore=new Chore{Difficulty=item.Difficulty}}).ToList();
+        var additions=payload.Chores.Select(item=>new ChoreOccurrence{Id=Guid.NewGuid(),SeasonId=payload.SeasonId,AssignedUserId=item.AssignedUserId,PlannedStartAt=now.AddMinutes(item.PlannedOffsetMinutes),DueDate=deadline,SnapshotMinutes=ScheduleTime.Effort(item.Difficulty),SnapshotKarma=item.KarmaPoints,Chore=new Chore{Difficulty=item.Difficulty}}).ToList();
         await AIHousekeeperService.ValidateScheduleAsync(context,occurrences.Concat(additions).ToList(),ct,additions.Select(o=>o.Id).ToHashSet());
     }
 }

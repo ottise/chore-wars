@@ -50,18 +50,18 @@ class _UrgentEventBannerState extends State<UrgentEventBanner> {
       child: ListTile(
         leading: const CircleAvatar(
           backgroundColor: AppTheme.orange,
-          child: Icon(Icons.bolt_rounded, color: Colors.white),
+          child: Icon(Icons.bolt_outlined, color: Colors.white),
         ),
         title: Text(
           'CAMPAIGN ACTIVATED: ${widget.proposal.title}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: const Text('Urgent tasks have been added to the schedule.'),
         trailing: Text(
           countdown,
           style: const TextStyle(
             color: AppTheme.orange,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w600,
             fontSize: 18,
           ),
         ),

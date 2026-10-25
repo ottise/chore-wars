@@ -40,7 +40,9 @@ class AiInsightsScreen extends ConsumerWidget {
                 if ((data['items'] as List? ?? []).isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text('No eligible suggestions yet.'),
+                    child: Text(
+                      'No bounty suggestions yet. Suggestions will appear here when available.',
+                    ),
                   ),
                 for (final item in data['items'] as List? ?? [])
                   Card(

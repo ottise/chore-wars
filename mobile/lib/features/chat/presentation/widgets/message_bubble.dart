@@ -89,13 +89,6 @@ class MessageBubble extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
@@ -114,7 +107,7 @@ class MessageBubble extends StatelessWidget {
                                   ),
                                   errorWidget: (_, _, _) => const Center(
                                     child: Icon(
-                                      Icons.broken_image,
+                                      Icons.broken_image_outlined,
                                       size: 48,
                                       color: Colors.white,
                                     ),
@@ -143,7 +136,7 @@ class MessageBubble extends StatelessWidget {
                             color: Colors.black12,
                             child: const Center(
                               child: Icon(
-                                Icons.broken_image,
+                                Icons.broken_image_outlined,
                                 color: AppTheme.muted,
                               ),
                             ),
@@ -155,32 +148,25 @@ class MessageBubble extends StatelessWidget {
                 else
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 12.0,
+                      horizontal: 14.0,
+                      vertical: 10.0,
                     ),
                     decoration: BoxDecoration(
                       color: isMe
-                          ? theme.colorScheme.primary
+                          ? theme.colorScheme.primaryContainer
                           : theme.colorScheme.surfaceContainerLowest,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: Radius.circular(isMe ? 20 : 4),
-                        bottomRight: Radius.circular(isMe ? 4 : 20),
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(isMe ? 16 : 4),
+                        bottomRight: Radius.circular(isMe ? 4 : 16),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: Text(
                       displayChatMentions(message.content, memberNames),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: isMe
-                            ? theme.colorScheme.onPrimary
+                            ? theme.colorScheme.onPrimaryContainer
                             : theme.colorScheme.onSurface,
                       ),
                     ),

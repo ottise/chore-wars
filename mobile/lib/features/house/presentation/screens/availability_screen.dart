@@ -161,16 +161,16 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       appBar: AppBar(
         title: const Text(
           'My availability',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Card(
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
               side: BorderSide(
                 color: Theme.of(context).colorScheme.outlineVariant
                     .withValues(alpha: .35),
@@ -187,7 +187,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                       Chip(
                         label: const Text(
                           'Vietnam Time (GMT+7)',
-                          style: TextStyle(fontSize: 10),
+                          style: TextStyle(fontSize: 12),
                         ),
                         avatar: const Icon(Icons.public_outlined, size: 14),
                         backgroundColor: colors.primaryFixed,
@@ -195,9 +195,9 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                       Chip(
                         label: const Text(
                           'Weekly',
-                          style: TextStyle(fontSize: 10),
+                          style: TextStyle(fontSize: 12),
                         ),
-                        avatar: const Icon(Icons.repeat_rounded, size: 14),
+                        avatar: const Icon(Icons.repeat_outlined, size: 14),
                         backgroundColor: colors.tertiaryFixed,
                       ),
                     ],
@@ -241,7 +241,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                 child: Card(
                   margin: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
                       color: Theme.of(context).colorScheme.outlineVariant
                           .withValues(alpha: .35),
@@ -267,7 +267,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                                 ][day],
                                 style: const TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -276,7 +276,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                                 '${_slots[day]!.length} slots',
                                 style: TextStyle(
                                   color: colors.primary,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                 ),
                               ),
                             const SizedBox(width: 8),
@@ -291,7 +291,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                                     : colors.onPrimary,
                               ),
                               onPressed: _busy ? null : () => _add(day),
-                              icon: const Icon(Icons.add_rounded, size: 20),
+                              icon: const Icon(Icons.add_outlined, size: 20),
                             ),
                           ],
                         ),
@@ -308,7 +308,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                             child: Text(
                               'Unavailable',
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 12,
                                 color: colors.onSurfaceVariant,
                               ),
                             ),
@@ -322,7 +322,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                                 backgroundColor: colors.primaryFixed,
                                 labelStyle: TextStyle(
                                   color: colors.onPrimaryFixedVariant,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                 ),
                                 label: Text(
                                   '${_time(slot['startMinute']!)} – ${_time(slot['endMinute']!)}',
@@ -357,11 +357,11 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: Card(
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               side: BorderSide(
                 color: Theme.of(context).colorScheme.outlineVariant
                     .withValues(alpha: .35),
@@ -379,7 +379,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                         Text(
                           'Weekly Total',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 12,
                             color: colors.onSurfaceVariant,
                           ),
                         ),
@@ -390,7 +390,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                               : '—',
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],

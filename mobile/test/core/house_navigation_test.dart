@@ -11,6 +11,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:chore_wars/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:chore_wars/features/notifications/domain/entities/notification_models.dart';
+
+class _Inbox extends NotificationNotifier {
+  @override
+  NotificationState build() => NotificationState(
+    notifications: [
+      AppNotification.fromJson({
+        'id': 'request',
+        'userId': 'me',
+        'houseId': 'house-B',
+        'title': 'Incoming AI task',
+        'message': 'Review the task',
+        'type': 'URGENT_EVENT',
+        'targetType': 'AI_REQUEST',
+        'targetId': 'proposal',
+        'isRead': true,
+        'createdAt': '2026-10-24T10:00:00Z',
+      }),
+    ],
+  );
+}
 
 class _Tokens extends SecureStorage {
   @override
@@ -117,6 +139,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         secureStorageProvider.overrideWithValue(_Tokens()),
+        notificationNotifierProvider.overrideWith(_Inbox.new),
         userProfileProvider.overrideWith(
           (ref) async => const UserProfile(
             id: 'me',
@@ -157,6 +180,29 @@ void main() {
     expect(find.text('House Management'), findsOneWidget);
     expect(find.text('SEASON MANAGEMENT'), findsOneWidget);
     expect(find.text('Create New Season'), findsNothing);
+    router.push('/notifications');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Incoming AI task'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AssistantChatScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    router.go('/houses/house-B/more');
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      router.push('/notifications');
+      await tester.pumpAndSettle();
+      expect(find.text('System Notifications'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    router.push('/notifications');
+    await tester.pump(const Duration(milliseconds: 20));
+    router.go('/houses');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    router.go('/houses/house-B/more');
+    await tester.pumpAndSettle();
     router.go('/houses/house-B/chat');
     await tester.pumpAndSettle();
     expect(find.text('AI Assistant'), findsOneWidget);
@@ -170,8 +216,27 @@ void main() {
           .houseId,
       'house-B',
     );
-    expect(find.text('AI Settings'), findsOneWidget);
-    expect(find.byKey(const ValueKey('house-tab-0')), findsNothing);
+    expect(find.text('AI Settings'), findsNothing);
+    for (final legacyPath in ['ai', 'ai/evaluations/internal-run']) {
+      router.go('/houses/house-B/$legacyPath');
+      await tester.pumpAndSettle();
+      expect(find.byType(AssistantChatScreen), findsOneWidget);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        '/houses/house-B/chat/assistant',
+      );
+    }
+    router.go('/houses/house-B/urgent-event');
+    await tester.pumpAndSettle();
+    expect(find.byType(AssistantChatScreen), findsOneWidget);
+    expect(
+      tester
+          .widget<AssistantChatScreen>(find.byType(AssistantChatScreen))
+          .urgentMode,
+      isTrue,
+    );
+    expect(find.text('Campaign Title'), findsNothing);
+    expect(find.byKey(const ValueKey('house-tab-0')), findsOneWidget);
     await tester.tap(find.byTooltip('Back to Chat'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Overview'));

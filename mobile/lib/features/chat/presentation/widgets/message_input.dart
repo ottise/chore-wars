@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:chore_wars/core/utils/api_error_message.dart';
@@ -112,7 +114,12 @@ class _MessageInputState extends State<MessageInput> {
         _mentions.clear();
         _isUploading = false;
       });
-      final prompt = chatAgentPrompt(content);
+      final prompt = chatAgentPrompt(
+        content,
+        memberNames: {
+          for (final member in widget.mentionTargets) member.id: member.label,
+        },
+      );
       if (agent && prompt.isNotEmpty && widget.onAgentRequest != null) {
         await widget.onAgentRequest!(prompt);
       }
@@ -275,8 +282,11 @@ class _MessageInputState extends State<MessageInput> {
                               ? colors.primaryFixed
                               : colors.surfaceContainerLow,
                           foregroundColor: colors.onPrimaryFixedVariant,
-                          shape: const StadiumBorder(),
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
                           textStyle: const TextStyle(
+                            fontFamily: AppPageFrame.fontFamily,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -302,7 +312,10 @@ class _MessageInputState extends State<MessageInput> {
                         style: TextButton.styleFrom(
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          textStyle: const TextStyle(fontSize: 12),
+                          textStyle: const TextStyle(
+                            fontFamily: AppPageFrame.fontFamily,
+                            fontSize: 12,
+                          ),
                         ),
                         onPressed: canPick
                             ? () => _pickAndSendImage(ImageSource.gallery)
@@ -319,10 +332,16 @@ class _MessageInputState extends State<MessageInput> {
                         style: TextButton.styleFrom(
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          textStyle: const TextStyle(fontSize: 12),
+                          textStyle: const TextStyle(
+                            fontFamily: AppPageFrame.fontFamily,
+                            fontSize: 12,
+                          ),
                         ),
                         onPressed: _isUploading ? null : widget.onOpenBounty,
-                        icon: const Icon(Icons.card_giftcard_rounded, size: 16),
+                        icon: const Icon(
+                          Icons.card_giftcard_outlined,
+                          size: 16,
+                        ),
                         label: const Text('Bounty'),
                       ),
                     if (widget.mentionTargets.isNotEmpty)
@@ -378,11 +397,11 @@ class _MessageInputState extends State<MessageInput> {
                           vertical: 13,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -404,7 +423,13 @@ class _MessageInputState extends State<MessageInput> {
                       onPressed: _isComposing || _mentions.isNotEmpty
                           ? () => _handleSubmitted(_controller.text)
                           : null,
-                      icon: const Icon(Icons.send_rounded, size: 21),
+                      icon: Icon(
+                        Icons.send_outlined,
+                        size: 21,
+                        color: _isComposing || _mentions.isNotEmpty
+                            ? colors.onPrimary
+                            : null,
+                      ),
                     ),
                 ],
               ),

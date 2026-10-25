@@ -30,7 +30,7 @@ class ErrorState extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_outlined),
               label: const Text('Retry'),
             ),
           ],

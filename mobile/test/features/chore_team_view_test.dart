@@ -1,3 +1,5 @@
+import 'package:chore_wars/core/theme/app_theme.dart';
+import 'package:chore_wars/core/widgets/app_page_frame.dart';
 import 'package:chore_wars/core/network/api_client.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
 import 'package:chore_wars/features/chore/presentation/providers/chore_providers.dart';
@@ -96,12 +98,24 @@ void main() {
               (ref, id) async => null,
             ),
           ],
-          child: const MaterialApp(home: ChoreListScreen(houseId: 'house-A')),
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: const ChoreListScreen(houseId: 'house-A'),
+          ),
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
+        AppPageFrame.background,
+      );
+      final originalBackground = AppTheme.canvas;
       await tester.tap(find.text('Team'));
       await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
+        originalBackground,
+      );
       expect(find.text('Former member'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Earlier task')).dy,
@@ -111,6 +125,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Earlier task'), findsNothing);
       expect(find.text('Later task'), findsOneWidget);
+      await tester.tap(find.text('Routines'));
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
+        AppPageFrame.background,
+      );
+      expect(find.text('Create First Routine'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

@@ -46,7 +46,7 @@ class _ChorePassScreenState extends ConsumerState<ChorePassScreen> {
             children: [
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   children: [
                     const _PassHeader(),
                     const SizedBox(height: 24),
@@ -59,7 +59,7 @@ class _ChorePassScreenState extends ConsumerState<ChorePassScreen> {
                       const SizedBox(
                         height: 260,
                         child: EmptyView(
-                          icon: Icons.task_alt_rounded,
+                          icon: Icons.task_alt_outlined,
                           title: 'No eligible chores',
                           message:
                               'Only pending chores can be covered by a pass.',
@@ -77,8 +77,8 @@ class _ChorePassScreenState extends ConsumerState<ChorePassScreen> {
                                 children: [
                                   Icon(
                                     _selectedId == chore.id
-                                        ? Icons.radio_button_checked_rounded
-                                        : Icons.radio_button_off_rounded,
+                                        ? Icons.radio_button_checked_outlined
+                                        : Icons.radio_button_off_outlined,
                                     color: _selectedId == chore.id
                                         ? AppTheme.purple
                                         : AppTheme.muted,
@@ -117,7 +117,7 @@ class _ChorePassScreenState extends ConsumerState<ChorePassScreen> {
               SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   child: ElevatedButton.icon(
                     onPressed: _selectedId == null || _using ? null : _usePass,
                     icon: _using
@@ -202,12 +202,12 @@ class _PassHeader extends StatelessWidget {
     padding: const EdgeInsets.all(22),
     decoration: BoxDecoration(
       color: AppTheme.purple,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: const Row(
       children: [
         Icon(
-          Icons.confirmation_number_rounded,
+          Icons.confirmation_number_outlined,
           size: 46,
           color: AppTheme.yellow,
         ),
@@ -220,7 +220,7 @@ class _PassHeader extends StatelessWidget {
                 'Chore pass',
                 style: TextStyle(
                   color: Colors.white,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                   fontSize: 21,
                 ),
               ),

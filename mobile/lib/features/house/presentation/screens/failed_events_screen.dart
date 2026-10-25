@@ -88,7 +88,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_outlined),
           ),
         ],
       ),
@@ -176,7 +176,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                             onPressed: _busy == null
                                 ? () => _replay(item)
                                 : null,
-                            icon: const Icon(Icons.replay),
+                            icon: const Icon(Icons.replay_outlined),
                             label: Text(
                               _busy == item.id
                                   ? 'Sending…'
@@ -194,7 +194,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                           onPressed: _page > 1 && _busy == null
                               ? () => setState(() => _page--)
                               : null,
-                          icon: const Icon(Icons.chevron_left),
+                          icon: const Icon(Icons.chevron_left_outlined),
                         ),
                         Text('Page $_page · ${result.total} requests'),
                         IconButton(
@@ -202,7 +202,7 @@ class _FailedEventsScreenState extends ConsumerState<FailedEventsScreen> {
                           onPressed: _page * 20 < result.total && _busy == null
                               ? () => setState(() => _page++)
                               : null,
-                          icon: const Icon(Icons.chevron_right),
+                          icon: const Icon(Icons.chevron_right_outlined),
                         ),
                       ],
                     ),

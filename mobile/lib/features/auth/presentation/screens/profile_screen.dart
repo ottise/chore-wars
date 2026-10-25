@@ -1,3 +1,7 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../widgets/profile_karma_card.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +19,10 @@ class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({this.houseId, super.key});
   final String? houseId;
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AppPageFrame(builder: (context) => _buildScreen(context, ref));
+
+  Widget _buildScreen(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
     final selectedHouse = houseId ?? ref.watch(currentHouseProvider);
     final colors = Theme.of(context).colorScheme;
@@ -25,351 +32,263 @@ class ProfileScreen extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'My Account',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Profile'),
-              Tab(text: 'Schedule & Log'),
-            ],
-          ),
+        appBar: AppPageBar(
+          title: 'My Account',
+          subtitle: house?.name,
+          centerTitle: true,
         ),
-        body: TabBarView(
+        body: Column(
           children: [
-            profile.when(
-              loading: () => const LoadingView(),
-              error: (error, _) => ErrorView(
-                error: error,
-                onRetry: () => ref.invalidate(userProfileProvider),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TabBar(
+                  indicator: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: const EdgeInsets.all(4),
+                  dividerHeight: 0,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  tabs: const [
+                    Tab(height: 40, text: 'Personal Profile'),
+                    Tab(height: 40, text: 'Schedule & Routine'),
+                  ],
+                ),
               ),
-              data: (user) => ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            ),
+            Expanded(
+              child: TabBarView(
                 children: [
-                  Card(
-                    margin: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant
-                            .withValues(alpha: .35),
-                      ),
+                  profile.when(
+                    loading: () => const LoadingView(),
+                    error: (error, _) => ErrorView(
+                      error: error,
+                      onRetry: () => ref.invalidate(userProfileProvider),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: colors.primaryContainer,
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Text(
-                                  user.displayName.isEmpty
-                                      ? '?'
-                                      : user.displayName.characters.first
-                                            .toUpperCase(),
-                                  style: TextStyle(
-                                    color: colors.onPrimaryContainer,
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                    data: (user) => ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                Row(
                                   children: [
-                                    Text(
-                                      user.displayName,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: colors.primaryFixed,
+                                        border: Border.all(
+                                          color: AppPageFrame.accent,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                    ),
-                                    if (house != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          house.myRole == HouseRole.owner
-                                              ? 'Owner'
-                                              : 'Member',
-                                          style: TextStyle(
-                                            color: colors.primary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                      child: Text(
+                                        user.displayName.isEmpty
+                                            ? '?'
+                                            : user.displayName.characters.first
+                                                  .toUpperCase(),
+                                        style: TextStyle(
+                                          color: colors.primary,
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      user.email,
-                                      style: TextStyle(
-                                        color: colors.onSurfaceVariant,
-                                        fontSize: 11,
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                            children: [
+                                              Text(
+                                                user.displayName,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              if (house != null)
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 3,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: colors.primaryFixed,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          16,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    house.myRole ==
+                                                            HouseRole.owner
+                                                        ? 'Owner'
+                                                        : 'Member',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: colors.primary,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            user.email,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          if (house != null) ...[
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              house.name,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 28),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  context.push('/profile/edit', extra: user),
-                              icon: const Icon(Icons.edit_outlined, size: 16),
-                              label: const Text('Edit Profile'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (selectedHouse != null) ...[
-                    Card(
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.outlineVariant
-                              .withValues(alpha: .35),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'My Karma Score',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 20),
-                            ref
-                                .watch(karmaSummaryProvider(selectedHouse))
-                                .when(
-                                  loading: () =>
-                                      const LinearProgressIndicator(),
-                                  error: (error, _) => ErrorView(
-                                    error: error,
-                                    onRetry: () => ref.invalidate(
-                                      karmaSummaryProvider(selectedHouse),
+                                const Divider(height: 28),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: () => context.push(
+                                      '/profile/edit',
+                                      extra: user,
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(44, 36),
+                                      textStyle: const TextStyle(
+                                        fontFamily: AppPageFrame.fontFamily,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 15,
+                                    ),
+                                    label: const Text(
+                                      'Edit Profile Information',
                                     ),
                                   ),
-                                  data: (karma) => Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (karma.current < 0)
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Chip(
-                                            label: const Text(
-                                              'Needs Balance',
-                                              style: TextStyle(fontSize: 10),
-                                            ),
-                                            backgroundColor:
-                                                colors.errorContainer,
-                                          ),
-                                        ),
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            '${karma.current}',
-                                            style: TextStyle(
-                                              fontSize: 38,
-                                              fontWeight: FontWeight.w800,
-                                              color: colors.onSurface,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 7,
-                                            ),
-                                            child: Text(
-                                              'KARMA PTS',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: colors.onSurfaceVariant,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          for (final entry in {
-                                            'Regular': karma.normalChores,
-                                            'Bonus': karma.bonus,
-                                            'Penalties': karma.penalties,
-                                          }.entries)
-                                            Expanded(
-                                              child: Container(
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 3,
-                                                    ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: colors
-                                                      .surfaceContainerLowest,
-                                                  borderRadius:
-                                                      BorderRadius.circular(15),
-                                                  border: Border.all(
-                                                    color: entry.value < 0
-                                                        ? colors.error
-                                                              .withValues(
-                                                                alpha: .18,
-                                                              )
-                                                        : colors.outlineVariant
-                                                              .withValues(
-                                                                alpha: .35,
-                                                              ),
-                                                  ),
-                                                ),
-                                                child: Column(
-                                                  children: [
-                                                    Text(
-                                                      entry.key,
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        color: colors
-                                                            .onSurfaceVariant,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 6),
-                                                    Text(
-                                                      '${entry.value > 0 ? '+' : ''}${entry.value}',
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: entry.value < 0
-                                                            ? colors.error
-                                                            : colors.onSurface,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (selectedHouse != null) ...[
+                          const SizedBox(height: 24),
+                          ref
+                              .watch(karmaSummaryProvider(selectedHouse))
+                              .when(
+                                loading: () => const LinearProgressIndicator(),
+                                error: (error, _) => ErrorView(
+                                  error: error,
+                                  onRetry: () => ref.invalidate(
+                                    karmaSummaryProvider(selectedHouse),
                                   ),
                                 ),
-                            const Divider(height: 30),
-                            Center(
-                              child: TextButton(
-                                onPressed: () => context.push(
-                                  '/houses/$selectedHouse/karma/history',
-                                ),
-                                child: const Text(
-                                  'View Karma History & Penalty Log',
+                                data: (karma) => ProfileKarmaCard(
+                                  karma: karma,
+                                  houseId: selectedHouse,
                                 ),
                               ),
+                          const SizedBox(height: 24),
+                          Card(
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: Icon(
+                                    Icons.notifications_none_outlined,
+                                    color: colors.primary,
+                                  ),
+                                  title: const Text('My Notifications'),
+                                  subtitle: const Text(
+                                    'Chores, reminders & chat',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_outlined,
+                                    size: 18,
+                                  ),
+                                  onTap: () => context.push('/notifications'),
+                                ),
+                                const Divider(indent: 16, endIndent: 16),
+                                ListTile(
+                                  leading: Icon(
+                                    Icons.home_outlined,
+                                    color: colors.primary,
+                                  ),
+                                  title: const Text('Household Chores'),
+                                  subtitle: const Text(
+                                    'Routines & assigned chores',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_outlined,
+                                    size: 18,
+                                  ),
+                                  onTap: () => context.push(
+                                    '/houses/$selectedHouse/chores',
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Card(
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.outlineVariant
-                              .withValues(alpha: .35),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: Icon(
-                              Icons.home_outlined,
-                              color: colors.primary,
-                            ),
-                            title: const Text(
-                              'Household Chores',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () =>
-                                context.push('/houses/$selectedHouse/chores'),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(height: 1),
-                          ),
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: Icon(
-                              Icons.notifications_none_rounded,
-                              color: colors.primary,
-                            ),
-                            title: const Text(
-                              'My Notifications',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () => context.push('/notifications'),
                           ),
                         ],
-                      ),
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.error,
+                          ),
+                          onPressed: () => _confirmLogout(context, ref),
+                          icon: const Icon(Icons.logout_outlined, size: 16),
+                          label: const Text('Log Out'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                  ],
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colors.error,
-                      side: BorderSide(
-                        color: colors.error.withValues(alpha: .25),
-                      ),
-                    ),
-                    onPressed: () => _confirmLogout(context, ref),
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text('Log Out'),
                   ),
+                  selectedHouse == null
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'Choose a house to view and edit your schedule.',
+                            ),
+                          ),
+                        )
+                      : _ScheduleSettings(houseId: selectedHouse),
                 ],
               ),
             ),
-            selectedHouse == null
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Choose a house to view and edit your schedule.',
-                      ),
-                    ),
-                  )
-                : _ScheduleSettings(houseId: selectedHouse),
           ],
         ),
       ),
@@ -431,7 +350,7 @@ class _ScheduleSettings extends ConsumerWidget {
                 ),
               )
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 children: [
                   Text(
                     season['name']?.toString() ?? 'Current Season',
@@ -441,7 +360,7 @@ class _ScheduleSettings extends ConsumerWidget {
                   const Text(
                     'Set your availability, preferences and capacity to help plan household chores.',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   ListTile(
                     title: const Text('Weekly Availability'),
                     subtitle: const Text(

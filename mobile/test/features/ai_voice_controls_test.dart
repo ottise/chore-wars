@@ -12,13 +12,17 @@ import 'package:speech_to_text_platform_interface/speech_to_text_platform_interf
 class _Speech extends platform.SpeechToTextPlatform {
   final ready = Completer<bool>();
   int listens = 0;
+  String? lastLocale;
   @override
   Future<bool> initialize({
     debugLogging = false,
     List<platform.SpeechConfigOption>? options,
   }) => ready.future;
   @override
-  Future<List<dynamic>> locales() async => ['en_US:English'];
+  Future<List<dynamic>> locales() async => [
+    'en_US:English',
+    'vi_VN:Vietnamese',
+  ];
   @override
   Future<bool> listen({
     String? localeId,
@@ -29,6 +33,7 @@ class _Speech extends platform.SpeechToTextPlatform {
     platform.SpeechListenOptions? options,
   }) async {
     listens++;
+    lastLocale = localeId;
     onStatus?.call('listening');
     return true;
   }
@@ -53,6 +58,90 @@ class _Speech extends platform.SpeechToTextPlatform {
 }
 
 void main() {
+  testWidgets(
+    'read uses an available English locale rather than requiring en-US',
+    (tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('flutter_tts'),
+        (call) async {
+          calls.add(call);
+          if (call.method == 'getVoices') {
+            return [
+              {'name': 'English UK', 'locale': 'en-GB'},
+            ];
+          }
+          return 1;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('flutter_tts'),
+          null,
+        ),
+      );
+      final controller = TextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AiVoiceControls(
+              controller: controller,
+              summary: 'Your household task plan is ready.',
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Read Results'));
+      await tester.pumpAndSettle();
+      expect(
+        calls.any(
+          (call) => call.method == 'setLanguage' && call.arguments == 'en-GB',
+        ),
+        isTrue,
+      );
+      expect(calls.any((call) => call.method == 'speak'), isTrue);
+      expect(
+        calls.any((call) => call.method == 'isLanguageAvailable'),
+        isFalse,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
+
+  testWidgets(
+    'read shows an honest unavailable state without an English voice',
+    (tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('flutter_tts'),
+        (call) async => call.method == 'getVoices' ? [] : 1,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('flutter_tts'),
+          null,
+        ),
+      );
+      final controller = TextEditingController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AiVoiceControls(controller: controller, summary: 'Reply'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Read Results'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('this device has no English voice'),
+        findsOneWidget,
+      );
+      expect(find.text('Read unavailable'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
+
   testWidgets(
     'permission dialog does not cancel initialization; final words survive stop and another widget can listen',
     (tester) async {
@@ -113,6 +202,24 @@ void main() {
       await tester.tap(find.text('Stop Recording'));
       await tester.pumpAndSettle();
       expect(second.text, 'Tối nay tôi bận');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AiVoiceControls(
+              key: const ValueKey('vietnamese'),
+              controller: second,
+              summary: '',
+              speechLocale: 'vi-VN',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Speak Vietnamese'));
+      await tester.pumpAndSettle();
+      expect(speech.lastLocale, 'vi_VN');
+      await tester.tap(find.text('Stop Recording'));
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
       first.dispose();
       second.dispose();

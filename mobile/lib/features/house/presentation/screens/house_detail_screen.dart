@@ -58,7 +58,7 @@ class HouseDetailScreen extends ConsumerWidget {
                           'Overview',
                           style: Theme.of(context).textTheme.headlineLarge
                               ?.copyWith(
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: -1,
                                 color: colors.onSurface,
                               ),
@@ -100,7 +100,7 @@ class HouseDetailScreen extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colors.primaryFixed,
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
                             '${members.asData!.value.where((m) => m.isActive).length}',
@@ -169,7 +169,7 @@ class HouseDetailScreen extends ConsumerWidget {
                         ListTile(
                           leading: const Icon(Icons.person_outline_rounded),
                           title: const Text('My Profile & Schedule'),
-                          trailing: const Icon(Icons.chevron_right_rounded),
+                          trailing: const Icon(Icons.chevron_right_outlined),
                           onTap: () => context.push('$base/account'),
                         ),
                         if (season.asData?.value?['id'] != null) ...[
@@ -180,7 +180,7 @@ class HouseDetailScreen extends ConsumerWidget {
                           ListTile(
                             leading: const Icon(Icons.calendar_month_outlined),
                             title: const Text('Household Schedule'),
-                            trailing: const Icon(Icons.chevron_right_rounded),
+                            trailing: const Icon(Icons.chevron_right_outlined),
                             onTap: () => context.push(
                               '$base/seasons/${season.asData!.value!['id']}/review',
                             ),
@@ -255,7 +255,7 @@ class _SeasonCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.primaryFixed,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.outlineVariant.withValues(alpha: .35)),
       ),
       child: Column(
@@ -284,7 +284,7 @@ class _SeasonCard extends StatelessWidget {
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: colors.onPrimaryFixed,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -312,7 +312,7 @@ class _Surface extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surfaceContainerLowest,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
       side: BorderSide(
         color: Theme.of(context).colorScheme.outlineVariant
             .withValues(alpha: .35),
@@ -351,7 +351,7 @@ class _MemberTile extends StatelessWidget {
             color: member.isOwner
                 ? colors.onPrimaryFixedVariant
                 : colors.onSurface,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -367,12 +367,12 @@ class _MemberTile extends StatelessWidget {
           color: member.isOwner
               ? colors.primaryFixed
               : colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           member.isOwner ? 'Owner' : 'Member',
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: member.isOwner
                 ? colors.onPrimaryFixedVariant

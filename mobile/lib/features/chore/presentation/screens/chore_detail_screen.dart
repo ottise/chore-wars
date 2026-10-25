@@ -91,7 +91,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
               ChoreStatus.criticalOverdue)
             IconButton(
               tooltip: 'Take responsibility without new compensation',
-              icon: const Icon(Icons.volunteer_activism),
+              icon: const Icon(Icons.volunteer_activism_outlined),
               onPressed: _mutating
                   ? null
                   : () async {
@@ -289,7 +289,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                   children: [
                     Text(
                       'Your chore: ${source.choreName}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 18),
                     DropdownButtonFormField<String>(
@@ -374,7 +374,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     note: noteController.text,
                   ),
                 ),
-                icon: const Icon(Icons.swap_horiz_rounded),
+                icon: const Icon(Icons.swap_horiz_outlined),
                 label: const Text('Send Proposal'),
               ),
             ],
@@ -458,7 +458,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          Icons.task_alt_rounded,
+                          Icons.task_alt_outlined,
                           color: AppTheme.green,
                           size: 26,
                         ),
@@ -471,14 +471,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             Text(
                               'Complete Chore',
                               style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '+${detail.karmaPoints} Karma Points',
                               style: const TextStyle(
                                 color: AppTheme.onAmber,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 13,
                               ),
                             ),
@@ -518,7 +518,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             radius: 18,
                             child: IconButton(
                               icon: const Icon(
-                                Icons.close,
+                                Icons.close_outlined,
                                 size: 18,
                                 color: Colors.white,
                               ),
@@ -536,14 +536,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                       children: [
                         TextButton.icon(
                           onPressed: () => pick(ImageSource.camera),
-                          icon: const Icon(Icons.camera_alt_rounded, size: 18),
+                          icon: const Icon(Icons.camera_alt_outlined, size: 18),
                           label: const Text('Retake'),
                         ),
                         const SizedBox(width: 12),
                         TextButton.icon(
                           onPressed: () => pick(ImageSource.gallery),
                           icon: const Icon(
-                            Icons.photo_library_rounded,
+                            Icons.photo_library_outlined,
                             size: 18,
                           ),
                           label: const Text('Choose Another Photo'),
@@ -587,7 +587,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                                 child: OutlinedButton.icon(
                                   onPressed: () => pick(ImageSource.camera),
                                   icon: const Icon(
-                                    Icons.camera_alt_rounded,
+                                    Icons.camera_alt_outlined,
                                     size: 18,
                                   ),
                                   label: const Text('Take Photo'),
@@ -598,7 +598,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                                 child: OutlinedButton.icon(
                                   onPressed: () => pick(ImageSource.gallery),
                                   icon: const Icon(
-                                    Icons.photo_library_rounded,
+                                    Icons.photo_library_outlined,
                                     size: 18,
                                   ),
                                   label: const Text('Gallery'),
@@ -621,15 +621,15 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                       Navigator.pop(context, proofUrl ?? '');
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.green,
+                      backgroundColor: AppTheme.purple,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    icon: const Icon(Icons.check_circle_rounded),
+                    icon: const Icon(Icons.check_circle_outlined),
                     label: const Text(
                       'Confirm Completion',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -777,11 +777,11 @@ class _DetailBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: Row(
               children: [
                 const Icon(
-                  Icons.verified_rounded,
+                  Icons.verified_outlined,
                   color: AppTheme.green,
                   size: 20,
                 ),
@@ -789,7 +789,7 @@ class _DetailBody extends StatelessWidget {
                 Text(
                   'Completion Evidence',
                   style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -835,7 +835,7 @@ class _DetailBody extends StatelessWidget {
     };
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
         Card(
           color: AppTheme.purple,
@@ -846,8 +846,8 @@ class _DetailBody extends StatelessWidget {
               children: [
                 Icon(
                   detail.template?.type == ChoreType.bonus
-                      ? Icons.auto_awesome_rounded
-                      : Icons.cleaning_services_rounded,
+                      ? Icons.auto_awesome_outlined
+                      : Icons.cleaning_services_outlined,
                   size: 34,
                   color: AppTheme.yellow,
                 ),
@@ -884,14 +884,14 @@ class _DetailBody extends StatelessWidget {
                 ),
                 const Divider(height: 28),
                 _InfoRow(
-                  icon: Icons.schedule_rounded,
+                  icon: Icons.schedule_outlined,
                   label: 'Due',
                   value: DateFormat('EEE, MMM d · h:mm a')
                       .format(chore.dueDate),
                 ),
                 const Divider(height: 28),
                 _InfoRow(
-                  icon: Icons.bolt_rounded,
+                  icon: Icons.bolt_outlined,
                   label: 'Karma',
                   value: '+${detail.karmaPoints}',
                   valueColor: AppTheme.onAmber,
@@ -899,7 +899,7 @@ class _DetailBody extends StatelessWidget {
                 if (chore.penaltyCount > 0) ...[
                   const Divider(height: 28),
                   _InfoRow(
-                    icon: Icons.trending_down_rounded,
+                    icon: Icons.trending_down_outlined,
                     label: 'Overdue Penalty',
                     value: '-${chore.penaltyCount * 5}',
                     valueColor: AppTheme.red,
@@ -925,7 +925,7 @@ class _DetailBody extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: busy ? null : onComplete,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.green,
+              backgroundColor: AppTheme.purple,
               foregroundColor: Colors.white,
             ),
             icon: busy
@@ -950,7 +950,7 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: 10),
           FilledButton.icon(
             onPressed: busy ? null : onSwap,
-            icon: const Icon(Icons.swap_horiz_rounded),
+            icon: const Icon(Icons.swap_horiz_outlined),
             label: const Text('Swap with Another Member'),
           ),
         ],
@@ -959,13 +959,13 @@ class _DetailBody extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: busy ? null : onCreateBounty,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.orange,
+              backgroundColor: AppTheme.purple,
               foregroundColor: Colors.white,
             ),
-            icon: const Icon(Icons.volunteer_activism_rounded),
+            icon: const Icon(Icons.volunteer_activism_outlined),
             label: const Text(
               'Post Bounty (Pay for Help)',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -1017,7 +1017,7 @@ class _InfoRow extends StatelessWidget {
         child: Text(
           value,
           textAlign: TextAlign.end,
-          style: TextStyle(fontWeight: FontWeight.w800, color: valueColor),
+          style: TextStyle(fontWeight: FontWeight.w600, color: valueColor),
         ),
       ),
     ],

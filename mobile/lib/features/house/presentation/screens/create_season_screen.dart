@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,65 +63,71 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Start New Season',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        centerTitle: true,
-      ),
+      appBar: AppPageBar(title: 'Start New Season', centerTitle: true),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!_loadingSeasons) ...[
-                DropdownButtonFormField<String?>(
-                  isExpanded: true,
-                  initialValue: _selectedCloneSeasonId,
-                  decoration: const InputDecoration(
-                    labelText: 'Clone from past season (Optional)',
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('None (Start fresh)'),
-                    ),
-                    ..._pastSeasons.map(
-                      (s) => DropdownMenuItem(
-                        value: s['id'] as String,
-                        child: Text(s['name'] as String),
+                _field(
+                  context,
+                  'Clone from past season (optional)',
+                  DropdownButtonFormField<String?>(
+                    isExpanded: true,
+                    initialValue: _selectedCloneSeasonId,
+                    decoration: const InputDecoration(),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('None (Start fresh)'),
                       ),
-                    ),
-                  ],
-                  onChanged: (v) => setState(() => _selectedCloneSeasonId = v),
+                      ..._pastSeasons.map(
+                        (season) => DropdownMenuItem(
+                          value: season['id'] as String,
+                          child: Text(season['name'] as String),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _selectedCloneSeasonId = value),
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(
-                  labelText: 'Season Name',
-                  hintText: 'e.g. Winter Harmony 2026',
+              _field(
+                context,
+                'Season Name',
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Winter Harmony 2026',
+                  ),
+                  validator: (value) =>
+                      value!.trim().isEmpty ? 'Enter a name' : null,
                 ),
-                validator: (v) => v!.trim().isEmpty ? 'Enter a name' : null,
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                isExpanded: true,
-                initialValue: _allocationMethod,
-                decoration: const InputDecoration(
-                  labelText: 'Allocation Method',
+              _field(
+                context,
+                'Allocation Method',
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: _allocationMethod,
+                  decoration: const InputDecoration(),
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Automatic')),
+                    DropdownMenuItem(value: 0, child: Text('Manual')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _allocationMethod = value!),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('Automatic')),
-                  DropdownMenuItem(value: 0, child: Text('Manual')),
-                ],
-                onChanged: (v) => setState(() => _allocationMethod = v!),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -139,31 +148,47 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                           horizontal: 8,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         side: BorderSide(
                           color: Theme.of(context).colorScheme.outlineVariant
                               .withValues(alpha: .4),
                         ),
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          const Icon(Icons.calendar_today_outlined, size: 20),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Starts',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppTheme.muted,
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryFixed,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 17,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat.yMMMd('en_US').format(_startDate),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Starts',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat.yMMMd('en_US').format(_startDate),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -190,7 +215,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                   ),
                   const SizedBox(width: 8),
                   const Icon(
-                    Icons.arrow_forward_rounded,
+                    Icons.arrow_forward_outlined,
                     size: 18,
                     color: AppTheme.muted,
                   ),
@@ -206,31 +231,47 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                           horizontal: 8,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         side: BorderSide(
                           color: Theme.of(context).colorScheme.outlineVariant
                               .withValues(alpha: .4),
                         ),
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          const Icon(Icons.calendar_today_outlined, size: 20),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Ends',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppTheme.muted,
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryFixed,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 17,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat.yMMMd('en_US').format(_endDate),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Ends',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat.yMMMd('en_US').format(_endDate),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -269,7 +310,7 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
                   _apiError!,
                   style: const TextStyle(
                     color: AppTheme.red,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -286,6 +327,44 @@ class _CreateSeasonScreenState extends ConsumerState<CreateSeasonScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _field(BuildContext context, String label, Widget child) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Theme(
+            data: theme.copyWith(
+              inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+                filled: false,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: colors.primary),
+                ),
+              ),
+            ),
+            child: Semantics(label: label, child: child),
+          ),
+        ],
       ),
     );
   }

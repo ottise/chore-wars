@@ -21,7 +21,7 @@ class MyHousesScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Scan QR to join',
-            icon: const Icon(Icons.qr_code_scanner_rounded),
+            icon: const Icon(Icons.qr_code_scanner_outlined),
             onPressed: () => context.push('/houses/qr-join'),
           ),
           IconButton(
@@ -35,7 +35,7 @@ class MyHousesScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'my-houses-fab',
         onPressed: () => context.push('/houses/onboarding'),
-        icon: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.add_outlined),
         label: const Text('Add house'),
       ),
       body: Center(
@@ -61,21 +61,22 @@ class MyHousesScreen extends ConsumerWidget {
                         child: EmptyView(
                           icon: Icons.home_work_outlined,
                           title: 'No houses yet',
-                          message:
-                              'Create a house or ask someone to share their invite code.',
+                          message: 'Create a house or ask someone to share their invite code.',
                         ),
                       ),
                     ],
                   );
                 }
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 104),
                   itemCount: items.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) => _HouseCard(
                     house: items[index],
                     onTap: () {
-                      ref.read(currentHouseProvider.notifier).setHouse(items[index].id);
+                      ref
+                          .read(currentHouseProvider.notifier)
+                          .setHouse(items[index].id);
                       context.push('/houses/${items[index].id}');
                     },
                   ),
@@ -114,7 +115,7 @@ class _HouseCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
-                  Icons.home_work_rounded,
+                  Icons.home_work_outlined,
                   color: AppTheme.purple,
                   size: 28,
                 ),
@@ -145,17 +146,14 @@ class _HouseCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontSize: 12,
                           color: isOwner ? AppTheme.purple : AppTheme.muted,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppTheme.muted,
-              ),
+              const Icon(Icons.chevron_right_outlined, color: AppTheme.muted),
             ],
           ),
         ),

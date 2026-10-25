@@ -27,13 +27,13 @@ class KarmaScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(karmaSummaryProvider(houseId)),
           ),
           data: (karma) => ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
               Container(
                 padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
                   color: AppTheme.yellow,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   children: [
@@ -41,7 +41,7 @@ class KarmaScreen extends ConsumerWidget {
                       'Spendable Karma',
                       style: TextStyle(
                         color: AppTheme.ink,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -67,25 +67,25 @@ class KarmaScreen extends ConsumerWidget {
                       _KarmaRow(
                         label: 'Normal chores',
                         value: karma.normalChores,
-                        icon: Icons.task_alt_rounded,
+                        icon: Icons.task_alt_outlined,
                       ),
                       const Divider(height: 28),
                       _KarmaRow(
                         label: 'Bonus',
                         value: karma.bonus,
-                        icon: Icons.auto_awesome_rounded,
+                        icon: Icons.auto_awesome_outlined,
                       ),
                       const Divider(height: 28),
                       _KarmaRow(
                         label: 'Penalties',
                         value: karma.penalties,
-                        icon: Icons.warning_amber_rounded,
+                        icon: Icons.warning_amber_outlined,
                       ),
                       const Divider(height: 28),
                       _KarmaRow(
                         label: 'Current',
                         value: karma.current,
-                        icon: Icons.bolt_rounded,
+                        icon: Icons.bolt_outlined,
                         strong: true,
                       ),
                     ],
@@ -95,7 +95,7 @@ class KarmaScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: () => context.push('/houses/$houseId/karma/history'),
-                icon: const Icon(Icons.history_rounded),
+                icon: const Icon(Icons.history_outlined),
                 label: const Text('Karma history'),
               ),
             ],
@@ -127,7 +127,7 @@ class _KarmaRow extends StatelessWidget {
       Text(
         '${value > 0 ? '+' : ''}$value',
         style: TextStyle(
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           fontSize: strong ? 20 : 16,
           color: value < 0
               ? AppTheme.red

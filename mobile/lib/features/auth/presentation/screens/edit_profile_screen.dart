@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,7 +27,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _displayNameCtrl;
   bool _isLoading = false;
-  File? _selectedImage;
+  Uint8List? _selectedImage;
+  String? _selectedFilename;
   final _picker = ImagePicker();
 
   @override
@@ -42,16 +44,59 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => _selectedImage = File(picked.path));
+    if (_isLoading) return;
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      final extension = picked.name.split('.').last.toLowerCase();
+      if (!['jpg', 'jpeg', 'png', 'webp'].contains(extension)) {
+        if (mounted) {
+          showAppMessage(
+            context,
+            'Choose a JPG, PNG or WebP image.',
+            error: true,
+          );
+        }
+        return;
+      }
+      if (await picked.length() > 5 * 1024 * 1024) {
+        if (mounted) {
+          showAppMessage(
+            context,
+            'Choose an image smaller than 5 MB.',
+            error: true,
+          );
+        }
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _selectedImage = bytes;
+        _selectedFilename = picked.name;
+      });
+    } catch (_) {
+      if (mounted) {
+        showAppMessage(
+          context,
+          'The image could not be opened. Please choose another image.',
+          error: true,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasAvatarUrl = widget.profile.avatarUrl != null && widget.profile.avatarUrl!.isNotEmpty;
-    
+    final hasAvatarUrl =
+        widget.profile.avatarUrl != null &&
+        widget.profile.avatarUrl!.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit profile'),
@@ -71,18 +116,26 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     radius: 50,
                     backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
                     backgroundImage: _selectedImage != null
-                        ? FileImage(_selectedImage!) as ImageProvider
+                        ? MemoryImage(_selectedImage!) as ImageProvider
                         : (hasAvatarUrl
-                            ? CachedNetworkImageProvider('${AppConstants.apiBaseUrl}${widget.profile.avatarUrl}')
-                            : null),
+                              ? CachedNetworkImageProvider(
+                                  Uri.parse(AppConstants.apiBaseUrl)
+                                      .resolve(widget.profile.avatarUrl!)
+                                      .toString(),
+                                )
+                              : null),
                     child: (_selectedImage == null && !hasAvatarUrl)
-                        ? const Icon(Icons.camera_alt, size: 40, color: AppTheme.purple)
+                        ? const Icon(
+                            Icons.camera_alt_outlined,
+                            size: 40,
+                            color: AppTheme.purple,
+                          )
                         : null,
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: _pickImage,
+                  onPressed: _isLoading ? null : _pickImage,
                   child: const Text('Change Avatar'),
                 ),
                 const SizedBox(height: 24),
@@ -131,10 +184,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     setState(() => _isLoading = true);
     try {
       if (_selectedImage != null) {
-        await ref.read(authRepositoryProvider).uploadAvatar(_selectedImage!.path);
+        await ref
+            .read(authRepositoryProvider)
+            .uploadAvatar(_selectedImage!, _selectedFilename!);
       }
       if (newName != widget.profile.displayName) {
-        await ref.read(authRepositoryProvider).updateProfile(displayName: newName);
+        await ref
+            .read(authRepositoryProvider)
+            .updateProfile(displayName: newName);
       }
       ref.invalidate(userProfileProvider);
       if (mounted) {

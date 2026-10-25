@@ -17,13 +17,13 @@ class ChoreDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Chore Detail')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
           Text(choreName, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.schedule),
+            leading: const Icon(Icons.schedule_outlined),
             title: const Text('Due'),
             subtitle: Text(dueDate),
           ),

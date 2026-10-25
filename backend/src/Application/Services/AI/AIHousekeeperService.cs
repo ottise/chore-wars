@@ -81,6 +81,15 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
     public Task<JsonElement> GenerateAsync(Guid house, Guid actor, AIGenerateRequest request, CancellationToken ct)
         => GenerateCoreAsync(house,actor,request,ct);
 
+    public async Task<JsonElement> RequestUrgentAsync(Guid house, Guid actor, AIGenerateRequest request, CancellationToken ct)
+    {
+        request.Kind=AIConstants.Urgent;
+        var plan=await GenerateAsync(house,actor,request,ct);
+        if (plan.GetProperty("result").TryGetProperty("status",out var status) && status.GetString()==AIConstants.Ready)
+            return await AcceptAsync(house,actor,plan.GetProperty("id").GetGuid(),ct);
+        return plan;
+    }
+
     private async Task<JsonElement> GenerateCoreAsync(Guid house, Guid actor, AIGenerateRequest request, CancellationToken ct, string? confirmationHash=null)
     {
         var validation=await generateValidator.ValidateAsync(request,ct);
@@ -88,21 +97,27 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         if (request.ClientRequestId==Guid.Empty || request.SeasonId==Guid.Empty || request.Kind is not (AIConstants.Allocation or AIConstants.Replan or AIConstants.Swap or AIConstants.Evolution or AIConstants.Urgent))
             throw new DomainException("A request ID, season, and supported recommendation kind are required.");
         JsonElement context=default;
+        var deadlineMinutes=request.DeadlineMinutes;
         bool create=false;
         var record=await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,request.Kind is AIConstants.Allocation or AIConstants.Evolution,ct); await access.EnsureWritableAsync(house,ct);
-            if ((await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("Enable AI for this household first.");
+            if (request.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("Enable AI for this household first.");
             var inputHash=confirmationHash ?? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request))));
             var old=await ai.FindRequestAsync(house,actor,request.ClientRequestId,ct);
             if (old!=null) { if (old.InputHash!=inputHash) throw new ConflictException("Request ID already used with different input."); return old; }
             context=await contexts.BuildAsync(house,request.SeasonId,ct);
+            if (request.Kind==AIConstants.Urgent && request.ReadyBy.HasValue) {
+                var remaining=(request.ReadyBy.Value-context.GetProperty("as_of").GetDateTimeOffset()).TotalMinutes;
+                if (remaining<=0 || remaining>1440) throw new DomainException("Choose a future urgent deadline within 24 hours.");
+                deadlineMinutes=(int)Math.Ceiling(remaining);
+            }
             var originalContextHash=contexts.Fingerprint(context);
             if(request.ExpectedContextHash!=null && request.ExpectedContextHash!=originalContextHash)throw new ConflictException("Schedule changed while preparing availability; review it again.");
             if(request.AvailabilityChanges.Count>0) {
                 if(request.Kind!=AIConstants.Replan || request.AvailabilityChanges.Any(c=>c.UserId!=actor))throw new ForbiddenException("Only your own availability may be proposed through AI replan.");
                 context=await scheduleChanges.CandidateContextAsync(house,request.SeasonId,context,request.AvailabilityChanges,ct);
             }
-            if(request.Kind==AIConstants.Urgent && (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length>8000 || request.DeadlineMinutes is <1 or >1440 || !request.ParticipantIds.Contains(actor) || request.ParticipantIds.Count<2 || request.ParticipantIds.Distinct().Count()!=request.ParticipantIds.Count || request.Resources.Count>30))throw new DomainException("Urgent planning needs text, a time budget and at least two distinct consenting participants including yourself.");
+            if(request.Kind==AIConstants.Urgent && (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length>8000 || deadlineMinutes is <1 or >1440 || request.GuestCount is <1 or >10000 || !request.ParticipantIds.Contains(actor) || request.ParticipantIds.Count<2 || request.ParticipantIds.Distinct().Count()!=request.ParticipantIds.Count || request.Resources.Count>30))throw new DomainException("Urgent planning needs text, a deadline and at least two distinct participants including yourself.");
             var expected=request.Kind is AIConstants.Allocation or AIConstants.Evolution?AIConstants.Draft:"ACTIVE";
             if (context.GetProperty("status").GetString()!=expected) throw new ConflictException($"This recommendation requires a {expected} season.");
             if (request.Kind==AIConstants.Swap) {
@@ -122,12 +137,12 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         {
             var body=new Dictionary<string,object?>{["context"]=context,["history_enabled"]=true,["mode"]="SERVING_DEADLINE"};
             if (request.Kind==AIConstants.Swap) body["source_occurrence_id"]=request.SourceOccurrenceId;
-            if (request.Kind==AIConstants.Urgent) body=new(){["context"]=context,["text"]=request.Text,["deadline_minutes"]=request.DeadlineMinutes,["participant_ids"]=request.ParticipantIds,["resources"]=request.Resources};
+            if (request.Kind==AIConstants.Urgent) body=new(){["context"]=context,["text"]=request.Text,["deadline_minutes"]=deadlineMinutes,["ready_by"]=request.ReadyBy,["guest_count"]=request.GuestCount,["participant_ids"]=request.ParticipantIds,["resources"]=request.Resources};
             var path=request.Kind switch { AIConstants.Replan=>"/v1/schedules/replan",AIConstants.Swap=>"/v1/schedules/swap",AIConstants.Evolution=>"/v1/seasons/evolve",AIConstants.Urgent=>"/v1/urgent/plan",_=>"/v1/schedules/propose" };
             var result=await client.PostAsync(house,actor,path,body,ct);
             return await mutations.RunAsync(house,async()=> {
                 await AuthorizeAsync(house,actor,request.Kind is AIConstants.Allocation or AIConstants.Evolution,ct);
-                if ((await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled during inference.");
+                if (request.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled during inference.");
                 var current=await ai.RecommendationAsync(record.Id,ct) ?? throw new NotFoundException("Recommendation not found.");
                 current.PayloadJson=result.GetRawText(); current.Status=AIConstants.Ready;
                 return View(current);
@@ -172,7 +187,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var value=await GetAsync(house,actor,id,ct);
         if (value.Status==AIConstants.Applied || value.ProposalId.HasValue) return View(value);
         await access.EnsureWritableAsync(house,ct);
-        if ((await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
+        if (value.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
         if (value.Status!=AIConstants.Ready || value.ExpiresAt<=clock.GetUtcNow().UtcDateTime) throw new ConflictException("Recommendation is not ready or has expired.");
         var context=await contexts.BuildAsync(house,value.SeasonId,ct);
         if (contexts.Fingerprint(context)!=value.ContextHash)
@@ -184,7 +199,8 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             var urgent=urgentJson.Deserialize<UrgentEventPayload>() ?? throw new DomainException("Invalid urgent plan.");
             var targets=urgent.Chores.Select(c=>c.AssignedUserId).Append(actor).Distinct().Where(id=>id!=actor).ToList();
             if(targets.Count==0)throw new ConflictException("Use a household participant to review the urgent plan.");
-            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.URGENT_EVENT,Title="AI Urgent Campaign Proposal",Description="Review the timeline and resources, then confirm participation. Effort is a standard estimate; points are not awarded automatically.",PayloadJson=urgentJson.GetRawText(),TargetUserIds=targets,ExpiresAt=clock.GetUtcNow().UtcDateTime.AddMinutes(5)},actor,ct);
+            var details=$"{(urgent.GuestCount.HasValue?$"Party for {urgent.GuestCount} guests. ":"")}{(urgent.ReadyByUtc.HasValue?$"Ready by {ScheduleTime.Local(urgent.ReadyByUtc.Value):yyyy-MM-dd HH:mm} (Vietnam time). ":"")}Review your assigned tasks and confirm participation.";
+            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.URGENT_EVENT,Title=urgent.Title ?? "AI Urgent Campaign Proposal",Description=details,PayloadJson=urgentJson.GetRawText(),TargetUserIds=targets,ExpiresAt=urgent.ReadyByUtc ?? clock.GetUtcNow().UtcDateTime.AddMinutes(5)},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
         if (value.Kind==AIConstants.Swap) {
@@ -281,7 +297,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var validation=await textValidator.ValidateAsync(request,ct);
         if(!validation.IsValid)throw new ChoreWars.Domain.Exceptions.ValidationException(validation.Errors.GroupBy(e=>e.PropertyName).ToDictionary(g=>g.Key,g=>g.Select(e=>e.ErrorMessage).ToArray()));
         await AuthorizeAsync(house,actor,false,ct);
-        if ((await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
+        if (chat && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
         var consent=await ai.ConsentAsync(house,actor,ct);
         if (chat && consent?.ChatAnalysisEnabled!=true) throw new ForbiddenException("Sender consent is required to analyze chat.");
         var version=consent?.Version;
@@ -291,7 +307,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
         return await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,false,ct);
-            if ((await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled while processing.");
+            if (chat && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled while processing.");
             if (chat) {
                 var current=await ai.ConsentAsync(house,actor,ct);
                 if (current?.ChatAnalysisEnabled!=true || current.Version!=version) throw new ConflictException("Consent changed while AI was processing.");

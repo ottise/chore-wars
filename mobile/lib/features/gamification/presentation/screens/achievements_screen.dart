@@ -1,3 +1,5 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
 import '../widgets/achievement_share_card.dart';
 
 import 'package:flutter/material.dart';
@@ -13,15 +15,13 @@ class AchievementsScreen extends ConsumerWidget {
   final String houseId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AppPageFrame(builder: (context) => _buildScreen(context, ref));
+
+  Widget _buildScreen(BuildContext context, WidgetRef ref) {
     final achievements = ref.watch(achievementsProvider(houseId));
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'House Achievements',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppPageBar(title: 'House Achievements'),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(achievementsProvider(houseId));
@@ -46,7 +46,7 @@ class AchievementsScreen extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                     child: _ProgressHeader(
                       unlocked: unlocked,
                       total: items.length,
@@ -54,12 +54,14 @@ class AchievementsScreen extends ConsumerWidget {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                   sliver: SliverGrid.builder(
                     gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 260,
+                      maxCrossAxisExtent: 300,
                       mainAxisExtent:
-                          220 + MediaQuery.textScalerOf(context).scale(40),
+                          220 +
+                          MediaQuery.textScalerOf(context).scale(180) -
+                          180,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
                     ),
@@ -92,46 +94,98 @@ class _ProgressHeader extends StatelessWidget {
   final int total;
 
   @override
-  Widget build(BuildContext context) => Card(
-    color: AppTheme.purple,
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.emoji_events_rounded,
-            color: AppTheme.yellow,
-            size: 42,
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final ratio = total == 0 ? 0.0 : unlocked / total;
+    return Card(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [colors.primaryContainer, colors.primary],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$unlocked of $total Unlocked',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: total == 0 ? 0 : unlocked / total,
-                  color: Colors.white,
-                  backgroundColor: Colors.white24,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${total == 0 ? 0 : (unlocked / total * 100).round()}% unlocked · Keep completing household tasks',
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
-                ),
-              ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.emoji_events_outlined,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$unlocked of $total Unlocked',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          '${(ratio * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 6,
+                    color: Colors.white,
+                    backgroundColor: Colors.white24,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Keep completing household tasks to unlock achievements',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _AchievementCard extends StatelessWidget {
@@ -139,10 +193,10 @@ class _AchievementCard extends StatelessWidget {
   final Achievement item;
   final VoidCallback? onTap;
   IconData get _icon => switch (item.conditionType) {
-    1 => Icons.local_fire_department_rounded,
-    2 => Icons.bolt_rounded,
-    3 => Icons.volunteer_activism_rounded,
-    _ => Icons.cleaning_services_rounded,
+    1 => Icons.local_fire_department_outlined,
+    2 => Icons.bolt_outlined,
+    3 => Icons.volunteer_activism_outlined,
+    _ => Icons.cleaning_services_outlined,
   };
   @override
   Widget build(BuildContext context) {
@@ -153,7 +207,7 @@ class _AchievementCard extends StatelessWidget {
           ? colors.surfaceContainerLowest
           : colors.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: item.isUnlocked
               ? colors.primaryFixedDim
@@ -187,27 +241,54 @@ class _AchievementCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      item.isUnlocked ? 'Done' : 'Locked',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: item.isUnlocked
-                            ? AppTheme.green
-                            : colors.onSurfaceVariant,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: item.isUnlocked
+                              ? const Color(0xFFEAFBF4)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (item.isUnlocked)
+                              const Icon(
+                                Icons.check_rounded,
+                                size: 10,
+                                color: AppTheme.green,
+                              ),
+                            Flexible(
+                              child: Text(
+                                item.isUnlocked ? 'Done' : 'Locked',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: item.isUnlocked
+                                      ? AppTheme.green
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               Text(
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
@@ -216,7 +297,7 @@ class _AchievementCard extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 14,
                   height: 1.5,
                   color: colors.onSurfaceVariant,
                 ),
@@ -228,7 +309,7 @@ class _AchievementCard extends StatelessWidget {
                     ? 'Achievement unlocked'
                     : 'Target: ${item.threshold}',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   color: item.isUnlocked
                       ? colors.primary
                       : colors.onSurfaceVariant,

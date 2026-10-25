@@ -1,3 +1,6 @@
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,17 +22,14 @@ class KarmaHistoryScreen extends ConsumerStatefulWidget {
 class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
   _ActivityFilter _filter = _ActivityFilter.all;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     final history = ref.watch(karmaHistoryProvider(widget.houseId));
     final balance = ref.watch(karmaSummaryProvider(widget.houseId));
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Karma History',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-      ),
+      appBar: AppPageBar(title: 'Karma History', centerTitle: true),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(karmaSummaryProvider(widget.houseId));
@@ -61,7 +61,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                 items.where(test).fold(0, (sum, item) => sum + item.amount);
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
                 Card(
                   margin: EdgeInsets.zero,
@@ -73,7 +73,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                         Text(
                           'Current Balance',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: colors.onSurfaceVariant,
                           ),
                         ),
@@ -81,7 +81,8 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                         balance.when(
                           data: (value) => Text(
                             '${value.current} Karma',
-                            style: Theme.of(context).textTheme.headlineSmall,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontSize: 26),
                           ),
                           loading: () => const Text('Loading…'),
                           error: (_, _) => TextButton(
@@ -137,7 +138,11 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
                             label: Text(entry.value),
-                            shape: const StadiumBorder(),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
+                            ),
                             backgroundColor: colors.surfaceContainerLowest,
                             selectedColor: colors.primary,
                             labelStyle: TextStyle(
@@ -155,13 +160,28 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  'Recent Activity',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Recent Activity',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (sorted.isNotEmpty)
+                      Text(
+                        DateFormat.yMMMM('en_US')
+                            .format(sorted.first.createdAt.toLocal()),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 if (visible.isEmpty)
@@ -178,7 +198,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
                           Container(
@@ -193,8 +213,8 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                             ),
                             child: Icon(
                               item.amount >= 0
-                                  ? Icons.arrow_upward_rounded
-                                  : Icons.arrow_downward_rounded,
+                                  ? Icons.arrow_upward_outlined
+                                  : Icons.arrow_downward_outlined,
                               color: item.amount >= 0
                                   ? AppTheme.green
                                   : colors.error,
@@ -209,7 +229,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                                 Text(
                                   item.description,
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -219,7 +239,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                                       .add_jm()
                                       .format(item.createdAt),
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     color: colors.onSurfaceVariant,
                                   ),
                                 ),
@@ -231,7 +251,7 @@ class _KarmaHistoryScreenState extends ConsumerState<KarmaHistoryScreen> {
                             '${item.amount > 0 ? '+' : ''}${item.amount} Karma',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: item.amount >= 0
                                   ? AppTheme.green
                                   : colors.error,
@@ -270,14 +290,14 @@ class _Total extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(label, style: const TextStyle(fontSize: 10)),
+          Text(label, style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 6),
           Text(
             '${amount > 0 ? '+' : ''}$amount',
             style: TextStyle(
               fontSize: 13,
               color: color,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

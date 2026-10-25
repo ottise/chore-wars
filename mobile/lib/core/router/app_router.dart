@@ -60,9 +60,6 @@ import '../../features/house/presentation/screens/review_schedule_screen.dart';
 import '../../features/chat/presentation/screens/chat_room_screen.dart';
 import '../../features/chat/presentation/screens/chat_home_screen.dart';
 import '../../features/chat/presentation/screens/assistant_chat_screen.dart';
-import '../../features/chat/presentation/screens/create_urgent_event_screen.dart';
-import '../../features/ai/presentation/ai_housekeeper_screen.dart';
-import '../../features/ai/presentation/ai_evaluation_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.watch(secureStorageProvider);
@@ -237,16 +234,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'ai',
-                    builder: (context, state) => AiHousekeeperScreen(
-                      houseId: state.pathParameters['houseId']!,
-                    ),
+                    redirect: (context, state) =>
+                        '/houses/${state.pathParameters['houseId']}/chat/assistant',
                     routes: [
                       GoRoute(
                         path: 'evaluations/:runId',
-                        builder: (context, state) => AiEvaluationRunScreen(
-                          houseId: state.pathParameters['houseId']!,
-                          runId: state.pathParameters['runId']!,
-                        ),
+                        redirect: (context, state) =>
+                            '/houses/${state.pathParameters['houseId']}/chat/assistant',
                       ),
                     ],
                   ),
@@ -355,6 +349,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                                 initialPrompt: state.extra is String
                                     ? state.extra as String
                                     : null,
+                                urgentMode:
+                                    state.uri.queryParameters['task'] ==
+                                    'urgent',
                               ),
                         ),
                       ),
@@ -362,9 +359,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'urgent-event',
-                    builder: (context, state) => CreateUrgentEventScreen(
-                      houseId: state.pathParameters['houseId']!,
-                    ),
+                    redirect: (context, state) =>
+                        '/houses/${state.pathParameters['houseId']}/chat/assistant?task=urgent',
                   ),
                   GoRoute(
                     path: 'karma/history',

@@ -66,6 +66,8 @@ public sealed class AIHousekeeperController(IAIHousekeeperService service) : Con
     public Task<JsonElement> Evolve(Guid houseId,[FromBody]AIGenerateRequest request,CancellationToken ct) { request.Kind="EVOLUTION";return service.GenerateAsync(houseId,Actor,request,ct); }
     [HttpPost("urgent/plan")]
     public Task<JsonElement> Urgent(Guid houseId,[FromBody]AIGenerateRequest request,CancellationToken ct) {request.Kind="URGENT";return service.GenerateAsync(houseId,Actor,request,ct);}
+    [HttpPost("urgent/request")]
+    public Task<JsonElement> RequestUrgent(Guid houseId,[FromBody]AIGenerateRequest request,CancellationToken ct)=>service.RequestUrgentAsync(houseId,Actor,request,ct);
     [HttpGet("recommendations/{id:guid}")]
     public Task<JsonElement> Recommendation(Guid houseId,Guid id,CancellationToken ct)=>service.RecommendationAsync(houseId,Actor,id,ct);
     [HttpPost("recommendations/{id:guid}/accept")]
