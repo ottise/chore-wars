@@ -9,14 +9,11 @@ class AppConstants {
       validateWebOrigin(Uri.base);
       return;
     }
-    for (final value in [
-      const String.fromEnvironment('API_BASE_URL'),
-      const String.fromEnvironment('SIGNALR_BASE_URL'),
-    ]) {
+    for (final value in [configuredApiBaseUrl, configuredSignalRBaseUrl]) {
       final uri = Uri.tryParse(value);
       if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
         throw StateError(
-          'Release requires explicit HTTPS API_BASE_URL and SIGNALR_BASE_URL.',
+          'Release requires HTTPS API_BASE_URL and SIGNALR_BASE_URL.',
         );
       }
     }
@@ -41,8 +38,7 @@ class AppConstants {
     }
   }
 
-  /// Web builds are primarily used as a zero-setup UI preview. Pass
-  /// `--dart-define=UI_PREVIEW=false` when connecting the web app to an API.
+  /// Preview mode is opt-in and does not connect to the backend.
   static const bool uiPreview = bool.fromEnvironment(
     'UI_PREVIEW',
     defaultValue: false,
@@ -54,8 +50,7 @@ class AppConstants {
   static const String previewChoreId = 'preview-dishes-template';
   static const String previewRedemptionId = 'preview-chore-pass';
 
-  // For local development on Android emulator, use 10.0.2.2 instead of localhost
-  // On web, use localhost
+  // Override both URLs with dart-define when using a local backend.
   static String get apiBaseUrl =>
       useSameOrigin && kIsWeb ? '${Uri.base.origin}/api' : configuredApiBaseUrl;
   static String get signalRBaseUrl => useSameOrigin && kIsWeb
@@ -64,14 +59,10 @@ class AppConstants {
 
   static const String configuredApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kIsWeb
-        ? 'http://localhost:5297/api'
-        : 'http://10.0.2.2:5297/api',
+    defaultValue: 'https://chore-wars-o3rm.onrender.com/api',
   );
   static const String configuredSignalRBaseUrl = String.fromEnvironment(
     'SIGNALR_BASE_URL',
-    defaultValue: kIsWeb
-        ? 'http://localhost:5297/hubs'
-        : 'http://10.0.2.2:5297/hubs',
+    defaultValue: 'https://chore-wars-o3rm.onrender.com/hubs',
   );
 }

@@ -1,5 +1,24 @@
 # chore_wars
 
+## Backend connection
+
+The app connects to the deployed backend by default:
+
+- API: `https://chore-wars-o3rm.onrender.com/api`
+- SignalR: `https://chore-wars-o3rm.onrender.com/hubs`
+
+Stop and restart Flutter after changing these compile-time settings. A browser
+refresh of an already-running development build does not recompile the app.
+
+To use a local backend explicitly:
+
+```powershell
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
+```
+
+For an Android emulator, replace `localhost` with `10.0.2.2`. Web deployments
+using `USE_SAME_ORIGIN=true` still route through their own `/api` and `/hubs` proxy.
+
 ## Run in Chrome when automatic debugging times out
 
 From this `mobile` directory, run:
