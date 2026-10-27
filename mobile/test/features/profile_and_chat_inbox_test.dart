@@ -4,6 +4,8 @@ import 'package:chore_wars/features/auth/presentation/screens/profile_screen.dar
 import 'package:chore_wars/features/gamification/domain/entities/gamification_models.dart';
 import 'package:chore_wars/features/gamification/presentation/providers/gamification_providers.dart';
 import 'package:chore_wars/features/house/presentation/providers/house_providers.dart';
+import 'package:chore_wars/features/house/presentation/providers/current_house_provider.dart';
+import 'package:chore_wars/features/house/presentation/screens/my_houses_screen.dart';
 import 'package:chore_wars/features/house/domain/entities/house_models.dart';
 import 'package:chore_wars/features/notifications/domain/entities/notification_models.dart';
 import 'package:chore_wars/features/notifications/presentation/providers/notification_providers.dart';
@@ -11,6 +13,7 @@ import 'package:chore_wars/features/notifications/presentation/screens/notificat
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 class _Inbox extends NotificationNotifier {
   final read = <String>[];
@@ -47,6 +50,106 @@ class _Inbox extends NotificationNotifier {
 }
 
 void main() {
+  testWidgets(
+    'profile from My Houses ignores the previously selected house and only loads account data',
+    (tester) async {
+      final householdReads = <String>[];
+      const user = UserProfile(
+        id: 'me',
+        email: 'me@example.test',
+        displayName: 'Chi',
+      );
+      final house = House(
+        id: 'house-A',
+        name: 'Private household',
+        inviteCode: 'TESTCODE',
+        createdAt: DateTime.utc(2026),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          userProfileProvider.overrideWith((ref) async => user),
+          myHousesProvider.overrideWith((ref) async => [house]),
+          houseDetailProvider.overrideWith((ref, id) async {
+            householdReads.add('house:$id');
+            return house;
+          }),
+          karmaSummaryProvider.overrideWith((ref, id) async {
+            householdReads.add('karma:$id');
+            return const KarmaSummary(
+              current: 42,
+              normalChores: 30,
+              bonus: 12,
+              penalties: 0,
+            );
+          }),
+          activeSeasonProvider.overrideWith((ref, id) async {
+            householdReads.add('season:$id');
+            return null;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(currentHouseProvider.notifier).setHouse(house.id);
+      final router = GoRouter(
+        initialLocation: '/houses',
+        routes: [
+          GoRoute(path: '/houses', builder: (_, _) => const MyHousesScreen()),
+          GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+          GoRoute(
+            path: '/profile/edit',
+            builder: (_, state) {
+              expect(state.extra, same(user));
+              return const Scaffold(body: Text('Edit account'));
+            },
+          ),
+          GoRoute(
+            path: '/houses/:houseId/account',
+            builder: (_, state) =>
+                ProfileScreen(houseId: state.pathParameters['houseId']!),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Profile'));
+      await tester.pumpAndSettle();
+      expect(find.text('Chi'), findsOneWidget);
+      expect(find.text('me@example.test'), findsOneWidget);
+      expect(find.text('Edit Profile Information'), findsOneWidget);
+      expect(find.text('Log Out'), findsOneWidget);
+      for (final text in [
+        'Private household',
+        'Owner',
+        'Member',
+        'Personal Profile',
+        'Schedule & Routine',
+        'My Karma Score',
+        'My Notifications',
+        'Household Chores',
+      ]) {
+        expect(find.text(text), findsNothing);
+      }
+      expect(find.byType(TabBar), findsNothing);
+      expect(householdReads, isEmpty);
+      expect(container.read(currentHouseProvider), house.id);
+      await tester.tap(find.text('Edit Profile Information'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit account'), findsOneWidget);
+      router.go('/houses/${house.id}/account');
+      await tester.pumpAndSettle();
+      expect(find.text('Schedule & Routine'), findsOneWidget);
+      expect(find.text('My Karma Score'), findsOneWidget);
+      expect(householdReads, containsAll(['house:house-A', 'karma:house-A']));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('system filters and mark-read affect only visible category', (
     tester,
   ) async {

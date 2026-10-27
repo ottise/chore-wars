@@ -2,7 +2,8 @@ enum ProposalType {
   choreSwap,
   urgentEvent,
   seasonApproval,
-  scheduleReplan;
+  scheduleReplan,
+  supplyPurchase;
 
   static ProposalType fromString(String? val) {
     switch (val?.toUpperCase()) {
@@ -18,6 +19,9 @@ enum ProposalType {
       case 'SCHEDULE_REPLAN':
       case '3':
         return ProposalType.scheduleReplan;
+      case 'SUPPLY_PURCHASE':
+      case '4':
+        return ProposalType.supplyPurchase;
       default:
         return ProposalType.choreSwap;
     }
@@ -33,6 +37,8 @@ enum ProposalType {
         return 'SEASON_APPROVAL';
       case ProposalType.scheduleReplan:
         return 'SCHEDULE_REPLAN';
+      case ProposalType.supplyPurchase:
+        return 'SUPPLY_PURCHASE';
     }
   }
 }

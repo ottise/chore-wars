@@ -1,0 +1,10 @@
+services:
+  shared-web:
+    image: nginx:alpine
+    environment:
+      API_UPSTREAM: host.docker.internal:${SHARED_API_PORT:-5297}
+    ports:
+      - "127.0.0.1:3001:80"
+    volumes:
+      - ./mobile/build/shared-web:/usr/share/nginx/html:ro
+      - ./mobile/nginx.shared-local.conf:/etc/nginx/templates/default.conf.template:ro

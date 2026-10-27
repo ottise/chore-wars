@@ -27,6 +27,7 @@ Fonts come from the [Google Fonts Be Vietnam Pro source](https://github.com/goog
 - Solid purple identifies the main action. Repeated actions use text/outlined variants. Green/red/amber are retained for real success, error, overdue and pending states.
 - `AppPageFrame` controls layout width only and inherits `AppTheme`; it does not install a second color or typography system.
 - `AppPageBar` and `AppBottomBar` are shared application components. The same bottom bar is used across house routes.
+- `/profile`, opened from My Houses, shows account information only: avatar, display name, email, editing and sign out. It never infers a household from the last selected house or requests household data. Karma, house role, chores, notifications and schedule tabs belong to `/houses/:houseId/account`, using that explicit route's household.
 
 ## Verification
 

@@ -10,10 +10,12 @@ class ChatNotificationBanner extends ConsumerStatefulWidget {
   const ChatNotificationBanner({
     required this.location,
     required this.child,
+    this.houseId,
     super.key,
   });
 
   final String location;
+  final String? houseId;
   final Widget child;
 
   @override
@@ -25,28 +27,44 @@ class _ChatNotificationBannerState
     extends ConsumerState<ChatNotificationBanner> {
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _banner;
 
+  void _closeBanner() {
+    final banner = _banner;
+    _banner = null;
+    banner?.close();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatNotificationBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.houseId != widget.houseId) _closeBanner();
+  }
+
   @override
   void dispose() {
-    _banner?.close();
+    _closeBanner();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(sessionEpochProvider, (_, _) => _banner?.close());
+    ref.listen(sessionEpochProvider, (_, _) => _closeBanner());
     ref.listen(
       notificationNotifierProvider.select((state) => state.latestArrival),
       (_, notification) {
         if (notification == null ||
-            !(notification.isChat || notification.isTaskRequest) ||
+            (widget.houseId != null &&
+                notification.houseId != widget.houseId) ||
+            !(notification.isChat ||
+                notification.isTaskRequest ||
+                notification.isSupply) ||
             notification.isRead) {
           return;
         }
         final destination = notification.destination;
         if (destination == widget.location) return;
         final epoch = ref.read(sessionEpochProvider);
-        _banner?.close();
-        _banner = ScaffoldMessenger.of(context).showSnackBar(
+        _closeBanner();
+        final banner = ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 6),
@@ -97,6 +115,10 @@ class _ChatNotificationBannerState
                   ),
           ),
         );
+        _banner = banner;
+        banner.closed.then((_) {
+          if (identical(_banner, banner)) _banner = null;
+        });
       },
     );
     return widget.child;

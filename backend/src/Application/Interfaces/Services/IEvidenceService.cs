@@ -9,4 +9,5 @@ public interface IEvidenceService
     Task<AIEvidenceContent> ReadAsync(Guid evidenceId, Guid actor, CancellationToken ct);
     Task<JsonElement> VerifyAsync(Guid occurrenceId, Guid evidenceId, Guid actor, CancellationToken ct);
     Task AttachAsync(Guid occurrenceId, Guid evidenceId, Guid actor, CancellationToken ct);
+    Task SaveAsync(Guid occurrenceId, Guid evidenceId, Guid actor, CancellationToken ct);
 }

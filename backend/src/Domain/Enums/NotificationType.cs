@@ -15,5 +15,6 @@ public enum NotificationType
     REWARD_GRANTED = 10,
     URGENT_EVENT = 11,
     CHAT_MESSAGE = 12,
-    CHAT_MENTION = 13
+    CHAT_MENTION = 13,
+    SUPPLY_UPDATE = 14
 }

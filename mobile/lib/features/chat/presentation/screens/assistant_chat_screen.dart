@@ -1,4 +1,5 @@
 import '../../../../core/widgets/app_page_frame.dart';
+import '../../../supplies/presentation/widgets/ai_supply_draft_card.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,12 +39,13 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
           String text,
           Map<String, dynamic>? availability,
           Map<String, dynamic>? urgent,
+          Map<String, dynamic>? supply,
           DateTime at,
         })
       >[];
   bool _busy = false;
   String? _error;
-  String? _pendingUrgentPrompt;
+  String? _pendingRequestPrompt;
 
   @override
   void initState() {
@@ -66,9 +68,9 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
     });
     try {
       final repository = ref.read(aiRepositoryProvider);
-      final requestText = _pendingUrgentPrompt == null
+      final requestText = _pendingRequestPrompt == null
           ? prompt
-          : 'Urgent household request: $_pendingUrgentPrompt\nAdditional details: $prompt';
+          : 'Original household request: $_pendingRequestPrompt\nAdditional details: $prompt';
       final response = await repository.post(widget.houseId, 'interpret', {
         'text': requestText,
       });
@@ -78,8 +80,13 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
       if (summary.isEmpty) {
         throw const FormatException('Missing assistant reply');
       }
-      _pendingUrgentPrompt =
-          response['intent'] == 'urgent' && missing.isNotEmpty
+      _pendingRequestPrompt =
+          [
+                'urgent',
+                'supply_purchase',
+                'supply_reminder',
+              ].contains(response['intent']) &&
+              missing.isNotEmpty
           ? requestText
           : null;
       setState(() {
@@ -91,6 +98,9 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                 '$summary${missing.isEmpty ? '' : '\nPlease add the missing details and send again.'}',
             availability: response['availability'] is Map
                 ? Map<String, dynamic>.from(response['availability'] as Map)
+                : null,
+            supply: missing.isEmpty && response['supply'] is Map
+                ? Map<String, dynamic>.from(response['supply'] as Map)
                 : null,
             urgent:
                 response['intent'] == 'urgent' &&
@@ -107,6 +117,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             text: prompt,
             availability: null,
             urgent: null,
+            supply: null,
             at: DateTime.now(),
           ),
         ]);
@@ -373,6 +384,11 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                         message.urgent!['prompt']
                                                             as String,
                                                     candidate: message.urgent!,
+                                                  ),
+                                                if (message.supply != null)
+                                                  AiSupplyDraftCard(
+                                                    houseId: widget.houseId,
+                                                    candidate: message.supply!,
                                                   ),
                                                 if (message.availability !=
                                                     null)

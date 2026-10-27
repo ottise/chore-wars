@@ -21,6 +21,7 @@ import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../ai/presentation/ai_evidence_screen.dart';
+import '../../../ai/presentation/evidence_photo.dart';
 import '../../../ai/presentation/ai_planning_screen.dart';
 import '../../../ai/presentation/ai_observed_view.dart';
 
@@ -80,11 +81,19 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                       builder: (context) => AiEvidenceScreen(
                         occurrenceId: widget.occurrenceId,
                         evidenceId: detail.asData?.value.occurrence.evidenceId,
+                        canEdit:
+                            detail.asData?.value.occurrence.assignedUserId ==
+                            currentUserId,
+                        canComplete:
+                            detail.asData?.value.occurrence.status !=
+                                ChoreStatus.completed &&
+                            detail.asData?.value.occurrence.status !=
+                                ChoreStatus.skipped,
                       ),
                     ),
                   )
                   .then((changed) {
-                    if (changed == true && mounted) _refreshAffectedState();
+                    if (mounted) _refreshAffectedState();
                   }),
             ),
           if (detail.asData?.value.occurrence.status ==
@@ -916,6 +925,14 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ),
+        if (chore.evidenceId != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Photo evidence',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          EvidencePhoto(evidenceId: chore.evidenceId!),
+        ],
         if (chore.proofImageUrl != null && chore.proofImageUrl!.isNotEmpty) ...[
           const SizedBox(height: 16),
           _buildProofWidget(context, chore.proofImageUrl!),

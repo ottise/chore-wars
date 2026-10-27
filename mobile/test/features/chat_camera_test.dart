@@ -86,7 +86,7 @@ void main() {
   tearDown(() => CameraPlatform.instance = previous);
 
   testWidgets(
-    'evidence camera opens preview and returns photo without completing chore',
+    'evidence camera saves the photo independently of AI or chore completion',
     (tester) async {
       camera.photoBytes = base64Decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -97,7 +97,29 @@ void main() {
           InterceptorsWrapper(
             onRequest: (request, handler) {
               requests.add(request.path);
-              handler.reject(DioException(requestOptions: request));
+              if (request.path == '/occurrences/chore/evidence') {
+                handler.resolve(
+                  Response(
+                    requestOptions: request,
+                    data: {'id': 'evidence'},
+                    statusCode: 200,
+                  ),
+                );
+              } else if (request.path.endsWith('/attach')) {
+                handler.resolve(
+                  Response(requestOptions: request, statusCode: 204),
+                );
+              } else {
+                handler.reject(
+                  DioException(
+                    requestOptions: request,
+                    response: Response(
+                      requestOptions: request,
+                      statusCode: 503,
+                    ),
+                  ),
+                );
+              }
             },
           ),
         );
@@ -119,7 +141,61 @@ void main() {
       expect(camera.disposals, 1);
       expect(find.byType(Image), findsOneWidget);
       expect(find.text('Complete with This Photo'), findsOneWidget);
-      expect(requests, isEmpty);
+      expect(requests, [
+        '/occurrences/chore/evidence',
+        '/occurrences/chore/evidence/evidence/attach',
+      ]);
+      expect(find.text('Photo saved to this chore.'), findsOneWidget);
+      await tester.tap(find.text('Request AI Feedback (Optional)'));
+      await tester.pumpAndSettle();
+      expect(requests.last, '/occurrences/chore/ai/verify-proof');
+      expect(requests.where((path) => path.endsWith('/complete')), isEmpty);
+      expect(
+        find.textContaining('Photo saved. AI feedback is unavailable'),
+        findsOneWidget,
+      );
+      expect(find.text('Photo saved to this chore.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'saved evidence reopens automatically without completing or uploading again',
+    (tester) async {
+      final requests = <String>[];
+      final png = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      );
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (request, handler) {
+              requests.add(request.path);
+              handler.resolve(
+                Response(requestOptions: request, data: png, statusCode: 200),
+              );
+            },
+          ),
+        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [dioProvider.overrideWithValue(dio)],
+          child: const MaterialApp(
+            home: AiEvidenceScreen(
+              occurrenceId: 'chore',
+              evidenceId: 'saved',
+              canEdit: false,
+              canComplete: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(requests, ['/evidence/saved']);
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Photo saved to this chore.'), findsOneWidget);
+      expect(find.text('Complete with This Photo'), findsNothing);
+      expect(find.text('Take Photo'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

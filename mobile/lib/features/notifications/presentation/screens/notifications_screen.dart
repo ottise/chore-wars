@@ -11,7 +11,7 @@ import '../../../../core/storage/session_provider.dart';
 import '../../domain/entities/notification_models.dart';
 import '../providers/notification_providers.dart';
 
-enum _NotificationFilter { all, bounty, chores, chat, other }
+enum _NotificationFilter { all, bounty, chores, chat, supplies, other }
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({this.houseId, this.chatOnly = false, super.key});
@@ -26,7 +26,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   _NotificationFilter _filter = _NotificationFilter.all;
   bool _marking = false;
 
-  _NotificationFilter _category(AppNotification item) => item.isChat
+  _NotificationFilter _category(AppNotification item) => item.isSupply
+      ? _NotificationFilter.supplies
+      : item.isChat
       ? _NotificationFilter.chat
       : item.type.startsWith('BOUNTY_')
       ? _NotificationFilter.bounty
@@ -54,7 +56,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final scoped = state.notifications
         .where(
           (n) =>
-              widget.chatOnly ? n.isChat && n.houseId == widget.houseId : true,
+              (widget.houseId == null || n.houseId == widget.houseId) &&
+              (!widget.chatOnly || n.isChat),
         )
         .toList();
     final items = scoped
@@ -83,9 +86,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     setState(() => _marking = true);
                     final unread = items.where((n) => !n.isRead).toList();
                     final epoch = ref.read(sessionEpochProvider);
+                    final houseId = widget.houseId;
                     await _action(() async {
                       for (final n in unread) {
                         if (!mounted ||
+                            widget.houseId != houseId ||
                             ref.read(sessionEpochProvider) != epoch) {
                           return;
                         }
@@ -113,6 +118,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     _NotificationFilter.bounty: 'Bounty',
                     _NotificationFilter.chores: 'Chores',
                     _NotificationFilter.chat: 'Chat',
+                    _NotificationFilter.supplies: 'Supplies',
                     _NotificationFilter.other: 'Other',
                   }.entries)
                     Padding(

@@ -25,4 +25,8 @@ public sealed class ChoreEvidenceController(IEvidenceService evidence) : Control
     }
     [HttpPost("api/occurrences/{id:guid}/ai/verify-proof")]
     public async Task<IActionResult> Verify(Guid id,[FromBody]AIVerifyEvidenceRequest request,CancellationToken ct)=>Ok(await evidence.VerifyAsync(id,request.EvidenceId,Actor,ct));
+    [HttpPost("api/occurrences/{id:guid}/evidence/{evidenceId:guid}/attach")]
+    public async Task<IActionResult> Save(Guid id,Guid evidenceId,CancellationToken ct) {
+        await evidence.SaveAsync(id,evidenceId,Actor,ct);return NoContent();
+    }
 }

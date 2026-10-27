@@ -17,4 +17,6 @@ public interface IChatRepository
     Task AddMessageAsync(ChatMessage message, CancellationToken cancellationToken = default);
     Task<List<ChatMessage>> GetMessagesPagedAsync(Guid roomId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<int> GetMessageCountAsync(Guid roomId, CancellationToken cancellationToken = default);
+    Task<List<ChatMessage>> GetImagesPagedAsync(Guid roomId, int page, int pageSize, CancellationToken ct);
+    Task<int> GetImageCountAsync(Guid roomId, CancellationToken ct);
 }

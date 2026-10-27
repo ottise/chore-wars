@@ -7,6 +7,8 @@ public class PaymentObligation
 {
     public Guid? ConfirmedByUserId { get; set; }
     public Guid Id { get; set; }
+    public Guid? SourceOrderId { get; set; }
+    public bool IsPurchaseRefund { get; set; }
     public Guid HouseId { get; set; }
     public Guid? SeasonId { get; set; }
     public Guid? OccurrenceId { get; set; }

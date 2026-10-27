@@ -143,3 +143,10 @@ final unreadChatCountProvider = Provider.family<int, String>(
       .where((n) => n.isChat && n.houseId == houseId && !n.isRead)
       .length,
 );
+final unreadHouseNotificationCountProvider = Provider.family<int, String>(
+  (ref, houseId) => ref
+      .watch(notificationNotifierProvider)
+      .notifications
+      .where((n) => n.houseId == houseId && !n.isRead)
+      .length,
+);

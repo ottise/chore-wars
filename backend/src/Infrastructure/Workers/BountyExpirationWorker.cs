@@ -35,12 +35,15 @@ public class BountyExpirationWorker : BackgroundService
                     await service.ProcessExpiredBountiesAsync(stoppingToken);
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred executing BountyExpirationWorker.");
             }
 
-            await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken); }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
 }

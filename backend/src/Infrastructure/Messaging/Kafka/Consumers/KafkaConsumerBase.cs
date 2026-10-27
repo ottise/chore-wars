@@ -28,8 +28,8 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
 
     private async Task ConsumeLoop(CancellationToken ct)
     {
-        using var consumer = new ConsumerBuilder<string,string>(new ConsumerConfig {
-            BootstrapServers = _options.BootstrapServers, GroupId = _options.ConsumerGroupId,
+        using var consumer = new ConsumerBuilder<string,string>(new ConsumerConfig(_options.ConnectionConfig()) {
+            GroupId = _options.ConsumerGroupId,
             AutoOffsetReset = AutoOffsetReset.Earliest, EnableAutoCommit = false, EnableAutoOffsetStore = false,
             SessionTimeoutMs = _options.SessionTimeoutMs, HeartbeatIntervalMs = Math.Max(1000,_options.SessionTimeoutMs/3)
         }).Build();

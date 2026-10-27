@@ -19,7 +19,7 @@ def run_worker(settings: Settings | None = None):
     store = EvaluationStore(config.database_url)
     consumer = Consumer(
         {
-            "bootstrap.servers": config.kafka_servers,
+            **config.kafka_client_config(),
             "group.id": config.kafka_group,
             "session.timeout.ms": config.kafka_session_timeout_ms,
             "enable.auto.commit": False,

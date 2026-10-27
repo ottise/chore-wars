@@ -1,6 +1,8 @@
 # Local AI setup
 
 The Flutter development app connects to the local backend at `http://localhost:5297`.
+
+Run only one backend on port 5297. From the repository root, use `dotnet run --project backend/src/Presentation/Presentation.csproj --launch-profile http`; from the `backend` directory, use `dotnet run --project src/Presentation/Presentation.csproj --launch-profile http`. Stop the previous instance with Ctrl+C before starting another. A manually launched development server and a background preview server use the same port; running both causes a bind failure. During an ordinary shutdown, workers handle cancellation and disposed scopes without reporting them as background-service faults. Genuine work failures remain logged.
 The AI API runs in Docker and is published only on `127.0.0.1:8011`.
 
 Keep `GEMINI_API_KEY`, `AI_SERVICE_KEY` and `AI_POSTGRES_PASSWORD` in the Git-ignored

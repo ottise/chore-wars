@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
-import '../../../../core/constants/app_constants.dart';
+import '../providers/avatar_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -96,6 +95,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final hasAvatarUrl =
         widget.profile.avatarUrl != null &&
         widget.profile.avatarUrl!.isNotEmpty;
+    final savedAvatar = hasAvatarUrl
+        ? ref
+              .watch(accountAvatarProvider(widget.profile.avatarUrl!))
+              .asData
+              ?.value
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -117,14 +122,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     backgroundColor: AppTheme.purple.withValues(alpha: 0.12),
                     backgroundImage: _selectedImage != null
                         ? MemoryImage(_selectedImage!) as ImageProvider
-                        : (hasAvatarUrl
-                              ? CachedNetworkImageProvider(
-                                  Uri.parse(AppConstants.apiBaseUrl)
-                                      .resolve(widget.profile.avatarUrl!)
-                                      .toString(),
-                                )
+                        : (savedAvatar != null
+                              ? MemoryImage(savedAvatar)
                               : null),
-                    child: (_selectedImage == null && !hasAvatarUrl)
+                    child: (_selectedImage == null && savedAvatar == null)
                         ? const Icon(
                             Icons.camera_alt_outlined,
                             size: 40,
@@ -194,6 +195,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             .updateProfile(displayName: newName);
       }
       ref.invalidate(userProfileProvider);
+      await ref.read(userProfileProvider.future);
       if (mounted) {
         showAppMessage(context, 'Profile updated.');
         context.pop();

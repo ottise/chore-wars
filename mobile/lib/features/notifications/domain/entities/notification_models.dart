@@ -20,6 +20,7 @@ class AppNotification {
   });
 
   bool get isChat => type == 'CHAT_MESSAGE' || type == 'CHAT_MENTION';
+  bool get isSupply => type == 'SUPPLY_UPDATE';
   bool get isTaskRequest => metadata['targetType'] == 'AI_REQUEST';
   String? get houseId => metadata['houseId']?.toString();
   String? get targetId => metadata['targetId']?.toString();
@@ -30,6 +31,11 @@ class AppNotification {
     if (isChat) return '$base/chat/everyone';
     final target = targetId;
     return switch (metadata['targetType']) {
+      'SUPPLY_ORDER' when target != null && target.isNotEmpty =>
+        '$base/supplies/orders/${Uri.encodeComponent(target)}',
+      'SUPPLY_SCHEDULE' => '$base/supplies/schedules',
+      'INTERNAL_REPAYMENT' when target != null && target.isNotEmpty =>
+        '$base/supplies/debts/${Uri.encodeComponent(target)}',
       'AI_REQUEST' => '$base/chat/assistant',
       'ActionProposal' => '$base/chat/everyone',
       'BOUNTY' when target != null && target.isNotEmpty =>

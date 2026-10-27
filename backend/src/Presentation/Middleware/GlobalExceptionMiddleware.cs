@@ -62,6 +62,7 @@ public class GlobalExceptionMiddleware
             ForbiddenException => (int)HttpStatusCode.Forbidden,
             ConflictException => (int)HttpStatusCode.Conflict,
             ValidationException => (int)HttpStatusCode.BadRequest,
+            FluentValidation.ValidationException => (int)HttpStatusCode.BadRequest,
             DomainException => (int)HttpStatusCode.BadRequest,
             BadHttpRequestException => (int)HttpStatusCode.BadRequest,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
@@ -86,6 +87,8 @@ public class GlobalExceptionMiddleware
         {
             problemDetails.Extensions["errors"] = validationException.Errors;
         }
+        if (exception is FluentValidation.ValidationException fluentException)
+            problemDetails.Extensions["errors"] = fluentException.Errors.GroupBy(x=>x.PropertyName).ToDictionary(x=>x.Key,x=>x.Select(e=>e.ErrorMessage).ToArray());
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, JsonOptions));
     }

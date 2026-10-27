@@ -5,6 +5,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/widgets/empty_state.dart';
@@ -64,6 +65,12 @@ class _PaymentObligationsScreenState
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
+                TextButton.icon(
+                  onPressed: () =>
+                      context.push('/houses/$houseId/supplies/debts'),
+                  icon: const Icon(Icons.shopping_basket_outlined),
+                  label: const Text('Household purchase debts'),
+                ),
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(

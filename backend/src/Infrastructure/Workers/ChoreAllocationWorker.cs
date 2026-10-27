@@ -35,12 +35,15 @@ public class ChoreAllocationWorker : BackgroundService
                     await service.AllocateAllActiveSeasonsAsync(stoppingToken);
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred executing ChoreAllocationWorker.");
             }
 
-            await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromHours(24), stoppingToken); }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
 }

@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/TestResults
+**/appsettings.*.local.json
+**/.data-protection-keys
+**/.local-data
+**/private-media
+**/wwwroot/avatars
+.env
+.env.*

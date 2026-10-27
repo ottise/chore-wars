@@ -1,3 +1,5 @@
+import '../../../supplies/presentation/widgets/household_supplies_card.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +72,8 @@ class HouseDetailScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  HouseholdSuppliesCard(houseId: houseId),
                   const SizedBox(height: 24),
                   season.when(
                     loading: () => const LinearProgressIndicator(),

@@ -37,6 +37,11 @@ void main() {
       'AB12CD34',
     );
     expect(parseInviteCode('https://example.test/other'), isNull);
+    expect(
+      parseInviteCode('https://example.test/#/houses/join?inviteCode=ab12cd34'),
+      'AB12CD34',
+    );
+    expect(parseInviteCode('https://example.test/join?code=%FF'), isNull);
     expect(parseInviteCode('not a house code'), isNull);
   });
   test('notification routing retains server household and target scope', () {

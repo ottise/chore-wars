@@ -1,15 +1,24 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/widgets/app_states.dart';
+import '../../../../core/widgets/app_page_bar.dart';
+import '../../../../core/widgets/app_page_frame.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../domain/entities/invite_code.dart';
 import '../providers/house_providers.dart';
+import '../qr_image_decoder.dart';
+
+final houseQrImagePickerProvider = Provider<ImagePicker>(
+  (ref) => ImagePicker(),
+);
 
 class QrJoinScreen extends ConsumerStatefulWidget {
   const QrJoinScreen({super.key});
@@ -21,12 +30,21 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
     with WidgetsBindingObserver {
   final _controller = MobileScannerController(
     autoStart: false,
+    facing: switch (defaultTargetPlatform) {
+      TargetPlatform.windows ||
+      TargetPlatform.linux ||
+      TargetPlatform.macOS => CameraFacing.front,
+      _ => CameraFacing.back,
+    },
+    cameraResolution: const Size(1280, 720),
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.normal,
   );
   Future<void> _cameraQueue = Future.value();
   bool _processing = false;
   bool _inForeground = true;
+  String? _error;
+  String? _lastDetectedValue;
   @override
   void initState() {
     super.initState();
@@ -75,15 +93,18 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Scan House QR Code'),
+  Widget build(BuildContext context) => AppPageFrame(builder: _buildScreen);
+
+  Widget _buildScreen(BuildContext context) => Scaffold(
+    appBar: AppPageBar(
+      title: 'Scan house QR code',
       actions: [
-        TextButton(
+        IconButton(
+          tooltip: 'Switch camera',
           onPressed: _processing
               ? null
               : () => _camera(() => _controller.switchCamera()),
-          child: const Text('Switch Camera'),
+          icon: const Icon(Icons.cameraswitch_outlined),
         ),
       ],
     ),
@@ -95,7 +116,20 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
             children: [
               MobileScanner(
                 controller: _controller,
+                fit: BoxFit.contain,
                 onDetect: _onDetect,
+                placeholderBuilder: (context, child) => ColoredBox(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Allow camera access, or choose a QR image below.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
                 errorBuilder: (context, error, child) => ColoredBox(
                   color: Theme.of(context).colorScheme.surface,
                   child: Center(
@@ -109,7 +143,9 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                             textAlign: TextAlign.center,
                           ),
                           TextButton(
-                            onPressed: () => _camera(() => _controller.start()),
+                            onPressed: _processing
+                                ? null
+                                : () => _camera(() => _controller.start()),
                             child: const Text('Retry'),
                           ),
                         ],
@@ -128,19 +164,56 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Place the full QR code inside the frame. Use good lighting and hold the camera steady.',
+                  'Show the entire QR code to your camera. On a computer, you can also choose a saved QR image.',
                   textAlign: TextAlign.center,
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _processing ? null : _pickQrImage,
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(
+                      _processing ? 'Reading QR code…' : 'Choose QR image',
+                    ),
+                  ),
+                ),
+                if (_lastDetectedValue != null)
+                  TextButton(
+                    onPressed: _processing
+                        ? null
+                        : () {
+                            setState(() {
+                              _lastDetectedValue = null;
+                              _error = null;
+                            });
+                            unawaited(_camera(() => _controller.start()));
+                          },
+                    child: const Text('Scan again'),
+                  ),
                 TextButton(
                   onPressed: _processing
                       ? null
                       : () => context.pushReplacement('/houses/join'),
-                  child: const Text('Enter Invite Code Instead'),
+                  child: const Text('Enter invite code instead'),
                 ),
               ],
             ),
@@ -151,16 +224,56 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
   );
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_processing || !_inForeground) return;
-    final codes = capture.barcodes
-        .map((b) => parseInviteCode(b.rawValue ?? ''))
-        .whereType<String>();
-    if (codes.isEmpty) return;
-    final code = codes.first;
-    setState(() => _processing = true);
+    final values = capture.barcodes
+        .map((b) => b.rawValue)
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty)
+        .toList();
+    if (values.isEmpty) return;
+    final raw = values.firstWhere(
+      (value) => parseInviteCode(value) != null,
+      orElse: () => values.first,
+    );
+    if (raw == _lastDetectedValue) return;
+    _lastDetectedValue = raw;
+    await _processQr(() async => raw);
+  }
+
+  Future<void> _pickQrImage() {
+    if (_processing) return Future.value();
+    // Open the browser picker during the click gesture, before stopping camera.
+    final selected = ref
+        .read(houseQrImagePickerProvider)
+        .pickImage(source: ImageSource.gallery, requestFullMetadata: false);
+    return _processQr(() async {
+      final image = await selected;
+      if (image == null) return null;
+      if (await image.length() > maxQrImageBytes) {
+        throw const FormatException('Choose a QR image smaller than 10 MB.');
+      }
+      return decodeQrImage(await image.readAsBytes());
+    });
+  }
+
+  Future<void> _processQr(Future<String?> Function() read) async {
+    if (_processing) return;
+    setState(() {
+      _processing = true;
+      _error = null;
+    });
     var joined = false;
     try {
-      await _camera(() => _controller.stop());
+      // A pending camera permission prompt must not block importing an image.
+      unawaited(_camera(() => _controller.stop()));
       if (!mounted) return;
+      final raw = await read();
+      if (!mounted || raw == null) return;
+      final code = parseInviteCode(raw);
+      if (code == null) {
+        throw const FormatException(
+          'This QR code is not a house invitation. Ask your housemate for the house QR code.',
+        );
+      }
       final preview = await ref
           .read(dioProvider)
           .get('/invitations/${Uri.encodeComponent(code)}/preview');
@@ -179,7 +292,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Tham gia'),
+              child: const Text('Join house'),
             ),
           ],
         ),
@@ -192,7 +305,13 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
       joined = true;
       context.go('/houses');
     } catch (error) {
-      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+      if (mounted) {
+        setState(
+          () => _error = error is FormatException
+              ? error.message
+              : apiErrorMessage(error),
+        );
+      }
     } finally {
       if (mounted && !joined) {
         setState(() => _processing = false);

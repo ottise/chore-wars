@@ -1,4 +1,5 @@
 import 'audio_message_bubble.dart';
+import '../../../supplies/presentation/widgets/supply_chat_card.dart';
 import '../../domain/chat_mentions.dart';
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,9 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (message.messageType == 'SUPPLY_CARD') {
+      return SupplyChatCard(content: message.content);
+    }
     final theme = Theme.of(context);
     final timeFormat = DateFormat('HH:mm');
     final isImage = message.content.startsWith('[IMAGE]');

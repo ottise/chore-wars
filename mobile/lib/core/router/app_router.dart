@@ -4,6 +4,14 @@ import '../../features/gamification/presentation/screens/reward_catalog_screen.d
 import '../../features/gamification/presentation/screens/reward_form_screen.dart';
 import '../../features/payment/presentation/screens/payment_obligations_screen.dart';
 
+import '../../features/supplies/presentation/screens/supplies_catalog_screen.dart';
+import '../../features/supplies/presentation/screens/supply_order_review_screen.dart';
+import '../../features/supplies/presentation/screens/supply_order_detail_screen.dart';
+import '../../features/supplies/presentation/screens/household_debts_screen.dart';
+import '../../features/supplies/presentation/screens/supply_schedule_screen.dart';
+import '../../features/supplies/presentation/screens/bank_accounts_screen.dart';
+import '../../features/supplier/presentation/screens/supplier_workspace_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +92,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/supplier',
+        builder: (_, _) => const SupplierWorkspaceScreen(),
+      ),
+      GoRoute(
+        path: '/bank-accounts',
+        builder: (_, _) => const BankAccountsScreen(),
+      ),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(
         path: '/chores',
@@ -112,7 +128,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/notifications',
-        builder: (context, state) => const NotificationsScreen(),
+        builder: (context, state) =>
+            NotificationsScreen(houseId: state.uri.queryParameters['houseId']),
       ),
       GoRoute(
         path: '/bounties',
@@ -195,6 +212,59 @@ final routerProvider = Provider<GoRouter>((ref) {
                   houseId: state.pathParameters['houseId']!,
                 ),
                 routes: [
+                  GoRoute(
+                    path: 'supplies',
+                    builder: (_, state) => SuppliesCatalogScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      aiDraft: state.extra is Map
+                          ? Map<String, dynamic>.from(state.extra as Map)
+                          : null,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/review',
+                    builder: (_, state) => SupplyOrderReviewScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      selection: state.extra is Map
+                          ? Map<String, dynamic>.from(state.extra as Map)
+                          : null,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/history',
+                    builder: (_, state) => SupplyOrderHistoryScreen(
+                      houseId: state.pathParameters['houseId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/orders/:orderId',
+                    builder: (_, state) => SupplyOrderDetailScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      orderId: state.pathParameters['orderId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/debts',
+                    builder: (_, state) => HouseholdDebtsScreen(
+                      houseId: state.pathParameters['houseId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/debts/:debtId',
+                    builder: (_, state) => InternalRepaymentScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      debtId: state.pathParameters['debtId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'supplies/schedules',
+                    builder: (_, state) => SupplyScheduleScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      aiDraft: state.extra is Map
+                          ? Map<String, dynamic>.from(state.extra as Map)
+                          : null,
+                    ),
+                  ),
                   GoRoute(
                     path: 'account',
                     builder: (_, state) => ProfileScreen(

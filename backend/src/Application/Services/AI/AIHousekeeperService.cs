@@ -304,7 +304,16 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var names=(await uow.HouseMembers.GetByHouseIdAsync(house,ct)).Where(m=>m.Status==HouseMemberStatus.ACTIVE).ToDictionary(m=>m.UserId.ToString(),m=>m.User?.DisplayName ?? "");
         var chores=(await uow.Chores.GetByHouseIdAsync(house,ct)).ToDictionary(c=>c.Id.ToString(),c=>c.Name);
         var occurrences=(await uow.ChoreOccurrences.GetUnresolvedByHouseIdAsync(house,ct)).Where(o=>o.AssignedUserId==actor).ToDictionary(o=>o.Id.ToString(),o=>o.Chore.Name);
-        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
+        var catalog = new Dictionary<string,object>();
+        var allowedProducts = new Dictionary<Guid,SupplyProduct>();
+        if (uow.Supplies is { } supplies)
+            foreach (var supplier in await supplies.SuppliersAsync(ct))
+                foreach (var product in (await supplies.ProductsAsync(supplier.Id,ct)).Where(p=>p.Active)) {
+                    allowedProducts[product.Id]=product;
+                    catalog[product.Id.ToString()]=new{supplier_id=product.SupplierId,name=product.Name,unit=product.Unit,price=(long)product.Price,available_quantity=product.AvailableQuantity};
+                }
+        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,supply_catalog=catalog,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
+        ChoreWars.Application.Services.Supplies.SupplyAIContract.Validate(result,names.Keys.ToHashSet(),allowedProducts);
         return await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,false,ct);
             if (chat && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled while processing.");

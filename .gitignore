@@ -67,6 +67,7 @@ Desktop.ini
 **/TestResults/
 .data-protection-keys/
 .local-data/
+backend/src/Presentation/wwwroot/avatars/
 
 # AI local runtime, private data and trusted model artifacts
 ai-service/.venv/
@@ -75,3 +76,6 @@ ai-service/.venv/
 **/*.egg-info/
 ai-service/artifacts/
 ai-service/*.db
+# Supplier payment credentials stay on the server.
+backend/src/Presentation/appsettings.Supplies.local.json
+.env.supplies.local

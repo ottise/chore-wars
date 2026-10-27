@@ -40,7 +40,8 @@ class AssistantRequests extends ConsumerWidget {
         (ref.watch(actionProposalProvider(room)).asData?.value ?? [])
             .where(
               (proposal) =>
-                  proposal.type == ProposalType.urgentEvent &&
+                  (proposal.type == ProposalType.urgentEvent ||
+                      proposal.type == ProposalType.supplyPurchase) &&
                   proposal.status == ProposalStatus.pending &&
                   (proposal.isTarget(user.id) || proposal.creatorId == user.id),
             )

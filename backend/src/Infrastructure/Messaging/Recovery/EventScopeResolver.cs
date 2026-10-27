@@ -25,6 +25,16 @@ public static class EventScopeResolver
             Guid? actual;
             switch (topic)
             {
+                case KafkaTopics.SUPPLY_NOTIFICATION:
+                    var resource = Read("ResourceId");
+                    var kind = root.GetProperty("ResourceType").GetString();
+                    actual = kind switch {
+                        "SUPPLY_ORDER" => await db.SupplyOrders.Where(x=>x.Id==resource).Select(x=>(Guid?)x.HouseId).SingleOrDefaultAsync(ct),
+                        "SUPPLY_SCHEDULE" => await db.SupplySchedules.Where(x=>x.Id==resource).Select(x=>(Guid?)x.HouseId).SingleOrDefaultAsync(ct),
+                        "INTERNAL_REPAYMENT" => await db.PaymentObligations.Where(x=>x.Id==resource).Select(x=>(Guid?)x.HouseId).SingleOrDefaultAsync(ct),
+                        _ => null
+                    };
+                    break;
                 case KafkaTopics.CHAT_MESSAGE_CREATED:
                     var messageId = Read("MessageId");
                     actual = await db.ChatMessages.Where(m => m.Id == messageId).Select(m => (Guid?)m.Room.HouseId).SingleOrDefaultAsync(ct);

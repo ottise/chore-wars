@@ -9,6 +9,8 @@ public class PaymentObligationConfiguration : IEntityTypeConfiguration<PaymentOb
     public void Configure(EntityTypeBuilder<PaymentObligation> builder)
     {
         builder.HasKey(x => x.Id);
+        builder.HasOne<SupplyOrder>().WithMany().HasForeignKey(x => x.SourceOrderId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => new { x.SourceOrderId, x.DebtorUserId, x.CreditorUserId, x.IsPurchaseRefund }).IsUnique().HasFilter("\"SourceOrderId\" IS NOT NULL");
         builder.HasIndex(x => x.OccurrenceId).IsUnique().HasFilter("\"Reason\" = 'FORCED_REASSIGNMENT' AND \"OccurrenceId\" IS NOT NULL");
 
         builder.Property(x => x.Reason)

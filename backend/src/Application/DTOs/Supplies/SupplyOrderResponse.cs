@@ -1,0 +1,2 @@
+namespace ChoreWars.Application.DTOs.Supplies;
+public sealed record SupplyOrderResponse(Guid Id, Guid HouseId, Guid SupplierId, string SupplierName, string SupplierPhone, Guid CreatorUserId, Guid PayerUserId, string Status, string CreatedVia, int Version, string DeliveryAddress, string ContactPhone, decimal Total, decimal DeliveryFee, decimal RefundedAmount, DateTime QuoteExpiresAt, DateTime CreatedAt, List<SupplyOrderLineResponse> Lines, List<OrderCostShareResponse> Shares);

@@ -83,6 +83,12 @@ public class ChatService : IChatService
     }
 
     public async Task<PagedResult<ChatMessageResponse>> GetMessagesAsync(Guid roomId, Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => await GetMessagePageAsync(roomId,userId,page,pageSize,false,cancellationToken);
+
+    public Task<PagedResult<ChatMessageResponse>> GetImagesAsync(Guid roomId, Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => GetMessagePageAsync(roomId,userId,page,pageSize,true,cancellationToken);
+
+    private async Task<PagedResult<ChatMessageResponse>> GetMessagePageAsync(Guid roomId, Guid userId, int page, int pageSize, bool imagesOnly, CancellationToken cancellationToken)
     {
         var room = await _unitOfWork.Chats.GetRoomByIdAsync(roomId, cancellationToken)
             ?? throw new NotFoundException($"ChatRoom {roomId} not found");
@@ -90,8 +96,8 @@ public class ChatService : IChatService
         await ValidateHouseMembershipAsync(room.HouseId, userId, cancellationToken);
 
         if (page < 1 || pageSize < 1 || pageSize > 100) throw new DomainException("Invalid pagination.");
-        var totalCount = await _unitOfWork.Chats.GetMessageCountAsync(roomId, cancellationToken);
-        var messages = await _unitOfWork.Chats.GetMessagesPagedAsync(roomId, page, pageSize, cancellationToken);
+        var totalCount = imagesOnly ? await _unitOfWork.Chats.GetImageCountAsync(roomId,cancellationToken) : await _unitOfWork.Chats.GetMessageCountAsync(roomId, cancellationToken);
+        var messages = imagesOnly ? await _unitOfWork.Chats.GetImagesPagedAsync(roomId,page,pageSize,cancellationToken) : await _unitOfWork.Chats.GetMessagesPagedAsync(roomId, page, pageSize, cancellationToken);
 
         var items = messages.Select(m => new ChatMessageResponse
         {

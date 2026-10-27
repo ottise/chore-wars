@@ -50,7 +50,10 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore Wars'),
-        actions: const [NotificationBell(), SizedBox(width: 8)],
+        actions: [
+          NotificationBell(houseId: houseId),
+          const SizedBox(width: 8),
+        ],
       ),
       body: dashboard.when(
         loading: () => const LoadingWidget(),

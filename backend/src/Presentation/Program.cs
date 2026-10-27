@@ -11,6 +11,7 @@ if (builder.Environment.IsDevelopment())
 {
     builder.Configuration
         .AddJsonFile("appsettings.AI.local.json", optional: true, reloadOnChange: true)
+        .AddJsonFile("appsettings.Supplies.local.json", optional: true, reloadOnChange: true)
         .AddEnvironmentVariables()
         .AddCommandLine(args);
 }
@@ -53,6 +54,12 @@ builder.Services.AddHealthChecks().AddCheck<ChoreWars.Presentation.Health.Databa
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
+
+if (int.TryParse(builder.Configuration["PORT"], out var port) && port is > 0 and <= 65535)
+{
+    app.Urls.Clear();
+    app.Urls.Add($"http://0.0.0.0:{port}");
+}
 
 // Configure the HTTP request pipeline.
 app.UseSwaggerDocumentation(app.Environment);

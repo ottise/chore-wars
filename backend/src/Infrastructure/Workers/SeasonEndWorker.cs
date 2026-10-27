@@ -35,12 +35,15 @@ public class SeasonEndWorker : BackgroundService
                     await service.ProcessEndedSeasonsAsync(stoppingToken);
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred executing SeasonEndWorker.");
             }
 
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromHours(1), stoppingToken); }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
 }

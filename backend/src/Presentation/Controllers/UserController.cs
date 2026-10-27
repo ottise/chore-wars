@@ -15,10 +15,12 @@ namespace ChoreWars.Presentation.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IAvatarStorage _avatars;
 
-    public UserController(IAuthService authService)
+    public UserController(IAuthService authService, IAvatarStorage avatars)
     {
         _authService = authService;
+        _avatars = avatars;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -37,6 +39,16 @@ public class UserController : ControllerBase
         return Ok(profile);
     }
 
+    [HttpGet("avatar-image")]
+    public async Task<IActionResult> ReadAvatar(CancellationToken cancellationToken)
+    {
+        var profile = await _authService.GetProfileAsync(CurrentUserId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(profile.AvatarUrl)) return NotFound();
+        var image = await _avatars.ReadAsync(profile.AvatarUrl, cancellationToken);
+        Response.Headers.CacheControl = "private, no-store";
+        return File(image.Stream, image.ContentType);
+    }
+
     [HttpPost("avatar")]
     public async Task<IActionResult> UploadAvatar(Microsoft.AspNetCore.Http.IFormFile file, CancellationToken cancellationToken)
     {
@@ -50,19 +62,9 @@ public class UserController : ControllerBase
         if (file.Length > 5 * 1024 * 1024)
             return BadRequest(new { Message = "File size must be under 5MB" });
 
-        var uploadsFolder = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "avatars");
-        if (!System.IO.Directory.Exists(uploadsFolder))
-            System.IO.Directory.CreateDirectory(uploadsFolder);
-
-        var uniqueFileName = Guid.NewGuid().ToString() + ext;
-        var filePath = System.IO.Path.Combine(uploadsFolder, uniqueFileName);
-
-        using (var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Create))
-        {
-            await file.CopyToAsync(stream, cancellationToken);
-        }
-
-        var avatarUrl = $"/avatars/{uniqueFileName}";
+        using var buffer = new System.IO.MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+        var avatarUrl = await _avatars.WriteAsync(buffer.ToArray(), ext, cancellationToken);
         var profile = await _authService.UpdateAvatarUrlAsync(CurrentUserId, avatarUrl, cancellationToken);
         return Ok(profile);
     }

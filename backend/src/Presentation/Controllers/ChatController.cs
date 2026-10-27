@@ -48,4 +48,8 @@ public class ChatController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("api/chat/rooms/{roomId:guid}/photos")]
+    public async Task<IActionResult> Photos(Guid roomId,[FromQuery]int page=1,[FromQuery]int pageSize=30,CancellationToken ct=default)
+        => Ok(await _chatService.GetImagesAsync(roomId,CurrentUserId,page,pageSize,ct));
+
 }

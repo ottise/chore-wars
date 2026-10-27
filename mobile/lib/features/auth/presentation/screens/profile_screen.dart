@@ -7,12 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../providers/avatar_provider.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../../house/domain/entities/house_models.dart';
-import '../../../house/presentation/providers/current_house_provider.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -24,13 +24,13 @@ class ProfileScreen extends ConsumerWidget {
 
   Widget _buildScreen(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
-    final selectedHouse = houseId ?? ref.watch(currentHouseProvider);
+    final selectedHouse = houseId;
     final colors = Theme.of(context).colorScheme;
     final house = selectedHouse == null
         ? null
         : ref.watch(houseDetailProvider(selectedHouse)).asData?.value;
     return DefaultTabController(
-      length: 2,
+      length: selectedHouse == null ? 1 : 2,
       child: Scaffold(
         appBar: AppPageBar(
           title: 'My Account',
@@ -39,29 +39,30 @@ class ProfileScreen extends ConsumerWidget {
         ),
         body: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: TabBar(
-                  indicator: BoxDecoration(
-                    color: colors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(11),
+            if (selectedHouse != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicatorPadding: const EdgeInsets.all(4),
-                  dividerHeight: 0,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                  tabs: const [
-                    Tab(height: 40, text: 'Personal Profile'),
-                    Tab(height: 40, text: 'Schedule & Routine'),
-                  ],
+                  child: TabBar(
+                    indicator: BoxDecoration(
+                      color: colors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicatorPadding: const EdgeInsets.all(4),
+                    dividerHeight: 0,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                    tabs: const [
+                      Tab(height: 40, text: 'Personal Profile'),
+                      Tab(height: 40, text: 'Schedule & Routine'),
+                    ],
+                  ),
                 ),
               ),
-            ),
             Expanded(
               child: TabBarView(
                 children: [
@@ -81,29 +82,9 @@ class ProfileScreen extends ConsumerWidget {
                               children: [
                                 Row(
                                   children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: colors.primaryFixed,
-                                        border: Border.all(
-                                          color: AppPageFrame.accent,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Text(
-                                        user.displayName.isEmpty
-                                            ? '?'
-                                            : user.displayName.characters.first
-                                                  .toUpperCase(),
-                                        style: TextStyle(
-                                          color: colors.primary,
-                                          fontSize: 25,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                    _ProfileAvatar(
+                                      displayName: user.displayName,
+                                      avatarUrl: user.avatarUrl,
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(
@@ -240,7 +221,9 @@ class ProfileScreen extends ConsumerWidget {
                                     Icons.chevron_right_outlined,
                                     size: 18,
                                   ),
-                                  onTap: () => context.push('/notifications'),
+                                  onTap: () => context.push(
+                                    '/notifications?houseId=${Uri.encodeComponent(selectedHouse)}',
+                                  ),
                                 ),
                                 const Divider(indent: 16, endIndent: 16),
                                 ListTile(
@@ -265,6 +248,16 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ],
                         const SizedBox(height: 20),
+                        TextButton.icon(
+                          onPressed: () => context.push('/bank-accounts'),
+                          icon: const Icon(Icons.account_balance_outlined),
+                          label: const Text('My bank details'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => context.push('/supplier'),
+                          icon: const Icon(Icons.storefront_outlined),
+                          label: const Text('Supplier workspace'),
+                        ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colors.error,
@@ -276,16 +269,8 @@ class ProfileScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  selectedHouse == null
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text(
-                              'Choose a house to view and edit your schedule.',
-                            ),
-                          ),
-                        )
-                      : _ScheduleSettings(houseId: selectedHouse),
+                  if (selectedHouse != null)
+                    _ScheduleSettings(houseId: selectedHouse),
                 ],
               ),
             ),
@@ -325,6 +310,50 @@ class ProfileScreen extends ConsumerWidget {
         showAppMessage(context, apiErrorMessage(error), error: true);
       }
     }
+  }
+}
+
+class _ProfileAvatar extends ConsumerWidget {
+  const _ProfileAvatar({required this.displayName, this.avatarUrl});
+  final String displayName;
+  final String? avatarUrl;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = Theme.of(context).colorScheme;
+    final fallback = Center(
+      child: Text(
+        displayName.isEmpty ? '?' : displayName.characters.first.toUpperCase(),
+        style: TextStyle(
+          color: colors.primary,
+          fontSize: 25,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: colors.primaryFixed,
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: avatarUrl?.isNotEmpty == true
+          ? Semantics(
+              label: 'Profile photo',
+              image: true,
+              child: ref
+                  .watch(accountAvatarProvider(avatarUrl!))
+                  .when(
+                    data: (bytes) => Image.memory(bytes, fit: BoxFit.cover),
+                    loading: () => fallback,
+                    error: (_, _) => fallback,
+                  ),
+            )
+          : fallback,
+    );
   }
 }
 

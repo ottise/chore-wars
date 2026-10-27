@@ -1,0 +1,7 @@
+.dart_tool
+build
+**/ephemeral
+**/.gradle
+**/Pods
+.env
+.env.*

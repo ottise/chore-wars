@@ -6,6 +6,7 @@ namespace ChoreWars.Application.Interfaces.Repositories;
 
 public interface IUnitOfWork : IDisposable
 {
+    ISupplyRepository Supplies { get; }
     IUserRepository Users { get; }
     IRefreshTokenRepository RefreshTokens { get; }
     IHouseRepository Houses { get; }

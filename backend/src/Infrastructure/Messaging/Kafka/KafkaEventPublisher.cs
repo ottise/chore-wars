@@ -14,10 +14,7 @@ public class KafkaEventPublisher : IEventPublisher
 
     public KafkaEventPublisher(IOptions<KafkaOptions> options)
     {
-        var config = new ProducerConfig
-        {
-            BootstrapServers = options.Value.BootstrapServers
-        };
+        var config = new ProducerConfig(options.Value.ConnectionConfig());
         _producer = new ProducerBuilder<string, string>(config).Build();
     }
 

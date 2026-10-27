@@ -902,6 +902,52 @@ namespace Infrastructure.Migrations
                     b.ToTable("HouseMembers");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.InternalRepayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ObligationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResponseReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObligationId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("InternalRepayments", t =>
+                        {
+                            t.HasCheckConstraint("CK_InternalRepayment_Amount", "\"Amount\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.KarmaTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1204,6 +1250,82 @@ namespace Infrastructure.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ObligationAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ObligationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SourceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObligationId");
+
+                    b.HasIndex("SourceOrderId");
+
+                    b.ToTable("ObligationAdjustments");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.OrderCostShare", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("OrderId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("OrderCostShares", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderCostShare_Amount", "\"Amount\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1258,6 +1380,9 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("HouseId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsPurchaseRefund")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("OccurrenceId")
                         .HasColumnType("uuid");
 
@@ -1269,6 +1394,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<Guid?>("SeasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SourceOrderId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -1289,7 +1417,38 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("SeasonId");
 
+                    b.HasIndex("SourceOrderId", "DebtorUserId", "CreditorUserId", "IsPurchaseRefund")
+                        .IsUnique()
+                        .HasFilter("\"SourceOrderId\" IS NOT NULL");
+
                     b.ToTable("PaymentObligations");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.PaymentWebhookReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.ToTable("PaymentWebhookReceipts");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.ProcessedMessage", b =>
@@ -1530,6 +1689,491 @@ namespace Infrastructure.Migrations
                     b.ToTable("SeasonRankings");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.Supplier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DeliveryArea")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal>("DeliveryFee")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("OperatorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperatorUserId")
+                        .IsUnique();
+
+                    b.ToTable("Suppliers", t =>
+                        {
+                            t.HasCheckConstraint("CK_Supplier_Fee", "\"DeliveryFee\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplierPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("CheckoutUrl")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("OrderCode")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PaymentLinkId")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("QrCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("SupplierPayments");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplierRefund", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierRefunds", t =>
+                        {
+                            t.HasCheckConstraint("CK_SupplierRefund_Amount", "\"Amount\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyDispute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ProposedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatorUserId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("OrderId", "CreatorUserId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("SupplyDisputes");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContactPhone")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedVia")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CreatorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeliveryAddress")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("DeliveryFee")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("LastRevisionRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PayerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProposalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("QuoteExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("RequestFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("StockReserved")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("SupplierPhone")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatorUserId");
+
+                    b.HasIndex("PayerUserId");
+
+                    b.HasIndex("ProposalId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("HouseId", "CreatedAt");
+
+                    b.HasIndex("HouseId", "CreatorUserId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("SupplyOrders");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("OrderId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("SupplyOrderLines", t =>
+                        {
+                            t.HasCheckConstraint("CK_SupplyOrderLine_Quantity", "\"Quantity\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("AvailableQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("Sku")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupplierId", "Sku")
+                        .IsUnique();
+
+                    b.ToTable("SupplyProducts", t =>
+                        {
+                            t.HasCheckConstraint("CK_SupplyProduct_Price", "\"Price\" > 0");
+
+                            t.HasCheckConstraint("CK_SupplyProduct_Stock", "\"AvailableQuantity\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyReminderDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("OccurrenceAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleId", "OccurrenceAt")
+                        .IsUnique();
+
+                    b.ToTable("SupplyReminderDeliveries");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplySchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DayOfMonth")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Hour")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Items")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Minute")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("NextDueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("QuietFromHour")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuietToHour")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SnoozedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Enabled", "NextDueAt");
+
+                    b.HasIndex("HouseId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("SupplySchedules");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1590,6 +2234,45 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserAchievements");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.UserBankAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserBankAccounts");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.AIChatInsight", b =>
@@ -1877,6 +2560,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.InternalRepayment", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.PaymentObligation", null)
+                        .WithMany()
+                        .HasForeignKey("ObligationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.KarmaTransaction", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.House", "House")
@@ -2010,6 +2702,36 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ObligationAdjustment", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.PaymentObligation", null)
+                        .WithMany()
+                        .HasForeignKey("ObligationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany()
+                        .HasForeignKey("SourceOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.OrderCostShare", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany("Shares")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.PaymentObligation", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.User", "CreditorUser")
@@ -2040,6 +2762,11 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("SeasonId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany()
+                        .HasForeignKey("SourceOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CreditorUser");
 
                     b.Navigation("DebtorUser");
@@ -2049,6 +2776,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("Occurrence");
 
                     b.Navigation("Season");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.PaymentWebhookReceipt", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplierPayment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.ProposalConfirmation", b =>
@@ -2156,6 +2892,133 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.Supplier", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("OperatorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplierPayment", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplierRefund", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyDispute", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyProduct", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrder", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("PayerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.ActionProposal", null)
+                        .WithMany()
+                        .HasForeignKey("ProposalId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ChoreWars.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderLine", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyProduct", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyProduct", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyReminderDelivery", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplySchedule", null)
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplySchedule", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.UserAchievement", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.Achievement", "Achievement")
@@ -2173,6 +3036,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("Achievement");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.UserBankAccount", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.Achievement", b =>
@@ -2234,6 +3106,13 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("ChoreWars.Domain.Entities.Reward", b =>
                 {
                     b.Navigation("Redemptions");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrder", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Shares");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.User", b =>

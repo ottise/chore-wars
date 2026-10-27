@@ -1,5 +1,7 @@
 # Tài liệu triển khai và nghiệm thu Chore Wars
 
+- [Mua đồ thiết yếu, supplier, nợ trực tiếp và AI nhắc mua — 27/10/2026](household-supplies-supplier-and-ai-plan.vi.md): hai luồng manual/AI, payOS trả supplier, nội bộ hoàn trực tiếp người ứng; không gom quỹ/bù trừ. Mục 13–18 có future feature ngân hàng cá nhân, kiến trúc, manifest file sửa/tạo và luồng gọi giữa file. Chưa triển khai.
+
 - [Đồng bộ main trước khi triển khai AI — 20/10/2026](../reports/main-sync-2026-10-20.vi.md): quyết định hợp nhất urgent event, swap thủ công, season review, chat và kiểm thử hồi quy. Đọc cùng source hiện tại trước khi triển khai AI.
 
 Nhóm 4 thành viên; yêu cầu môn tối thiểu 12 giao diện, dịch vụ thanh toán, đăng nhập, product hoàn chỉnh và 3 ngoại vi điện thoại.

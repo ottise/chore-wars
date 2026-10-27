@@ -21,6 +21,7 @@ public static class PresentationServiceExtensions
         services.AddScoped<IHouseRealtimeAccess, HouseRealtimeAccess>();
         services.AddScoped<INotificationRealtimePublisher, NotificationRealtimePublisher>();
         services.AddScoped<IActionProposalRealtimePublisher, ActionProposalRealtimePublisher>();
+        services.AddScoped<ISupplyChatPublisher, SupplyChatPublisher>();
         
         return services;
     }

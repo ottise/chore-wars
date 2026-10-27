@@ -61,6 +61,21 @@ public class AppDbContext : DbContext
     public DbSet<ActionProposal> ActionProposals { get; set; } = null!;
     public DbSet<ProposalConfirmation> ProposalConfirmations { get; set; } = null!;
 
+    public DbSet<Supplier> Suppliers { get; set; } = null!;
+    public DbSet<SupplierRefund> SupplierRefunds { get; set; } = null!;
+    public DbSet<SupplyDispute> SupplyDisputes { get; set; } = null!;
+    public DbSet<SupplyProduct> SupplyProducts { get; set; } = null!;
+    public DbSet<SupplyOrder> SupplyOrders { get; set; } = null!;
+    public DbSet<SupplyOrderLine> SupplyOrderLines { get; set; } = null!;
+    public DbSet<OrderCostShare> OrderCostShares { get; set; } = null!;
+    public DbSet<SupplierPayment> SupplierPayments { get; set; } = null!;
+    public DbSet<PaymentWebhookReceipt> PaymentWebhookReceipts { get; set; } = null!;
+    public DbSet<InternalRepayment> InternalRepayments { get; set; } = null!;
+    public DbSet<ObligationAdjustment> ObligationAdjustments { get; set; } = null!;
+    public DbSet<SupplySchedule> SupplySchedules { get; set; } = null!;
+    public DbSet<SupplyReminderDelivery> SupplyReminderDeliveries { get; set; } = null!;
+    public DbSet<UserBankAccount> UserBankAccounts { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -72,6 +72,16 @@ public static class InfrastructureServiceExtensions
 
         services.Configure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(configuration.GetSection("MediaStorage"));
         services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.FileMediaStorage>();
+        services.AddScoped<IAvatarStorage, ChoreWars.Infrastructure.Storage.AvatarStorage>();
+
+
+        services.AddScoped<ISupplyRepository, SupplyRepository>();
+        services.Configure<ChoreWars.Infrastructure.Payments.PayOsOptions>(configuration.GetSection("Supplies:PayOS"));
+        services.AddSingleton<ISupplierOperatorAccess, ChoreWars.Infrastructure.Payments.SupplierOperatorAccess>();
+        services.AddHttpClient<IPurchasePaymentGateway, ChoreWars.Infrastructure.Payments.PayOsPurchasePaymentGateway>(http => http.Timeout = TimeSpan.FromSeconds(25));
+        services.AddHostedService<SupplyReminderWorker>();
+        services.AddHostedService<SupplierPaymentReconciliationWorker>();
+        services.AddHostedService<SupplyNotificationConsumer>();
 
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";

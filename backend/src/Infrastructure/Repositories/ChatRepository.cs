@@ -12,6 +12,12 @@ namespace ChoreWars.Infrastructure.Repositories;
 
 public class ChatRepository : IChatRepository
 {
+    public Task<List<ChatMessage>> GetImagesPagedAsync(Guid roomId,int page,int pageSize,CancellationToken ct)
+        => _context.ChatMessages.Include(m=>m.Sender)
+            .Where(m=>m.RoomId==roomId && m.MessageType==ChoreWars.Domain.Common.Constants.ChatConstants.ImageMessageType && m.AttachmentId!=null)
+            .OrderByDescending(m=>m.CreatedAt).ThenByDescending(m=>m.Id).Skip((page-1)*pageSize).Take(pageSize).ToListAsync(ct);
+    public Task<int> GetImageCountAsync(Guid roomId,CancellationToken ct)
+        => _context.ChatMessages.CountAsync(m=>m.RoomId==roomId && m.MessageType==ChoreWars.Domain.Common.Constants.ChatConstants.ImageMessageType && m.AttachmentId!=null,ct);
     private readonly AppDbContext _context;
 
     public ChatRepository(AppDbContext context)

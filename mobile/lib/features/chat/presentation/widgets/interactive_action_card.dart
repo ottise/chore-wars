@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:go_router/go_router.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:chore_wars/core/theme/app_theme.dart';
@@ -35,6 +37,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         return Icons.assignment_turned_in_outlined;
       case ProposalType.scheduleReplan:
         return Icons.calendar_month_outlined;
+      case ProposalType.supplyPurchase:
+        return Icons.shopping_basket_outlined;
     }
   }
 
@@ -47,6 +51,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
       case ProposalType.seasonApproval:
         return AppTheme.purple;
       case ProposalType.scheduleReplan:
+        return AppTheme.purple;
+      case ProposalType.supplyPurchase:
         return AppTheme.purple;
     }
   }
@@ -61,6 +67,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
         return 'SEASON APPROVAL';
       case ProposalType.scheduleReplan:
         return 'Schedule Change Proposal';
+      case ProposalType.supplyPurchase:
+        return 'Household purchase';
     }
   }
 
@@ -101,6 +109,31 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
   @override
   Widget build(BuildContext context) {
     final proposal = widget.proposal;
+    if (proposal.type == ProposalType.supplyPurchase) {
+      final payload = jsonDecode(proposal.payloadJson) as Map;
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                proposal.title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(proposal.description),
+              TextButton(
+                onPressed: () => context.go(
+                  '/houses/${Uri.encodeComponent(proposal.houseId)}/supplies/orders/${Uri.encodeComponent(payload['orderId'].toString())}',
+                ),
+                child: const Text('Review purchase and my share'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (proposal.type == ProposalType.seasonApproval) {
       return Card(
         child: Padding(

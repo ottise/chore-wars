@@ -6,6 +6,7 @@ namespace ChoreWars.Infrastructure.Messaging.Kafka;
 
 public static class KafkaTopics
 {
+    public const string SUPPLY_NOTIFICATION = "supply.notification";
     public const string CHORE_COMPLETED = "chore.completed";
     public const string CHAT_MESSAGE_CREATED = "chat.message_created";
     public const string BOUNTY_CREATED = "bounty.created";
@@ -17,6 +18,7 @@ public static class KafkaTopics
 
     public static readonly IReadOnlyDictionary<Type, string> EventTopicMap = new Dictionary<Type, string>
     {
+        { typeof(SupplyNotificationEvent), SUPPLY_NOTIFICATION },
         { typeof(ChatMessageCreatedEvent), CHAT_MESSAGE_CREATED },
         { typeof(ChoreCompletedEvent), CHORE_COMPLETED },
         { typeof(BountyCreatedEvent), BOUNTY_CREATED },

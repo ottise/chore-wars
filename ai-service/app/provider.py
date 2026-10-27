@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.schemas import LanguageInput, LanguageResult, VisionInput, VisionResult
 from app.urgent import Decomposition, UrgentInput
+from app.supplies import validate_supplies
 
 
 class ProviderUnavailable(Exception):
@@ -63,6 +64,15 @@ class GeminiClient:
 
     async def interpret(self, request: LanguageInput) -> LanguageResult:
         instruction = (
+            "Support supply_purchase and supply_reminder intents for buying rice, water and household essentials. "
+            "Use supply_catalog product UUIDs and package units exactly. Never invent products, prices, inventory, bank details or payment results. "
+            "If a requested product is absent, state it is not available yet and ask what to do. Missing catalog items must not be replaced silently. "
+            "For supply purchases extract supply.supplier_id, lines(product_id,quantity in catalog packages), payer_id and explicitly named cost-sharing participant_ids. "
+            "The requesting actor is the payer only when they explicitly volunteer to pay first. Resolve 'me' to actor_id; do not guess other names or select unnamed people. "
+            "All participants and the payer must review and approve before checkout; do not claim you placed or paid an order. "
+            "For monthly reminder requests extract supply.reminder(items,day_of_month,hour,minute) in Vietnam time, keeping unknown values null. "
+            "A standalone reminder does not require products in the catalog or a payer; it only reminds the group to check. "
+            "Never interpret buying supplies as an urgent chore campaign. "
             "Extract household chore requests in English or Vietnamese. Respond with English summaries and explanations. "
             "Address the member directly. For greetings, help or unclear requests, explain the supported availability and urgent-task actions "
             "and ask a helpful follow-up question; do not narrate what 'the user' said or expose internal field names. "
@@ -91,7 +101,8 @@ class GeminiClient:
         )
         try:
             result = LanguageResult.model_validate(data)
-        except ValidationError as error:
+            result = validate_supplies(request, result)
+        except (ValidationError, ValueError) as error:
             raise ProviderUnavailable("PROVIDER_SCHEMA_INVALID") from error
         if any(quote not in request.text for quote in result.evidence_quotes):
             raise ProviderUnavailable("UNSUPPORTED_EVIDENCE_QUOTE")

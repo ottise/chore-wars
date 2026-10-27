@@ -1,6 +1,7 @@
 import '../../../../core/widgets/app_page_frame.dart';
 import '../widgets/voice_note_recorder.dart';
 import 'assistant_chat_screen.dart';
+import 'chat_photo_history_screen.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,6 +159,15 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         backgroundColor: background,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Photo history',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChatPhotoHistoryScreen(roomId: _roomId!),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Ask Assistant',
             icon: const Icon(Icons.auto_awesome_outlined),

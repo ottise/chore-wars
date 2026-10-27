@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 namespace ChoreWars.Infrastructure.Workers;
 public sealed class OutboxDispatcherWorker(IServiceScopeFactory scopes, IOptions<KafkaOptions> options, ILogger<OutboxDispatcherWorker> logger) : BackgroundService {
     protected override async Task ExecuteAsync(CancellationToken ct) {
-        using var producer = new ProducerBuilder<string, string>(new ProducerConfig { BootstrapServers = options.Value.BootstrapServers, EnableIdempotence = true, MessageTimeoutMs = 10000 }).Build();
+        using var producer = new ProducerBuilder<string, string>(new ProducerConfig(options.Value.ConnectionConfig()) { EnableIdempotence = true, MessageTimeoutMs = 10000 }).Build();
         while (!ct.IsCancellationRequested) {
             try {
                 using var scope = scopes.CreateScope();

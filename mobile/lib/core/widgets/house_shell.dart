@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/auth/presentation/providers/avatar_provider.dart';
 import '../../features/house/presentation/providers/house_providers.dart';
 import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../../features/notifications/presentation/widgets/chat_notification_banner.dart';
@@ -35,10 +36,14 @@ class HouseShell extends ConsumerWidget {
           '$base/chat/assistant',
           '$base/chat/notifications',
         ].contains(location) ||
+        location.startsWith('$base/supplies') ||
         RegExp('^${RegExp.escape(base)}/seasons/[^/]+/(leaderboard|rewards)\$')
             .hasMatch(location);
     final house = ref.watch(houseDetailProvider(houseId)).asData?.value;
     final profile = ref.watch(userProfileProvider).asData?.value;
+    final avatar = profile?.avatarUrl?.isNotEmpty == true
+        ? ref.watch(accountAvatarProvider(profile!.avatarUrl!)).asData?.value
+        : null;
     final paths = [
       base,
       '$base/chores',
@@ -50,7 +55,7 @@ class HouseShell extends ConsumerWidget {
         ? location.substring(base.length + 1).split('/').first
         : '';
     final selected = switch (section) {
-      '' => 0,
+      '' || 'supplies' => 0,
       'chores' || 'urgent-event' || 'unresolved-chores' => 1,
       'chat' || 'ai' => 2,
       'bonus' || 'rewards' || 'achievements' || 'karma' => 3,
@@ -73,6 +78,7 @@ class HouseShell extends ConsumerWidget {
               '$base/seasons/new',
               '$base/payments',
             ].contains(location) ||
+            location.startsWith('$base/supplies') ||
             RegExp('^${RegExp.escape(base)}/seasons/[^/]+/rewards\$')
                 .hasMatch(location));
     return Scaffold(
@@ -156,7 +162,10 @@ class HouseShell extends ConsumerWidget {
                           icon: const Icon(Icons.qr_code_outlined, size: 20),
                         ),
                         const SizedBox(width: 12),
-                        const SizedBox(width: 44, child: NotificationBell()),
+                        SizedBox(
+                          width: 44,
+                          child: NotificationBell(houseId: houseId),
+                        ),
                         const SizedBox(width: 12),
                         SizedBox(
                           width: 72,
@@ -183,19 +192,25 @@ class HouseShell extends ConsumerWidget {
                                     radius: 12,
                                     backgroundColor: colors.primary,
                                     foregroundColor: colors.onPrimary,
-                                    child: Text(
-                                      profile?.displayName.isNotEmpty == true
-                                          ? profile!
-                                                .displayName
-                                                .characters
-                                                .first
-                                                .toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                                    backgroundImage: avatar != null
+                                        ? MemoryImage(avatar)
+                                        : null,
+                                    child: avatar != null
+                                        ? null
+                                        : Text(
+                                            profile?.displayName.isNotEmpty ==
+                                                    true
+                                                ? profile!
+                                                      .displayName
+                                                      .characters
+                                                      .first
+                                                      .toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                   ),
                                   const SizedBox(width: 6),
                                   Flexible(
@@ -220,7 +235,11 @@ class HouseShell extends ConsumerWidget {
                 ),
               ),
             Expanded(
-              child: ChatNotificationBanner(location: location, child: child),
+              child: ChatNotificationBanner(
+                location: location,
+                houseId: houseId,
+                child: child,
+              ),
             ),
           ],
         ),

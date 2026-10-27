@@ -9,6 +9,44 @@ namespace IntegrationTests.Infrastructure;
 public sealed class HouseNavigationTests
 {
     [PostgresFact]
+    public async Task QrInvitationPreviewRequiresLoginAndJoiningRevalidatesRotatedCode()
+    {
+        await using var database = await PostgresFixture.CreateAsync();
+        await using var factory = new ApiFactory(database);
+        using var owner = factory.CreateClient();
+        using var member = factory.CreateClient();
+        using var anonymous = factory.CreateClient();
+        await RegisterAndLogin(owner, "qr-owner");
+        await RegisterAndLogin(member, "qr-member");
+        var created = await owner.PostAsJsonAsync("/api/houses", new { Name = "QR invitation test" });
+        created.EnsureSuccessStatusCode();
+        var house = (await created.Content.ReadFromJsonAsync<HouseResponse>())!;
+        var previewPath = $"/api/invitations/{house.InviteCode}/preview";
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync(previewPath)).StatusCode);
+        var preview = await member.GetFromJsonAsync<JsonElement>(previewPath);
+        Assert.Equal(house.Name, preview.GetProperty("name").GetString());
+        Assert.Equal(1, preview.GetProperty("activeMembers").GetInt32());
+        Assert.Equal(6, preview.GetProperty("capacity").GetInt32());
+        Assert.Empty((await member.GetFromJsonAsync<List<HouseResponse>>("/api/houses/my-houses"))!);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.PostAsync($"/api/houses/{house.Id}/rotate-invite", null)).StatusCode);
+
+        var rotation = await owner.PostAsync($"/api/houses/{house.Id}/rotate-invite", null);
+        rotation.EnsureSuccessStatusCode();
+        var code = (await rotation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("inviteCode").GetString()!;
+        Assert.NotEqual(house.InviteCode, code);
+        Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync(previewPath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await member.PostAsJsonAsync("/api/houses/join", new { house.InviteCode })).StatusCode);
+        (await member.GetAsync($"/api/invitations/{code}/preview")).EnsureSuccessStatusCode();
+        (await member.PostAsJsonAsync("/api/houses/join", new { InviteCode = code })).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await member.PostAsJsonAsync("/api/houses/join", new { InviteCode = code })).StatusCode);
+        var joined = Assert.Single((await member.GetFromJsonAsync<List<HouseResponse>>("/api/houses/my-houses"))!);
+        Assert.Equal(house.Id, joined.Id);
+        Assert.Equal("MEMBER", joined.CurrentUserRole);
+        Assert.Equal(2, (await member.GetFromJsonAsync<JsonElement>($"/api/invitations/{code}/preview")).GetProperty("activeMembers").GetInt32());
+    }
+
+    [PostgresFact]
     public async Task MyHousesReturnsRolesAndExcludesLeftMembershipsThroughRealLogin()
     {
         await using var database = await PostgresFixture.CreateAsync();

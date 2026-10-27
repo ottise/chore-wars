@@ -28,9 +28,11 @@ public class ActionProposalService : IActionProposalService
 
     private readonly IScheduleChangeService? _scheduleChanges;
     private readonly IUrgentPlanValidation? _urgentPlanValidation;
+    private readonly ISupplyOrderService? _supplyOrders;
     public ActionProposalService(IUnitOfWork unitOfWork, IActionProposalRealtimePublisher realtimePublisher, bool mutationsEnabled = false,
         INotificationService? notificationService = null, IHouseMutationCoordinator? mutationCoordinator = null,
-        IAfterCommitActions? afterCommit = null, TimeProvider? clock = null, IScheduleChangeService? scheduleChanges = null, IUrgentPlanValidation? urgentPlanValidation = null)
+        IAfterCommitActions? afterCommit = null, TimeProvider? clock = null, IScheduleChangeService? scheduleChanges = null, IUrgentPlanValidation? urgentPlanValidation = null,
+        ISupplyOrderService? supplyOrders = null)
     {
         _mutationsEnabled = mutationsEnabled;
         _unitOfWork = unitOfWork;
@@ -41,6 +43,7 @@ public class ActionProposalService : IActionProposalService
         _clock = clock ?? TimeProvider.System;
         _scheduleChanges = scheduleChanges;
         _urgentPlanValidation = urgentPlanValidation;
+        _supplyOrders = supplyOrders;
     }
 
     public async Task<ActionProposalResponse> CreateProposalAsync(
@@ -125,6 +128,25 @@ public class ActionProposalService : IActionProposalService
     public async Task<ActionProposalResponse> RespondProposalAsync(
         Guid proposalId, RespondProposalRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
+        var purchase = await _unitOfWork.ActionProposals.GetByIdAsync(proposalId, cancellationToken);
+        if (purchase?.Type == ProposalType.SUPPLY_PURCHASE)
+        {
+            if (purchase.Status != ProposalStatus.PENDING || purchase.ExpiresAt <= _clock.GetUtcNow().UtcDateTime)
+                throw new ConflictException("This purchase proposal is no longer pending.");
+            if (_supplyOrders == null) throw new ConflictException("Supplies are not configured.");
+            if (request.Status is not (ConfirmationStatus.CONFIRMED or ConfirmationStatus.REJECTED)) throw new DomainException("Choose confirm or reject.");
+            using var payload = JsonDocument.Parse(purchase.PayloadJson);
+            var orderId = payload.RootElement.GetProperty("orderId").GetGuid();
+            var order = await _supplyOrders.ReadAsync(purchase.HouseId, orderId, userId, cancellationToken);
+            var sourceOrder = await _unitOfWork.Supplies.OrderAsync(orderId,cancellationToken);
+            if (sourceOrder?.ProposalId != proposalId) throw new ConflictException("This proposal was replaced. Review the current purchase.");
+            await _supplyOrders.DecideAsync(purchase.HouseId, orderId, userId,
+                new ChoreWars.Application.DTOs.Supplies.SupplyDecisionRequest(order.Version, request.Status == ConfirmationStatus.CONFIRMED), cancellationToken);
+            var updated = await _unitOfWork.ActionProposals.GetByIdAsync(proposalId, cancellationToken) ?? throw new NotFoundException("Proposal not found.");
+            var response = Map(updated);
+            await _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken);
+            return response;
+        }
         if (_mutations == null) return await RespondProposalCoreAsync(proposalId, request, userId, cancellationToken);
         var context = await _unitOfWork.ActionProposals.GetByIdAsync(proposalId, cancellationToken)
             ?? throw new NotFoundException(nameof(ActionProposal), proposalId);

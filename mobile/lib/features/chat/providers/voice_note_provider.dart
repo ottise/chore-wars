@@ -10,6 +10,7 @@ import '../data/services/audio_playback_service.dart';
 
 final privateMediaProvider = FutureProvider.autoDispose
     .family<Uint8List, String>((ref, id) async {
+      ref.watch(sessionEpochProvider);
       final lease = ref.keepAlive();
       final cancel = CancelToken();
       ref.onDispose(() => cancel.cancel());

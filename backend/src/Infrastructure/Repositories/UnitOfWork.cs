@@ -12,6 +12,7 @@ public class UnitOfWork : IUnitOfWork
     private IDbContextTransaction? _transaction;
     private int _transactionDepth;
 
+    public ISupplyRepository Supplies { get; }
     public IUserRepository Users { get; }
     public IRefreshTokenRepository RefreshTokens { get; }
     public IHouseRepository Houses { get; }
@@ -60,9 +61,11 @@ public class UnitOfWork : IUnitOfWork
         IPaymentObligationRepository paymentObligations,
         INotificationRepository notifications,
         IChatRepository chats,
-        IActionProposalRepository actionProposals)
+        IActionProposalRepository actionProposals,
+        ISupplyRepository supplies)
     {
         _context = context;
+        Supplies = supplies;
         Users = users;
         RefreshTokens = refreshTokens;
         Houses = houses;

@@ -13,9 +13,7 @@ final seasonRemoteDataSourceProvider = Provider<SeasonRemoteDataSource>((ref) {
 });
 
 final houseRepositoryProvider = Provider<HouseRepository>((ref) {
-  return HouseRepositoryImpl(
-    HouseRemoteDataSource(ref.watch(dioProvider)),
-  );
+  return HouseRepositoryImpl(HouseRemoteDataSource(ref.watch(dioProvider)));
 });
 
 final myHousesProvider = FutureProvider.autoDispose<List<House>>((ref) {
@@ -29,11 +27,8 @@ final houseDetailProvider = FutureProvider.autoDispose.family<House, String>((
   return ref.watch(houseRepositoryProvider).getHouse(houseId);
 });
 
-final houseMembersProvider =
-    FutureProvider.autoDispose.family<List<HouseMember>, String>((
-      ref,
-      houseId,
-    ) {
+final houseMembersProvider = FutureProvider.autoDispose
+    .family<List<HouseMember>, String>((ref, houseId) {
       return ref.watch(houseRepositoryProvider).getMembers(houseId);
     });
 
@@ -50,6 +45,10 @@ final activeSeasonProvider = FutureProvider.autoDispose
     .family<Map<String, dynamic>?, String>((ref, houseId) async {
       final dio = ref.watch(dioProvider);
       final response = await dio.get('/houses/$houseId/seasons/current');
-      return response.data as Map<String, dynamic>?;
+      if (response.statusCode == 204 ||
+          response.data == null ||
+          response.data == '') {
+        return null;
+      }
+      return Map<String, dynamic>.from(response.data as Map);
     });
-

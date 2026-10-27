@@ -192,7 +192,7 @@ public class BountyService : IBountyService
         await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
 
         var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
-        return payments.Select(MapPayment).ToList();
+        return payments.Where(p=>p.Reason!=PaymentObligationReason.HOUSEHOLD_PURCHASE).Select(MapPayment).ToList();
     }
 
     public async Task<PaymentObligationResponse> GetPaymentAsync(Guid houseId, Guid paymentId, Guid userId, CancellationToken cancellationToken = default)
@@ -245,6 +245,9 @@ public class BountyService : IBountyService
         var payment = await _unitOfWork.PaymentObligations.GetByIdAsync(paymentId, cancellationToken);
         if (payment == null)
             throw new NotFoundException(nameof(PaymentObligation), paymentId);
+
+        if (payment.Reason == PaymentObligationReason.HOUSEHOLD_PURCHASE)
+            throw new ConflictException("Use the purchase repayment flow so partial transfers and creditor confirmation are recorded.");
 
         if (payment.CreditorUserId != userId)
             throw new ForbiddenException("Only the creditor can confirm receipt of this payment.");

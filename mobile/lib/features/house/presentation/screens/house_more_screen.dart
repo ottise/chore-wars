@@ -236,7 +236,7 @@ class HouseMoreScreen extends ConsumerWidget {
                 'System Notifications',
                 'Chore updates & household alerts',
                 Icons.notifications_none_outlined,
-                '/notifications',
+                '/notifications?houseId=${Uri.encodeComponent(houseId)}',
               ),
               const Divider(indent: 18, endIndent: 18),
               link(

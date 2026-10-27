@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from app.supplies import SupplyCatalogItem, SupplyCandidate
 
 
 class Contract(BaseModel):
@@ -133,6 +134,7 @@ class LanguageInput(Contract):
     member_names: dict[str, str] = Field(default_factory=dict)
     chore_names: dict[str, str] = Field(default_factory=dict)
     occurrence_names: dict[str, str] = Field(default_factory=dict)
+    supply_catalog: dict[str, SupplyCatalogItem] = Field(default_factory=dict)
     consent_version: str
     purpose: Literal["interpret", "chat", "urgent"] = "interpret"
 
@@ -171,6 +173,8 @@ class LanguageResult(Contract):
         "replan",
         "evolve",
         "urgent",
+        "supply_purchase",
+        "supply_reminder",
         "help",
         "unknown",
     ]
@@ -181,6 +185,7 @@ class LanguageResult(Contract):
     requires_confirmation: Literal[True] = True
     availability: AvailabilityCandidate | None = None
     urgent: UrgentCandidate | None = None
+    supply: SupplyCandidate | None = None
 
 
 class VisionInput(Contract):

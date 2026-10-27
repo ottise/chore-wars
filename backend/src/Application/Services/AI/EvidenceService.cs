@@ -24,7 +24,7 @@ public sealed class EvidenceService(IUnitOfWork uow, IAIStateRepository ai, IMed
             await access.EnsureActiveAsync(task.Chore.HouseId,actor,ct);await access.EnsureWritableAsync(task.Chore.HouseId,ct);
             var old=await ai.EvidenceRequestAsync(occurrenceId,actor,requestId,ct);
             if (old!=null) { if (old.ContentHash!=hash) throw new ConflictException("Evidence request ID has different bytes.");return View(old); }
-            if (task.AssignedUserId!=actor || task.Status is ChoreOccurrenceStatus.COMPLETED or ChoreOccurrenceStatus.SKIPPED) throw new ForbiddenException("Only the current assignee may upload evidence.");
+            if (task.AssignedUserId!=actor || task.Status == ChoreOccurrenceStatus.SKIPPED || (task.Status==ChoreOccurrenceStatus.COMPLETED && task.CompletedByUserId!=actor)) throw new ForbiddenException("Only the current assignee may upload evidence.");
             var season=await uow.Seasons.GetByIdAsync(task.SeasonId,ct) ?? throw new NotFoundException("Season not found.");
             if (season.Status is SeasonStatus.DRAFT or SeasonStatus.REVIEWING or SeasonStatus.CANCELLED || clock.GetUtcNow().UtcDateTime<season.StartDate)
                 throw new ConflictException("Evidence can only be uploaded after the approved season starts.");
@@ -73,4 +73,21 @@ public sealed class EvidenceService(IUnitOfWork uow, IAIStateRepository ai, IMed
     }
 
     private static JsonElement View(ChoreEvidence value) => JsonSerializer.SerializeToElement(new{id=value.Id,occurrence_id=value.OccurrenceId,content_type=value.ContentType,content_hash=value.ContentHash,attached=value.AttachedAt.HasValue});
+    public async Task SaveAsync(Guid occurrenceId, Guid evidenceId, Guid actor, CancellationToken ct)
+    {
+        var occurrence=await uow.ChoreOccurrences.GetByIdAsync(occurrenceId,ct) ?? throw new NotFoundException("Occurrence not found.");
+        await mutations.RunAsync(occurrence.Chore.HouseId,async()=> {
+            var current=await uow.ChoreOccurrences.GetByIdAsync(occurrenceId,ct) ?? throw new NotFoundException("Occurrence not found.");
+            await access.EnsureActiveAsync(current.Chore.HouseId,actor,ct);
+            await access.EnsureWritableAsync(current.Chore.HouseId,ct);
+            if(current.AssignedUserId!=actor || current.Status==ChoreOccurrenceStatus.SKIPPED || (current.Status==ChoreOccurrenceStatus.COMPLETED && current.CompletedByUserId!=actor))
+                throw new ForbiddenException("Only the assignee may save evidence for this chore.");
+            var season=await uow.Seasons.GetByIdAsync(current.SeasonId,ct) ?? throw new NotFoundException("Season not found.");
+            if (season.Status is SeasonStatus.DRAFT or SeasonStatus.REVIEWING or SeasonStatus.CANCELLED || clock.GetUtcNow().UtcDateTime<season.StartDate)
+                throw new ConflictException("Evidence can only be saved after the approved season starts.");
+            await AttachAsync(occurrenceId,evidenceId,actor,ct);
+            uow.ChoreOccurrences.Update(current);
+            return true;
+        },ct);
+    }
 }

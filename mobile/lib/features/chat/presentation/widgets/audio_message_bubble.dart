@@ -202,8 +202,40 @@ class PrivateImageBubble extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => ref
       .watch(privateMediaProvider(attachmentId))
       .when(
-        data: (bytes) =>
-            Image.memory(bytes, width: 240, height: 240, fit: BoxFit.cover),
+        data: (bytes) => Semantics(
+          label: 'Chat photo. Tap to enlarge.',
+          image: true,
+          child: InkWell(
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (context) => Dialog(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: InteractiveViewer(
+                        child: Image.memory(bytes, fit: BoxFit.contain),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                bytes,
+                width: 240,
+                height: 240,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
         loading: () => const SizedBox(
           width: 80,
           height: 80,

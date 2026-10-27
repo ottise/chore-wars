@@ -64,12 +64,15 @@ public class DeadlineReminderWorker : BackgroundService
                     }
                 }
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (ObjectDisposedException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred executing DeadlineReminderWorker.");
             }
 
-            await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken); }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
 }

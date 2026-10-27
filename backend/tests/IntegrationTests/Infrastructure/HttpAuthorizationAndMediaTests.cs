@@ -42,10 +42,32 @@ public class HttpAuthorizationAndMediaTests {
         using var form=new MultipartFormDataContent();form.Add(new StringContent(Guid.NewGuid().ToString()),"clientRequestId");form.Add(new ByteArrayContent(new byte[]{255,216,255,1,2,3,4,5,6,7,8,9}),"file","proof.jpg");
         var upload=await http.PostAsync($"/api/occurrences/{occurrence}/evidence",form);upload.EnsureSuccessStatusCode();
         var evidence=(await upload.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        (await http.PostAsync($"/api/occurrences/{occurrence}/evidence/{evidence}/attach",null)).EnsureSuccessStatusCode();
+        (await http.PostAsync($"/api/occurrences/{occurrence}/evidence/{evidence}/attach",null)).EnsureSuccessStatusCode();
+        var photo=await http.GetAsync($"/api/evidence/{evidence}");photo.EnsureSuccessStatusCode();
+        Assert.Equal(new byte[]{255,216,255,1,2,3,4,5,6,7,8,9},await photo.Content.ReadAsByteArrayAsync());
+        await using(var scope=database.Services.CreateAsyncScope()) {
+            var saved=await scope.ServiceProvider.GetRequiredService<AppDbContext>().ChoreOccurrences.SingleAsync();
+            Assert.Equal(evidence,saved.EvidenceId);Assert.Equal(ChoreOccurrenceStatus.ASSIGNED,saved.Status);Assert.Null(saved.CompletedAt);
+        }
         var review=await http.PostAsJsonAsync($"/api/occurrences/{occurrence}/ai/verify-proof",new{evidenceId=evidence});review.EnsureSuccessStatusCode();
         Assert.False((await review.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("can_complete_automatically").GetBoolean());
         await using var read=database.Services.CreateAsyncScope();Assert.Equal(ChoreOccurrenceStatus.ASSIGNED,(await read.ServiceProvider.GetRequiredService<AppDbContext>().ChoreOccurrences.SingleAsync()).Status);
         ai.Verify(c=>c.PostAsync(house,owner.UserId,"/v1/vision/verify-proof",It.IsAny<object>(),It.IsAny<CancellationToken>()),Times.Once);
+        await using(var scope=database.Services.CreateAsyncScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();var task=await db.ChoreOccurrences.SingleAsync();
+            task.Status=ChoreOccurrenceStatus.COMPLETED;task.CompletedByUserId=owner.UserId;task.CompletedAt=DateTime.UtcNow;
+            (await db.HouseAiSettings.SingleAsync()).Enabled=false;await db.SaveChangesAsync();
+        }
+        using var extra=new MultipartFormDataContent();extra.Add(new StringContent(Guid.NewGuid().ToString()),"clientRequestId");extra.Add(new ByteArrayContent(new byte[]{255,216,255,9,8,7,6,5,4,3,2,1}),"file","later.jpg");
+        var later=await http.PostAsync($"/api/occurrences/{occurrence}/evidence",extra);later.EnsureSuccessStatusCode();
+        var laterId=(await later.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        (await http.PostAsync($"/api/occurrences/{occurrence}/evidence/{laterId}/attach",null)).EnsureSuccessStatusCode();
+        await using(var scope=database.Services.CreateAsyncScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();var task=await db.ChoreOccurrences.SingleAsync();
+            Assert.Equal(laterId,task.EvidenceId);Assert.Equal(ChoreOccurrenceStatus.COMPLETED,task.Status);
+            Assert.Empty(await db.KarmaTransactions.ToListAsync());
+        }
     }
     [PostgresFact] public async Task RealHttpPipelineProtectsHouseAndPrivateMedia() {
         await using var database=await PostgresFixture.CreateAsync();await using var factory=new ApiFactory(database);
@@ -64,6 +86,13 @@ public class HttpAuthorizationAndMediaTests {
         var clientId=Guid.NewGuid();
         var send=await ownerClient.PostAsJsonAsync("/api/media/send",new{RoomId=room,AttachmentId=media,ClientMessageId=clientId});send.EnsureSuccessStatusCode();
         var message=await send.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("IMAGE",message.GetProperty("messageType").GetString());
+        await using(var scope=database.Services.CreateAsyncScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();db.ChatMessages.Add(new ChatMessage{Id=Guid.NewGuid(),RoomId=room,SenderId=owner.UserId,Content="Not a photo",CreatedAt=DateTime.UtcNow});await db.SaveChangesAsync();
+        }
+        var gallery=await ownerClient.GetFromJsonAsync<JsonElement>($"/api/chat/rooms/{room}/photos");
+        Assert.Equal(1,gallery.GetProperty("totalCount").GetInt32());
+        Assert.Equal(media,Assert.Single(gallery.GetProperty("items").EnumerateArray()).GetProperty("attachmentId").GetGuid());
+        Assert.Equal(HttpStatusCode.Forbidden,(await outsiderClient.GetAsync($"/api/chat/rooms/{room}/photos")).StatusCode);
         var retry=await ownerClient.PostAsJsonAsync("/api/media/send",new{RoomId=room,AttachmentId=media,ClientMessageId=clientId});retry.EnsureSuccessStatusCode();
         Assert.Equal(message.GetProperty("id").GetGuid(),(await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
         using var range=new HttpRequestMessage(HttpMethod.Get,$"/api/media/{media}");range.Headers.Range=new RangeHeaderValue(0,3);

@@ -53,11 +53,12 @@ services:
         until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do
           sleep 2
         done
-        for topic in chore.completed bounty.created bounty.accepted chore.overdue bounty.expired season.ended chore.deadline_reminder chat.message_created; do
+        for topic in chore.completed bounty.created bounty.accepted chore.overdue bounty.expired season.ended chore.deadline_reminder chat.message_created supply.notification; do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic $$topic --partitions 1 --replication-factor 1
         done
 
   backend:
+    command: ["--urls", "http://0.0.0.0:8080"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -76,11 +77,22 @@ services:
       - Redis__ConnectionString=redis:6379
       - Kafka__BootstrapServers=kafka:9092
       - MediaStorage__RootPath=/app/private-media
+      - Supplies__PayOS__OperatorUserId=${SUPPLIER_OPERATOR_USER_ID:-00000000-0000-0000-0000-000000000000}
+      - Supplies__PayOS__Enabled=${SUPPLIER_PAYOS_ENABLED:-false}
+      - Supplies__PayOS__ClientId=${SUPPLIER_PAYOS_CLIENT_ID:-}
+      - Supplies__PayOS__ApiKey=${SUPPLIER_PAYOS_API_KEY:-}
+      - Supplies__PayOS__ChecksumKey=${SUPPLIER_PAYOS_CHECKSUM_KEY:-}
+      - Supplies__PayOS__AccountNumber=${SUPPLIER_PAYOS_ACCOUNT_NUMBER:-}
+      - Supplies__PayOS__WebBaseUrl=${SUPPLIER_WEB_BASE_URL:-}
       - Jwt__Secret=${JWT_SECRET:-chorewars_super_secret_key_which_should_be_long_enough_for_hmac_sha256}
+      - Jwt__Issuer=${JWT_ISSUER:-ChoreWars}
+      - Jwt__Audience=${JWT_AUDIENCE:-ChoreWarsUsers}
     ports:
       - "8081:8080"
     volumes:
       - private_media:/app/private-media
+      - avatar_media:/app/.local-data/avatars
+      - data_protection_keys:/app/.data-protection-keys
 
   mobile:
     build:
@@ -95,6 +107,8 @@ services:
 
 volumes:
   private_media:
+  avatar_media:
+  data_protection_keys:
   postgres_data:
   redis_data:
   kafka_data:

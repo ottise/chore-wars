@@ -16,6 +16,14 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IScheduleChangeService, ChoreWars.Application.Services.AI.ScheduleChangeService>();
         services.AddScoped<IEvidenceService, ChoreWars.Application.Services.AI.EvidenceService>();
         services.AddScoped<IUrgentPlanValidation, ChoreWars.Application.Services.AI.UrgentPlanValidation>();
+        services.AddScoped<ISupplyCatalogService, ChoreWars.Application.Services.Supplies.SupplyCatalogService>();
+        services.AddScoped<ISupplyRefundService, ChoreWars.Application.Services.Supplies.SupplyRefundService>();
+        services.AddScoped<ISupplyDisputeService, ChoreWars.Application.Services.Supplies.SupplyDisputeService>();
+        services.AddScoped<ISupplyOrderService, ChoreWars.Application.Services.Supplies.SupplyOrderService>();
+        services.AddScoped<ISupplierPaymentService, ChoreWars.Application.Services.Supplies.SupplierPaymentService>();
+        services.AddScoped<IInternalRepaymentService, ChoreWars.Application.Services.Supplies.InternalRepaymentService>();
+        services.AddScoped<ISupplyReminderService, ChoreWars.Application.Services.Supplies.SupplyReminderService>();
+        services.AddScoped<IUserBankAccountService, ChoreWars.Application.Services.Supplies.UserBankAccountService>();
         // AutoMapper
         services.AddAutoMapper(typeof(AuthService).Assembly);
 
