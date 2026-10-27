@@ -1,0 +1,12 @@
+{
+  "exceptions": [
+    {
+      "package": "AutoMapper",
+      "version": "12.0.1",
+      "advisory": "https://github.com/advisories/GHSA-rvv3-g6hj-g44x",
+      "owner": "ottise (repository maintainer)",
+      "expires": "2026-11-11",
+      "reason": "Existing dependency; requires a separate major-version migration and mapping regression review. Warnings remain visible."
+    }
+  ]
+}

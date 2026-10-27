@@ -58,3 +58,8 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+# Build cloud qua CI
+
+Dùng `scripts/install-flutter.sh` và `scripts/build-render-web.sh` để cài đúng revision Flutter, build release với API/hub Render và sinh `deploy-version.json`. Build cloud mặc định `USE_SAME_ORIGIN=false`; không đưa secret vào dart-define. Docker local vẫn dùng nginx proxy `backend:8080` và `USE_SAME_ORIGIN=true`; không dùng image local đó trực tiếp cho Render. FE cloud dùng static hosting với artifact `build/web`, thiết lập SPA rewrite `/*` → `/index.html` và tắt cache cho `deploy-version.json`.
+
+Các biến và hướng dẫn kích hoạt nằm ở [CI/CD runbook](../scripts/ci/README.md).

@@ -1,0 +1,144 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with: {global-json-file: global.json}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - run: dotnet restore backend/ChoreWars.slnx
+      - run: |
+          mkdir -p artifacts/ci
+          dotnet list backend/ChoreWars.slnx package --vulnerable --include-transitive --format json --no-restore > artifacts/ci/nuget-audit.json
+          python -m scripts.ci.audit_dependencies artifacts/ci/nuget-audit.json
+      - run: dotnet test backend/tests/UnitTests -c Release --no-restore --logger 'trx;LogFileName=unit.trx' --results-directory artifacts/ci
+      - run: python -m scripts.ci.check_results artifacts/ci/unit.trx
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python -m scripts.ci.migration_manifest --base-ref "${BASE_SHA:-0000000000000000000000000000000000000000}" --output artifacts/ci/migration-manifest.json
+      - run: python -m scripts.ci.source_policy
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with: {name: backend-unit, path: 'artifacts/ci/', retention-days: 7, if-no-files-found: error}
+  runtime-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CHOREWARS_TEST_POSTGRES: Host=127.0.0.1;Port=55435;Database=postgres;Username=ci;Password=ci-disposable-only
+      CHOREWARS_TEST_KAFKA: localhost:59094
+      CHOREWARS_TEST_AI_URL: http://127.0.0.1:18011
+      CHOREWARS_TEST_AI_KEY: ci-contract-key-local-only-at-least-32
+      AI_ENVIRONMENT: test
+      AI_SERVICE_KEY: ci-contract-key-local-only-at-least-32
+      AI_DATABASE_URL: sqlite:////tmp/chorewars-contract.db
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with: {global-json-file: global.json}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - run: docker compose -p cw-ci -f docker-compose.ci.yml up -d --wait --wait-timeout 180
+      - run: echo 'CHOREWARS_TEST_KAFKA_CONTAINER=cw-runtime-kafka-00000000000000000000000000000001' >> "$GITHUB_ENV"
+      - run: pip install -r ai-service/requirements.lock
+      - run: pip install --no-deps -e ai-service
+      - run: pip check
+      - name: Start local contract fixture
+        working-directory: ai-service
+        run: |
+          python -m uvicorn tests.contract_server:app --factory --host 127.0.0.1 --port 18011 > /tmp/contract.log 2>&1 &
+          python ../scripts/ci/wait_http.py http://127.0.0.1:18011/health/live
+      - run: dotnet build backend/ChoreWars.slnx -c Release
+      - run: dotnet test backend/tests/IntegrationTests -c Release --no-build --logger 'trx;LogFileName=runtime.trx' --results-directory artifacts/ci
+      - run: python -m scripts.ci.check_results artifacts/ci/runtime.trx
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with: {name: runtime-integration, path: 'artifacts/ci/*.trx', retention-days: 7, if-no-files-found: error}
+      - if: always()
+        run: docker compose -p cw-ci -f docker-compose.ci.yml down -v
+  ai-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AI_TEST_POSTGRES_ADMIN: postgresql://ci:ci-disposable-only@127.0.0.1:55435/postgres
+      AI_TEST_KAFKA: localhost:59094
+      CHOREWARS_DEMO_POSTGRES_ADMIN: Host=127.0.0.1;Port=55435;Database=postgres;Username=ci;Password=ci-disposable-only
+      AI_CORE_DEMO_MANIFEST: ${{ github.workspace }}/artifacts/ci/core-demo/manifest.json
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with: {global-json-file: global.json}
+      - run: docker compose -p cw-ai-ci -f docker-compose.ci.yml up -d --wait --wait-timeout 180
+      - run: dotnet run --project backend/tools/AIDemo -c Release -- --seed 42 --months 1 --output artifacts/ci/core-demo
+      - run: pip install -r ai-service/requirements.lock -r scripts/ci/requirements-test.txt
+      - run: pip install --no-deps -e ai-service
+      - run: pip check
+      - run: python -m pytest scripts/ci/tests -q --junitxml=artifacts/ci/gates.xml
+      - name: Python dependency audit
+        run: pipx run --spec pip-audit==2.9.0 pip-audit --no-deps --disable-pip -r ai-service/requirements.lock --format json --output artifacts/ci/pip-audit.json
+      - working-directory: ai-service
+        run: python -m pytest -q --junitxml=../artifacts/ci/ai.xml
+      - run: python -m scripts.ci.check_results artifacts/ci/gates.xml artifacts/ci/ai.xml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with: {name: ai-tests, path: 'artifacts/ci/*.xml', retention-days: 7, if-no-files-found: error}
+      - if: always()
+        run: docker compose -p cw-ai-ci -f docker-compose.ci.yml down -v
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {persist-credentials: false}
+      - run: bash mobile/scripts/install-flutter.sh
+      - working-directory: mobile
+        run: flutter pub get --enforce-lockfile
+      - working-directory: mobile
+        run: flutter analyze lib test
+      - working-directory: mobile
+        run: flutter test
+      - run: bash mobile/scripts/build-render-web.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: {name: frontend-web, path: mobile/build/web, retention-days: 7, if-no-files-found: error}
+  container-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        context: [backend, ai-service, mobile]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {persist-credentials: false}
+      - run: docker build --build-arg BUILD_COMMIT="$GITHUB_SHA" -t cw-ci-image "${{ matrix.context }}"
+  ci-required:
+    if: always()
+    needs: [backend-unit, runtime-integration, ai-tests, flutter, container-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          JOBS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json, os
+          jobs = json.loads(os.environ['JOBS'])
+          assert jobs and all(v['result'] == 'success' for v in jobs.values()), 'Required CI job failed, skipped or canceled'
+          PY

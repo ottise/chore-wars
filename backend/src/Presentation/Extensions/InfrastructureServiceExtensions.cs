@@ -83,6 +83,10 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<SupplierPaymentReconciliationWorker>();
         services.AddHostedService<SupplyNotificationConsumer>();
 
+        services.AddScoped<IDatabaseSchemaStatus, DatabaseSchemaStatus>();
+        services.AddScoped<IDependencyHealthService, ChoreWars.Infrastructure.Diagnostics.DependencyHealthService>();
+        services.AddSingleton<IWorkerHealthRegistry, ChoreWars.Infrastructure.Diagnostics.WorkerHealthRegistry>();
+
         // Redis
         var redisConnStr = configuration["Redis:ConnectionString"] ?? "localhost:6379";
         var redisOptions = ConfigurationOptions.Parse(redisConnStr);

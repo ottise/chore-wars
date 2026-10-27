@@ -1,0 +1,62 @@
+name: Reviewed database migration
+on:
+  workflow_dispatch:
+    inputs:
+      sha: {description: 'Full SHA on main', required: true}
+      target: {type: choice, options: [core, ai], required: true}
+      from_revision: {description: 'AI: current Alembic revision, or base for an empty DB', default: base, required: true}
+      apply: {type: boolean, default: false, description: 'Apply only after a previous review run', required: true}
+      sql_sha256: {description: 'SHA256 from reviewed SQL artifact; required for apply', required: false}
+      backup_reference: {description: 'Verified backup/snapshot reference; required for apply', required: false}
+permissions:
+  contents: read
+concurrency:
+  group: production-database-${{ inputs.target }}
+  cancel-in-progress: false
+jobs:
+  review:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+      TARGET: ${{ inputs.target }}
+      MIGRATION_FROM_REVISION: ${{ inputs.from_revision }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {ref: '${{ inputs.sha }}', fetch-depth: 0, persist-credentials: false}
+      - run: git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with: {global-json-file: global.json}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - run: pip install -r ai-service/requirements.lock
+      - run: |
+          bash scripts/ci/migrate_database.sh review "$TARGET"
+          python -m scripts.ci.migration_manifest --output artifacts/migrations/manifest.json
+          cat artifacts/migrations/sha256.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: {name: reviewed-migrations, path: artifacts/migrations, retention-days: 14, if-no-files-found: error}
+  apply:
+    needs: review
+    if: inputs.apply && vars.DB_MIGRATIONS_ENABLED == 'true'
+    environment: production-db
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_SHA: ${{ inputs.sha }}
+      TARGET: ${{ inputs.target }}
+      EXPECTED_SQL_SHA256: ${{ inputs.sql_sha256 }}
+      BACKUP_REFERENCE: ${{ inputs.backup_reference }}
+      PRODUCTION_DB_APPROVED: 'true'
+      MIGRATION_FROM_REVISION: ${{ inputs.from_revision }}
+      MIGRATION_DATABASE_URL: ${{ inputs.target == 'core' && secrets.CORE_MIGRATION_DATABASE_URL || secrets.AI_MIGRATION_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with: {ref: '${{ inputs.sha }}', persist-credentials: false}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with: {name: reviewed-migrations, path: artifacts/migrations}
+      - run: pip install -r scripts/ci/requirements-deploy.txt
+      - run: bash scripts/ci/migrate_database.sh apply "$TARGET"

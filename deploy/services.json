@@ -1,0 +1,18 @@
+{
+  "profiles": {
+    "core": ["backend", "ai", "ai-service-auth", "database", "ai-database"],
+    "full": ["backend", "ai", "ai-service-auth", "frontend", "database", "ai-database", "kafka", "workers", "ai-worker", "trainer", "media"]
+  },
+  "services": {
+    "backend": {"kind":"web", "serviceId":"srv-dbg5812jnfac73fag7r0", "url":"https://chore-wars-o3rm.onrender.com", "sourcePaths":["backend/"], "dependsOn":["database", "ai"], "order":2},
+    "ai": {"kind":"web", "serviceIdEnv":"RENDER_AI_SERVICE_ID", "url":"https://chorewars-ai.onrender.com", "sourcePaths":["ai-service/"], "dependsOn":["ai-database"], "order":1},
+    "frontend": {"kind":"static", "serviceIdEnv":"RENDER_FRONTEND_SERVICE_ID", "urlEnv":"FRONTEND_URL", "sourcePaths":["mobile/"], "dependsOn":["backend"], "order":3},
+    "database":{"kind":"schema"}, "ai-database":{"kind":"schema"},
+    "ai-service-auth":{"kind":"dependency"},
+    "kafka":{"kind":"dependency"}, "workers":{"kind":"dependency"},
+    "ai-worker":{"kind":"worker", "configured":false},
+    "trainer":{"kind":"worker", "configured":false},
+    "media":{"kind":"storage", "configured":false},
+    "redis":{"kind":"optional-cache"}
+  }
+}

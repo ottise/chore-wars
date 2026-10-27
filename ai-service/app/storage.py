@@ -165,7 +165,10 @@ def canonical_hash(value: Any) -> str:
 
 class EvaluationStore:
     def __init__(self, url: str):
-        self.engine = create_engine(url, pool_pre_ping=True)
+        self.engine = create_engine(url, pool_pre_ping=True, **(
+            {"connect_args": {"connect_timeout": 2}, "pool_timeout": 2}
+            if url.startswith("postgresql") else {}
+        ))
 
     def ingest(self, event: Event) -> bool:
         data = event.model_dump(mode="json")

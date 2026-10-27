@@ -28,6 +28,8 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
 
     private async Task ConsumeLoop(CancellationToken ct)
     {
+        using var healthScope = _scopeFactory.CreateScope();
+        var health = healthScope.ServiceProvider.GetService<IWorkerHealthRegistry>();
         using var consumer = new ConsumerBuilder<string,string>(new ConsumerConfig(_options.ConnectionConfig()) {
             GroupId = _options.ConsumerGroupId,
             AutoOffsetReset = AutoOffsetReset.Earliest, EnableAutoCommit = false, EnableAutoOffsetStore = false,
@@ -41,7 +43,8 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
                 ConsumeResult<string,string>? current = null;
                 try
                 {
-                    current = consumer.Consume(ct);
+                    current = consumer.Consume(TimeSpan.FromSeconds(1));
+                    health?.Heartbeat(_topic);
                     if (current?.Message == null) continue;
                     var key = current.Message.Key ?? current.TopicPartitionOffset.ToString();
                     var payload = current.Message.Value ?? "null";
@@ -76,7 +79,7 @@ public abstract class KafkaConsumerBase<TEvent> : BackgroundService
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-        finally { consumer.Close(); }
+        finally { health?.Stopped(_topic); consumer.Close(); }
     }
 
     private async Task ProcessOnce(string key, string payload, CancellationToken ct)

@@ -9,6 +9,8 @@ using Microsoft.Extensions.Options;
 namespace ChoreWars.Infrastructure.Workers;
 public sealed class OutboxDispatcherWorker(IServiceScopeFactory scopes, IOptions<KafkaOptions> options, ILogger<OutboxDispatcherWorker> logger) : BackgroundService {
     protected override async Task ExecuteAsync(CancellationToken ct) {
+        using var healthScope = scopes.CreateScope();
+        var health = healthScope.ServiceProvider.GetService<ChoreWars.Application.Interfaces.Services.IWorkerHealthRegistry>();
         using var producer = new ProducerBuilder<string, string>(new ProducerConfig(options.Value.ConnectionConfig()) { EnableIdempotence = true, MessageTimeoutMs = 10000 }).Build();
         while (!ct.IsCancellationRequested) {
             try {
@@ -18,12 +20,14 @@ public sealed class OutboxDispatcherWorker(IServiceScopeFactory scopes, IOptions
                 var messages = await db.OutboxMessages.FromSqlRaw("SELECT * FROM \"OutboxMessages\" WHERE \"PublishedAt\" IS NULL ORDER BY \"CreatedAt\" LIMIT 50 FOR UPDATE SKIP LOCKED").ToListAsync(ct);
                 foreach (var message in messages) {
                     await producer.ProduceAsync(options.Value.TopicPrefix + message.Topic, new Message<string, string> { Key = message.MessageKey ?? message.Id.ToString(), Value = message.Payload }, ct);
+                    health?.Heartbeat("outbox");
                     await scope.ServiceProvider.GetRequiredService<ChoreWars.Infrastructure.Diagnostics.IRuntimeProbe>().HitAsync("outbox.after-publish",ct);
                     message.PublishedAt = DateTime.UtcNow;
                 }
                 await db.SaveChangesAsync(ct);
                 await scope.ServiceProvider.GetRequiredService<ChoreWars.Infrastructure.Diagnostics.IRuntimeProbe>().HitAsync("outbox.before-commit",ct);
                 await tx.CommitAsync(ct);
+                health?.Heartbeat("outbox");
             } catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex) {
                 logger.LogError(ex, "Outbox dispatch failed; unpublished events will retry.");
@@ -32,5 +36,6 @@ public sealed class OutboxDispatcherWorker(IServiceScopeFactory scopes, IOptions
             }
             try { await Task.Delay(TimeSpan.FromSeconds(2), ct); } catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
         }
+        health?.Stopped("outbox");
     }
 }

@@ -42,6 +42,7 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddPresentationServices();
+builder.Services.Configure<ChoreWars.Presentation.Health.DeploymentHealthOptions>(builder.Configuration.GetSection("DeploymentHealth"));
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.PostConfigure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(options =>

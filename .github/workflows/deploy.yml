@@ -1,0 +1,80 @@
+name: Deploy verified main
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: render-production
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event != 'pull_request' && vars.CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    environment: production
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      CORE_READONLY_DATABASE_URL: ${{ secrets.CORE_READONLY_DATABASE_URL }}
+      AI_READONLY_DATABASE_URL: ${{ secrets.AI_READONLY_DATABASE_URL }}
+      DEPLOYMENT_HEALTH_KEY: ${{ secrets.DEPLOYMENT_HEALTH_KEY }}
+      RENDER_AI_SERVICE_ID: ${{ vars.RENDER_AI_SERVICE_ID }}
+      RENDER_BACKEND_SERVICE_ID: srv-dbg5812jnfac73fag7r0
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject superseded main before any deployment
+        run: test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
+      - run: pip install -r scripts/ci/requirements-deploy.txt
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: backend-unit
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: artifacts/ci
+      - name: Check tested migration manifest and read-only schema
+        run: |
+          python -m scripts.ci.migration_manifest --output artifacts/current-manifest.json
+          cmp artifacts/current-manifest.json artifacts/ci/migration-manifest.json
+          mkdir -p artifacts/release
+          python -m scripts.ci.schema_gate --manifest artifacts/current-manifest.json --output artifacts/release/schema.json
+      - name: Deploy AI at tested SHA
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_AI_DEPLOY_HOOK }}
+        run: python -m scripts.ci.render_deploy --service "$RENDER_AI_SERVICE_ID" --sha "$RELEASE_SHA" --output artifacts/release/deploy-ai.json
+      - run: python -m scripts.ci.smoke_test --url https://chorewars-ai.onrender.com --kind ai --sha "$RELEASE_SHA" --output artifacts/release/smoke-ai.json
+      - name: Deploy backend at tested SHA
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}
+        run: python -m scripts.ci.render_deploy --service "$RENDER_BACKEND_SERVICE_ID" --sha "$RELEASE_SHA" --output artifacts/release/deploy-backend.json
+      - run: python -m scripts.ci.smoke_test --url https://chore-wars-o3rm.onrender.com --kind backend --sha "$RELEASE_SHA" --output artifacts/release/smoke-backend.json
+      - name: Optional frontend deployment
+        if: vars.FRONTEND_ENABLED == 'true'
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}
+          FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+        run: |
+          python -m scripts.ci.render_deploy --service "$FRONTEND_SERVICE_ID" --sha "$RELEASE_SHA" --output artifacts/release/deploy-frontend.json
+          python -m scripts.ci.smoke_test --url "$FRONTEND_URL" --kind frontend --sha "$RELEASE_SHA" --output artifacts/release/smoke-frontend.json
+      - name: Release result
+        if: always()
+        run: |
+          mkdir -p artifacts/release
+          python -m scripts.ci.check_release --reports artifacts/release --sha "$RELEASE_SHA" --output artifacts/release/release-report.json
+      - name: Save last known good metadata
+        run: cp artifacts/release/release-report.json artifacts/release/last-known-good.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with: {name: 'release-${{ github.event.workflow_run.head_sha }}', path: artifacts/release, retention-days: 30, if-no-files-found: error}
+      - if: always()
+        run: cat artifacts/release/release-report.json >> "$GITHUB_STEP_SUMMARY"

@@ -1,7 +1,7 @@
-using ChoreWars.Infrastructure.Data;
+using ChoreWars.Application.Interfaces.Services;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace ChoreWars.Presentation.Health;
-public sealed class DatabaseReadinessCheck(AppDbContext db):IHealthCheck {
+public sealed class DatabaseReadinessCheck(IDatabaseSchemaStatus schema):IHealthCheck {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context,CancellationToken cancellationToken=default)
-        => await db.Database.CanConnectAsync(cancellationToken)?HealthCheckResult.Healthy():HealthCheckResult.Unhealthy("Database is unavailable.");
+        => (await schema.CheckAsync(cancellationToken)).Ready ? HealthCheckResult.Healthy() : HealthCheckResult.Unhealthy("Database schema is not ready.");
 }

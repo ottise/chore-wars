@@ -1,5 +1,9 @@
 # Tài liệu triển khai và nghiệm thu Chore Wars
 
+- [CI/CD GitHub Actions → Render — cập nhật 28/10/2026](github-actions-render-cicd-plan.vi.md): PR checks, PostgreSQL/Kafka tạm, auto deploy đúng SHA, health/dependency/smoke gates, migration riêng, rollback và checklist chạy độc lập Docker local. Có inventory tình trạng cloud hiện tại, secret và manifest file; đang ở bước kế hoạch, chưa tạo workflow.
+
+- [Chi tiết từng file CI/CD và health — 28/10/2026](github-actions-render-cicd-file-manifest.vi.md): tạo/sửa/có điều kiện, công việc cụ thể, input/output, caller/callee, test, thứ tự triển khai và các cấu hình GitHub/Render/Aiven phải làm ngoài source. Đây là phụ lục kế hoạch, chưa thực thi.
+
 - [Mua đồ thiết yếu, supplier, nợ trực tiếp và AI nhắc mua — 27/10/2026](household-supplies-supplier-and-ai-plan.vi.md): hai luồng manual/AI, payOS trả supplier, nội bộ hoàn trực tiếp người ứng; không gom quỹ/bù trừ. Mục 13–18 có future feature ngân hàng cá nhân, kiến trúc, manifest file sửa/tạo và luồng gọi giữa file. Chưa triển khai.
 
 - [Đồng bộ main trước khi triển khai AI — 20/10/2026](../reports/main-sync-2026-10-20.vi.md): quyết định hợp nhất urgent event, swap thủ công, season review, chat và kiểm thử hồi quy. Đọc cùng source hiện tại trước khi triển khai AI.
@@ -26,3 +30,6 @@ Các kế hoạch cũ được giữ để tham khảo lịch sử. Tài liệu 
 - [Kế hoạch thực thi PostgreSQL, E2E đa tài khoản, SignalR/session/media, Kafka crash và Android thật](runtime-verification-execution-plan.vi.md): năm đợt A–E, manifest test/harness cần code, thứ tự chạy, tiêu chí PASS và bằng chứng. Dùng Flutter debug; chưa làm APK release/deploy hoặc payOS.
 
 - [Biên bản kiểm chứng source non-AI mới nhất](../reports/non-ai-runtime-verification-2026-10-20.vi.md): 55 unit, 27 integration, 12 Flutter test PASS; gồm 6 PostgreSQL bắt buộc, 10 Kafka thật, hard crash/restart, journey 3/6 actor và UI quản trị lỗi theo owner. [Runbook chạy lại](../testing/runtime-execution-runbook.vi.md). Android thật/release/payOS vẫn hoãn theo scope người dùng.
+# Tiến độ CI/CD
+
+Workflow và scripts của kế hoạch GitHub Actions → Render đã có trong source. Cấu hình và các bước kích hoạt production nằm tại [CI/CD runbook](../../scripts/ci/README.md); CD chưa bật nếu chưa đặt `CD_ENABLED=true` cùng environment secrets/protection.

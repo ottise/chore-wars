@@ -15,6 +15,7 @@ from app.dataset import build_dataset
 from app.evaluation import comparison, persist_comparison
 from app.labels import readiness
 from app.provider import GeminiClient, ProviderUnavailable
+from app.readiness import build_version, schema_status
 from app.registry import predict_observed
 from app.schemas import (
     Event,
@@ -53,7 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         x_actor_id: Annotated[str, Header()] = "",
         x_core_sequence: Annotated[int | None, Header(ge=0)] = None,
     ):
-        if not hmac.compare_digest(x_ai_key, config.service_key.get_secret_value()):
+        if not hmac.compare_digest(x_ai_key.encode(), config.service_key.get_secret_value().encode()):
             raise HTTPException(401, "Service authentication required")
         try:
             house, actor = UUID(x_house_id), UUID(x_actor_id)
@@ -76,12 +77,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @api.get("/health/ready")
     def ready():
-        with store.engine.connect() as db:
-            db.execute(text("select 1"))
-        return {
-            "status": "ready",
+        status = schema_status(store.engine)
+        return JSONResponse(status_code=200 if status["ready"] else 503,
+                            content={"status": "ready" if status["ready"] else "not_ready"})
+
+    @api.get("/health/version")
+    def version():
+        return {"sha": build_version()}
+
+    @api.get("/health/service-auth")
+    def service_auth(x_ai_key: Annotated[str, Header()] = ""):
+        if not hmac.compare_digest(x_ai_key.encode(), config.service_key.get_secret_value().encode()):
+            raise HTTPException(401, "Service authentication required")
+        status = schema_status(store.engine)
+        return JSONResponse(status_code=200 if status["ready"] else 503, content={
+            "authenticated": True, "schema_ready": status["ready"],
             "provider_configured": bool(config.gemini_api_key.get_secret_value()),
-        }
+            "worker": "unverified", "trainer": "unverified",
+        })
 
     @api.get("/v1/houses/{house}/profiles")
     def get_profiles(

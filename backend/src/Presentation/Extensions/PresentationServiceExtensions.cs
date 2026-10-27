@@ -16,6 +16,7 @@ public static class PresentationServiceExtensions
         });
         
         services.AddEndpointsApiExplorer();
+        services.AddScoped<ChoreWars.Presentation.Authorization.DeploymentHealthAuthorizationFilter>();
         services.AddSignalR();
         services.AddSingleton<ChatConnectionRegistry>();
         services.AddScoped<IHouseRealtimeAccess, HouseRealtimeAccess>();
