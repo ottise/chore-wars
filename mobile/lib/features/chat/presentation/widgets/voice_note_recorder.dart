@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 
 import '../../providers/voice_note_provider.dart';
 import '../../data/services/voice_file.dart';
+import '../../../../core/utils/api_error_message.dart';
 
 class VoiceNoteRecorder extends ConsumerStatefulWidget {
   const VoiceNoteRecorder({super.key, required this.onSend});
@@ -105,7 +106,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
   void _error(Object error) {
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+          .showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
     }
   }
 

@@ -8,21 +8,35 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/storage/local_storage.dart';
 import 'core/widgets/web_preview_frame.dart';
+import 'core/widgets/app_error_fallback.dart';
+import 'core/utils/app_error_reporter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  AppConstants.validateReleaseConfiguration();
+  AppErrorReporter.install();
+  try {
+    AppConstants.validateReleaseConfiguration();
 
-  final sharedPreferences = await SharedPreferences.getInstance();
+    final sharedPreferences = await SharedPreferences.getInstance();
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-      ],
-      child: const ChoreWarsApp(),
-    ),
-  );
+    runApp(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+        ],
+        child: const ChoreWarsApp(),
+      ),
+    );
+  } catch (error, stack) {
+    AppErrorReporter.report(error, stack);
+    runApp(
+      MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        home: const Scaffold(body: AppErrorFallback()),
+      ),
+    );
+  }
 }
 
 class ChoreWarsApp extends ConsumerWidget {
@@ -35,6 +49,7 @@ class ChoreWarsApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Chore Wars',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: AppErrorReporter.messengerKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,

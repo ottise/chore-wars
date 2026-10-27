@@ -7,7 +7,6 @@ import '../../../../core/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -77,6 +76,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
@@ -84,7 +85,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Enter your email';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Enter your email';
+                    }
                     if (!v.contains('@')) return 'Enter a valid email';
                     return null;
                   },
@@ -92,6 +95,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  enableIMEPersonalizedLearning: false,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
@@ -116,6 +122,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  enableIMEPersonalizedLearning: false,
                   obscureText: _obscureConfirm,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _submit(),
@@ -134,7 +143,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     errorText: _errorMessage,
                   ),
                   validator: (v) {
-                    if (v != _passwordCtrl.text) return 'Passwords do not match';
+                    if (v != _passwordCtrl.text) {
+                      return 'Passwords do not match';
+                    }
                     return null;
                   },
                 ),
@@ -171,11 +182,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     try {
-      await ref.read(authStateProvider.notifier).register(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
-        displayName: _displayNameCtrl.text.trim(),
-      );
+      await ref
+          .read(authStateProvider.notifier)
+          .register(
+            email: _emailCtrl.text.trim(),
+            password: _passwordCtrl.text,
+            displayName: _displayNameCtrl.text.trim(),
+          );
       if (mounted) {
         showAppMessage(context, 'Account created. Please sign in.');
         context.go('/login');

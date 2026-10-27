@@ -6,10 +6,12 @@ String apiErrorMessage(Object error) {
   }
 
   final data = error.response?.data;
+  final status = error.response?.statusCode;
+  if (status != null && status >= 500) return _statusMessage(status);
   if (data is Map) {
     final detail = _mapValue(data, 'detail') ?? _mapValue(data, 'message');
-    if (detail is String && detail.trim().isNotEmpty) {
-      return detail;
+    if (_safeMessage(detail)) {
+      return (detail as String).trim();
     }
 
     final errors = _mapValue(data, 'errors');
@@ -17,22 +19,23 @@ String apiErrorMessage(Object error) {
       final messages = <String>[];
       for (final value in errors.values) {
         if (value is Iterable) {
-          messages.addAll(value.whereType<String>());
+          messages.addAll(value.whereType<String>().where(_safeMessage));
         } else if (value is String) {
-          messages.add(value);
+          if (_safeMessage(value)) messages.add(value);
         }
       }
       if (messages.isNotEmpty) {
-        return messages.join('\n');
+        return messages.toSet().take(3).join('\n');
       }
     }
 
     final title = _mapValue(data, 'title');
-    if (title is String && title.trim().isNotEmpty) return title;
+    if (_safeMessage(title)) return (title as String).trim();
   }
 
   return switch (error.type) {
-    DioExceptionType.connectionTimeout => 'Could not connect to the server. Check that the API is running and try again.',
+    DioExceptionType.connectionTimeout =>
+      'We could not connect right now. Please try again in a moment.',
     DioExceptionType.sendTimeout =>
       'The server took too long to accept the request. Please try again.',
     DioExceptionType.receiveTimeout =>
@@ -40,14 +43,29 @@ String apiErrorMessage(Object error) {
     DioExceptionType.transformTimeout =>
       'The server response took too long to process. Please try again.',
     DioExceptionType.connectionError =>
-      'Cannot reach the server. Check your network connection and API address.',
+      'Could not connect. Check your connection and try again.',
     DioExceptionType.badCertificate =>
-      'The server security certificate could not be verified.',
+      'A secure connection could not be established. Please try again later.',
     DioExceptionType.cancel => 'The request was cancelled.',
     DioExceptionType.badResponse => _statusMessage(error.response?.statusCode),
-    DioExceptionType.unknown => 'A network error occurred. Check that the server is running and try again.',
+    DioExceptionType.unknown =>
+      'We could not connect right now. Please try again in a moment.',
   };
 }
+
+final _technicalDetails = RegExp(
+  r'exception|stack\s*trace|sqlstate|npgsql|system\.|microsoft\.|'
+  r'assertion|traceback|package:|file://|\.dart:\d|\.cs:\d|'
+  r'\bat\s+\S+\([^)]*\)|<html|<!doctype|connectionstring|password\s*=',
+  caseSensitive: false,
+);
+
+bool _safeMessage(Object? value) =>
+    value is String &&
+    value.trim().isNotEmpty &&
+    value.length <= 350 &&
+    value.split('\n').length <= 3 &&
+    !_technicalDetails.hasMatch(value);
 
 Object? _mapValue(Map<dynamic, dynamic> map, String key) {
   for (final entry in map.entries) {

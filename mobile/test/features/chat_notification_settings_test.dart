@@ -65,7 +65,10 @@ void main() {
         ]);
         expect(find.byType(SwitchListTile), findsNothing);
         if (failSave) {
-          expect(find.text('Please retry later.'), findsOneWidget);
+          expect(
+            find.text('The server encountered an error. Please try again later.'),
+            findsOneWidget,
+          );
           expect(find.byTooltip('Mute Chat Notifications'), findsOneWidget);
         } else {
           expect(find.byIcon(Icons.notifications_off_outlined), findsOneWidget);

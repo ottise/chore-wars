@@ -36,10 +36,12 @@ class _AchievementShareCardState extends State<AchievementShareCard> {
           sharePositionOrigin: render.localToGlobal(Offset.zero) & render.size,
         ),
       );
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share achievement: $error')),
+          const SnackBar(
+            content: Text('Could not share the achievement. Please try again.'),
+          ),
         );
       }
     } finally {

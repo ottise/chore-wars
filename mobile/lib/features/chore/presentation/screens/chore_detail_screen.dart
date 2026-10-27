@@ -436,11 +436,11 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     selectedImageBytes = bytes;
                   });
                 }
-              } catch (e) {
+              } catch (_) {
                 if (context.mounted) {
                   showAppMessage(
                     context,
-                    'Unable to select photo: $e',
+                    'Could not select the photo. Check photo access and try again.',
                     error: true,
                   );
                 }

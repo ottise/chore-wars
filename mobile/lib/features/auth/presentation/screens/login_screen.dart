@@ -161,6 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 enabled: !_isLoading,
                                 autofillHints: const [AutofillHints.password],
                                 obscureText: _obscurePassword,
+                                enableIMEPersonalizedLearning: false,
                                 autocorrect: false,
                                 enableSuggestions: false,
                                 textInputAction: TextInputAction.done,
@@ -177,10 +178,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             : 'Hide Password',
                                         onPressed: _isLoading
                                             ? null
-                                            : () => setState(
-                                                () => _obscurePassword =
-                                                    !_obscurePassword,
-                                              ),
+                                            : () {
+                                                FocusScope.of(context)
+                                                    .unfocus();
+                                                setState(
+                                                  () => _obscurePassword =
+                                                      !_obscurePassword,
+                                                );
+                                              },
                                         icon: Icon(
                                           _obscurePassword
                                               ? Icons.visibility_off_outlined

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/api_error_message.dart';
 
 class BonusChoresScreen extends ConsumerStatefulWidget {
   const BonusChoresScreen({
@@ -65,7 +66,7 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
       }
     }
   }
