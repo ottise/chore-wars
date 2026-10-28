@@ -1,16 +1,21 @@
 # chore_wars
 
-## Run frontend normally
+## Fixed frontend origin
 
-From the `mobile` directory, run:
+The frontend origin is **http://localhost:7357**. In a new PowerShell terminal,
+run `flutter run` from this repository or `mobile`; the installed project shortcut
+starts the fixed-port launcher. The shortcut is scoped to bare `flutter run` in
+this checkout. Other Flutter commands and other projects use the original SDK.
 
-```powershell
-flutter run
-```
+On another Windows machine, run `./mobile/scripts/install-flutter-shortcut.ps1`
+once from the repository root, then open a new PowerShell terminal. To load it
+in an existing terminal after stopping Flutter: `. $PROFILE.CurrentUserAllHosts`.
+Alternatively run `./scripts/run-web.ps1` from mobile or use the VS Code launch
+configuration **Chore Wars Web (localhost:7357)**.
 
-Flutter selects its device and port normally. The project PowerShell shortcut
-has been removed. In VS Code, select **Chore Wars Web** and press F5; Chrome
-uses Flutter's automatically selected port.
+If 7357 is occupied, stop the previous frontend. The launcher reports the occupied
+port and does not silently switch to a random one. It waits for JavaScript before
+opening Chrome. Use `-NoBrowser` to open the URL yourself.
 
 ## Backend connection
 
@@ -25,22 +30,18 @@ refresh of an already-running development build does not recompile the app.
 To use a local backend explicitly:
 
 ```powershell
-flutter run -d chrome --dart-define-from-file=config/google.json --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
+flutter run -d chrome --web-hostname localhost --web-port 7357 --dart-define-from-file=config/google.json --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
 ```
 
 For an Android emulator, replace `localhost` with `10.0.2.2`. Web deployments
 using `USE_SAME_ORIGIN=true` still route through their own `/api` and `/hubs` proxy.
 
-## Optional launch helper
+## Google OAuth origin
 
-`./scripts/run-web.ps1` runs the original Flutter SDK and loads
-`config/google.json`. It leaves port/device selection to Flutter by default.
-Use `-NoBrowser` for the web-server device and open the printed URL yourself.
-An explicit `-Port` is optional, never the default.
-
-Google OAuth requires the actual browser origin, including its current port,
-to be registered under Authorized JavaScript origins. Update that origin when
-testing Google after a port change. The Web Client ID remains configured.
+Register `http://localhost` and `http://localhost:7357` as Authorized JavaScript
+origins for the configured Google Client ID. Frontend deployments must also have
+their actual HTTPS origin registered. Changing backend environment variables
+does not register a frontend origin with Google.
 
 Messages about newer package versions are informational. An AI offline screen
 is a separate backend/service configuration status, not a browser launch failure.

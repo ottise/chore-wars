@@ -2,13 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Chore Wars Web",
+      "name": "Chore Wars Web (localhost:7357)",
       "request": "launch",
       "type": "dart",
       "deviceId": "chrome",
       "program": "mobile/lib/main.dart",
       "cwd": "mobile",
-      "args": ["--dart-define-from-file=config/google.json"]
+      "args": ["--web-hostname", "localhost", "--web-port", "7357", "--dart-define-from-file=config/google.json"]
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 Source đã có đăng nhập và Link Google. Đã nhận Web OAuth Client ID và gắn cấu hình local/build; chưa thử tài khoản Google thực tế, chưa bật Environment trên Render. Không dùng app password Gmail hoặc Gemini API key.
 
-Cập nhật: đã nhận và điền Web Client ID của project `chore-wars-513006` vào `mobile/config/google.json` (ID công khai). Theo yêu cầu mới nhất, Flutter/F5 tự chọn port; helper/VS Code đọc file này; build Render cũng đọc file, biến GOOGLE_WEB_CLIENT_ID nếu có sẽ ghi đè. Backend Development đọc `appsettings.Google.local.json`; file `.env.google.local` chuẩn bị hai biến để nhập vào backend Render. Chưa thay Environment/migration trên Render và chưa thử đăng nhập Google thật.
+Cập nhật: đã nhận và điền Web Client ID của project `chore-wars-513006` vào `mobile/config/google.json` (ID công khai). Theo yêu cầu chốt mới nhất, frontend cố định localhost:7357; helper/VS Code đọc file này; build Render cũng đọc file, biến GOOGLE_WEB_CLIENT_ID nếu có sẽ ghi đè. Backend Development đọc `appsettings.Google.local.json`; file `.env.google.local` chuẩn bị hai biến để nhập vào backend Render. Chưa thay Environment/migration trên Render và chưa thử đăng nhập Google thật.
 
 ## 1. Google Cloud
 
@@ -42,7 +42,7 @@ cd mobile
 flutter run
 ```
 
-Port Flutter có thể đổi mỗi lần chạy; cập nhật Authorized JavaScript origins theo đúng URL hiện tại nếu test Google. Shortcut PowerShell và port ép 7357 đã được gỡ.
+Frontend hiện chốt http://localhost:7357 qua script/F5 và shortcut PowerShell của dự án. Mở terminal PowerShell mới để nhận shortcut; terminal đã mở trước khi cài cần nạp lại `. $PROFILE.CurrentUserAllHosts`. Giữ origin http://localhost:7357 trên Google Cloud. Nếu port bận, dừng frontend cũ, không đổi port ngẫu nhiên.
 
 Backend local phải có GoogleAuth:Enabled và ClientIds tương ứng trong cấu hình môi trường của tiến trình. Root appsettings mặc định tắt; frontend vẫn dùng backend Render theo cấu hình API hiện có nếu không override.
 

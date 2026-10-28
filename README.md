@@ -63,8 +63,11 @@ cd chore-wars
    cd mobile
    flutter run
    ```
-   Flutter uses its normal device and port selection. In VS Code, select
-   **Chore Wars Web** and press F5. The frontend uses the deployed backend
+   The project PowerShell shortcut pins bare `flutter run` to
+   `http://localhost:7357`. Open a new PowerShell terminal after installation; on
+   another Windows machine run `./mobile/scripts/install-flutter-shortcut.ps1`
+   once from the repository root. In VS Code, select
+   **Chore Wars Web (localhost:7357)** and press F5. The frontend uses the deployed backend
    by default; see [mobile configuration](mobile/README.md) to use a local API.
    For Google sign-in, register the actual frontend origin/port in Google Cloud.
 
