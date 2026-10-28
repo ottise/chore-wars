@@ -22,7 +22,11 @@ public sealed class SupplyOrderService(ISupplyRepository store, IUnitOfWork uow,
         o.SupplierPhone, o.CreatorUserId, o.PayerUserId, o.Status.ToString(), o.CreatedVia.ToString(), o.Version,
         o.DeliveryAddress, o.ContactPhone, o.Total, o.DeliveryFee, o.RefundedAmount, o.QuoteExpiresAt, o.CreatedAt,
         o.Lines.Select(x => new SupplyOrderLineResponse(x.ProductId, x.Name, x.Unit, x.UnitPrice, x.Quantity)).ToList(),
-        o.Shares.Select(x => new OrderCostShareResponse(x.UserId, x.DisplayName, x.Amount, x.ApprovedAt.HasValue, x.RejectedAt.HasValue)).ToList());
+        o.Shares.Select(x => new OrderCostShareResponse(x.UserId, x.DisplayName, x.Amount, x.ApprovedAt.HasValue, x.RejectedAt.HasValue)).ToList(),
+        o.Workflow.ToString(), o.SupplierEmail, o.EmailDispatch?.State ?? OrderEmailState.NotRequested, o.EmailDispatch?.ErrorCode,
+        o.EmailDispatch?.SentAt, o.RecordedPaidAmount, o.PaymentRecordedByUserId, o.PaymentRecordedAt,
+        o.PaymentConfirmationSource, o.PaymentReference, o.Note,
+        o.Activities.OrderBy(x => x.RecordedAt).ThenBy(x => x.Id).Select(x => new SupplyOrderActivityResponse(x.Kind, x.ActorUserId, x.RecordedAt, x.Amount, x.Reference)).ToList());
 
     public async Task<List<SupplyOrderResponse>> ListAsync(Guid house, Guid actor, CancellationToken ct)
     {
@@ -231,7 +235,9 @@ public sealed class SupplyOrderService(ISupplyRepository store, IUnitOfWork uow,
             o.Status=SupplyOrderStatus.CANCELLED;o.Version++;
         },ct);
     }
-    public static void CheckVersion(SupplyOrder order, int version) { if (order.Version != version) throw new ConflictException("This order changed. Refresh and review the latest version."); }
+    public static void CheckVersion(SupplyOrder order, int version) {
+        if (order.Workflow == SupplyOrderWorkflow.SIMPLE_CONTACT) throw new ConflictException("Use Send order and Record payment for this order.");
+        if (order.Version != version) throw new ConflictException("This order changed. Refresh and review the latest version."); }
     private void CheckQuote(SupplyOrder o) { if (clock.GetUtcNow().UtcDateTime >= o.QuoteExpiresAt) throw new ConflictException("This quote expired. Create a new draft to review current prices."); }
     private Task Notify(SupplyOrder order, Guid actor, Guid? recipient, string title, string message, CancellationToken ct) =>
         events.PublishAsync(new SupplyNotificationEvent(order.HouseId, order.Id, SupplyConstants.OrderTarget, actor, recipient, title, message), ct);

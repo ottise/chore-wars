@@ -1,4 +1,5 @@
-import '../../../supplies/presentation/widgets/household_supplies_card.dart';
+import '../widgets/household_calendar.dart';
+import '../providers/house_calendar_providers.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ class HouseDetailScreen extends ConsumerWidget {
         data: (h) => RefreshIndicator(
           onRefresh: () async {
             refreshHouseState(ref, houseId: houseId);
+            ref.invalidate(houseCalendarProvider);
             await Future.wait([
               ref.read(houseDetailProvider(houseId).future),
               ref.read(houseMembersProvider(houseId).future),
@@ -73,7 +75,7 @@ class HouseDetailScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  HouseholdSuppliesCard(houseId: houseId),
+                  HouseholdCalendar(houseId: houseId),
                   const SizedBox(height: 24),
                   season.when(
                     loading: () => const LinearProgressIndicator(),

@@ -18,9 +18,14 @@ done
 sha="${RENDER_GIT_COMMIT:-${BUILD_COMMIT:-${GITHUB_SHA:-$(git rev-parse HEAD)}}}"
 [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
 flutter pub get --enforce-lockfile
+google_args=(--dart-define-from-file=config/google.json)
+if [[ -n "${GOOGLE_WEB_CLIENT_ID:-}" ]]; then
+  google_args+=(--dart-define="GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
+fi
 flutter build web --release --dart-define=UI_PREVIEW=false \
   --dart-define="USE_SAME_ORIGIN=$USE_SAME_ORIGIN" \
   --dart-define="API_BASE_URL=$API_BASE_URL" \
+  "${google_args[@]}" \
   --dart-define="SIGNALR_BASE_URL=$SIGNALR_BASE_URL"
 printf '{"sha":"%s","api":"%s","hubs":"%s","sameOrigin":%s}\n' \
   "$sha" "$API_BASE_URL" "$SIGNALR_BASE_URL" "$USE_SAME_ORIGIN" > build/web/deploy-version.json

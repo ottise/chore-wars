@@ -25,8 +25,12 @@ class PaymentObligationModel extends PaymentObligation {
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       reason: _reason(json['reason']),
       status: _status(json['status']),
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
-      paidAt: json['paidAt'] == null ? null : DateTime.tryParse(json['paidAt'].toString())?.toLocal(),
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '')?.toLocal() ??
+          DateTime.now(),
+      paidAt: json['paidAt'] == null
+          ? null
+          : DateTime.tryParse(json['paidAt'].toString())?.toLocal(),
       choreName: json['choreName'] as String?,
     );
   }

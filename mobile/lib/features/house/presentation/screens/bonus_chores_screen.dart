@@ -8,10 +8,12 @@ class BonusChoresScreen extends ConsumerStatefulWidget {
   const BonusChoresScreen({
     required this.houseId,
     required this.seasonId,
+    this.embedded = false,
     super.key,
   });
   final String houseId;
   final String seasonId;
+  final bool embedded;
 
   @override
   ConsumerState<BonusChoresScreen> createState() => _BonusChoresScreenState();
@@ -20,6 +22,7 @@ class BonusChoresScreen extends ConsumerStatefulWidget {
 class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   List<dynamic> _chores = [];
   bool _loading = true;
+  Object? _error;
 
   @override
   void initState() {
@@ -46,10 +49,16 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
               )
               .toList();
           _loading = false;
+          _error = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e;
+        });
+      }
     }
   }
 
@@ -73,29 +82,45 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bonus Chores')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _chores.isEmpty
-          ? const Center(child: Text('No available bonus chores right now.'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: _chores.length,
-              itemBuilder: (ctx, i) {
-                final c = _chores[i];
-                return Card(
-                  child: ListTile(
-                    title: Text(c['choreName']),
-                    subtitle: Text("Reward: ${c['karmaPoints']} Karma"),
-                    trailing: ElevatedButton(
-                      onPressed: () => _claimChore(c['id']),
-                      child: const Text('Claim'),
-                    ),
-                  ),
-                );
-              },
+    final body = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(apiErrorMessage(_error!)),
+                TextButton(
+                  onPressed: _fetchBonusChores,
+                  child: const Text('Try again'),
+                ),
+              ],
             ),
-    );
+          )
+        : _chores.isEmpty
+        ? const Center(child: Text('No available bonus chores right now.'))
+        : ListView.builder(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
+            itemCount: _chores.length,
+            itemBuilder: (ctx, i) {
+              final c = _chores[i];
+              return Card(
+                child: ListTile(
+                  title: Text(c['choreName']),
+                  subtitle: Text("Reward: ${c['karmaPoints']} Karma"),
+                  trailing: ElevatedButton(
+                    onPressed: () => _claimChore(c['id']),
+                    child: const Text('Claim'),
+                  ),
+                ),
+              );
+            },
+          );
+    return widget.embedded
+        ? body
+        : Scaffold(
+            appBar: AppBar(title: const Text('Bonus Chores')),
+            body: body,
+          );
   }
 }

@@ -76,6 +76,15 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-chorewars};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
       - Redis__ConnectionString=redis:6379
       - Kafka__BootstrapServers=kafka:9092
+        - GoogleAuth__Enabled=${GoogleAuth__Enabled:-false}
+        - GoogleAuth__ClientIds__0=${GoogleAuth__ClientIds__0:-}
+        - OrderEmail__Host=${OrderEmail__Host:-}
+        - OrderEmail__Port=${OrderEmail__Port:-587}
+        - OrderEmail__EnableSsl=${OrderEmail__EnableSsl:-true}
+        - OrderEmail__Username=${OrderEmail__Username:-}
+        - OrderEmail__Password=${OrderEmail__Password:-}
+        - OrderEmail__FromAddress=${OrderEmail__FromAddress:-}
+        - OrderEmail__FromName=${OrderEmail__FromName:-ChoreWar}
       - MediaStorage__RootPath=/app/private-media
       - Supplies__PayOS__OperatorUserId=${SUPPLIER_OPERATOR_USER_ID:-00000000-0000-0000-0000-000000000000}
       - Supplies__PayOS__Enabled=${SUPPLIER_PAYOS_ENABLED:-false}

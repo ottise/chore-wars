@@ -72,6 +72,12 @@ class AuthStateNotifier extends Notifier<AuthState> {
     displayName: displayName,
   );
 
+  Future<void> googleLogin(String idToken) async {
+    final user = await _repo.googleLogin(idToken);
+    ref.read(sessionEpochProvider.notifier).advance();
+    state = AuthAuthenticated(user);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     ref.read(sessionEpochProvider.notifier).advance();

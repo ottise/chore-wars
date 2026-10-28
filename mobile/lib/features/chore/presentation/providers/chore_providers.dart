@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../house/presentation/providers/house_calendar_providers.dart';
+
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../home/presentation/providers/home_dashboard_provider.dart';
@@ -44,6 +46,7 @@ final choreDetailProvider = FutureProvider.family<ChoreDetail, ChoreDetailKey>((
 });
 
 void refreshChoreState(WidgetRef ref, String houseId, {String? occurrenceId}) {
+  ref.invalidate(houseCalendarProvider);
   ref.invalidate(choreTemplatesProvider(houseId));
   ref.invalidate(myChoresProvider(houseId));
   ref.invalidate(homeDashboardProvider(houseId));

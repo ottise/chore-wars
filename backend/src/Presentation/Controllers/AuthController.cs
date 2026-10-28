@@ -13,10 +13,27 @@ namespace ChoreWars.Presentation.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IGoogleAuthService _googleAuth;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IGoogleAuthService googleAuth)
     {
         _authService = authService;
+        _googleAuth = googleAuth;
+    }
+
+    [HttpPost("google")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("google-auth")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request, CancellationToken cancellationToken) =>
+        Ok(await _googleAuth.LoginAsync(request, cancellationToken));
+
+    [Authorize]
+    [HttpPost("google/link")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("google-auth")]
+    public async Task<IActionResult> LinkGoogle([FromBody] GoogleLoginRequest request, CancellationToken cancellationToken)
+    {
+        var userId = System.Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        await _googleAuth.LinkAsync(userId, request, cancellationToken);
+        return Ok(new { Message = "Google account linked." });
     }
 
     [HttpPost("register")]

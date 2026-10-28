@@ -52,20 +52,20 @@ class House {
   final String? avatarUrl;
   final HouseRole myRole;
 
-  factory House.fromJson(Map<String, dynamic> json, {HouseRole? role}) =>
-      House(
-        id: json['id'].toString(),
-        name: json['name']?.toString() ?? '',
-        inviteCode: json['inviteCode']?.toString() ?? '',
-        avatarUrl: json['avatarUrl']?.toString(),
-        createdAt: DateTime.parse(
-          json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
-        ).toLocal(),
-        myRole: role ??
-            (json['currentUserRole'] != null
-                ? HouseRole.fromJson(json['currentUserRole'])
-                : HouseRole.member),
-      );
+  factory House.fromJson(Map<String, dynamic> json, {HouseRole? role}) => House(
+    id: json['id'].toString(),
+    name: json['name']?.toString() ?? '',
+    inviteCode: json['inviteCode']?.toString() ?? '',
+    avatarUrl: json['avatarUrl']?.toString(),
+    createdAt: DateTime.parse(
+      json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+    ).toLocal(),
+    myRole:
+        role ??
+        (json['currentUserRole'] != null
+            ? HouseRole.fromJson(json['currentUserRole'])
+            : HouseRole.member),
+  );
 }
 
 class HouseMember {

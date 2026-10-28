@@ -5,6 +5,7 @@ import '../../features/gamification/presentation/screens/reward_form_screen.dart
 import '../../features/payment/presentation/screens/payment_obligations_screen.dart';
 
 import '../../features/supplies/presentation/screens/supplies_catalog_screen.dart';
+import '../../features/supplies/presentation/screens/orders_screen.dart';
 import '../../features/supplies/presentation/screens/supply_order_review_screen.dart';
 import '../../features/supplies/presentation/screens/supply_order_detail_screen.dart';
 import '../../features/supplies/presentation/screens/household_debts_screen.dart';
@@ -29,7 +30,6 @@ import '../../features/gamification/presentation/screens/karma_history_screen.da
     as gamification_history;
 import '../widgets/house_shell.dart';
 import '../../features/house/presentation/screens/house_more_screen.dart';
-import '../../features/house/presentation/screens/house_bonus_screen.dart';
 import '../constants/app_constants.dart';
 import '../screens/ui_preview_screen.dart';
 import '../storage/secure_storage.dart';
@@ -40,7 +40,6 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/chore/domain/entities/chore_models.dart';
-import '../../features/chore/domain/entities/routine_preset.dart';
 import '../../features/chore/presentation/screens/chore_detail_screen.dart'
     as chore_feature;
 import '../../features/chore/presentation/screens/chore_form_screen.dart';
@@ -213,6 +212,35 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
                 routes: [
                   GoRoute(
+                    path: 'orders',
+                    builder: (_, state) => OrdersScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      aiDraft: state.extra is Map
+                          ? Map<String, dynamic>.from(state.extra as Map)
+                          : null,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'orders/:orderId',
+                    builder: (_, state) => SupplyOrderDetailScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      orderId: state.pathParameters['orderId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'account/debts',
+                    builder: (_, state) => HouseholdDebtsScreen(
+                      houseId: state.pathParameters['houseId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'account/debts/:debtId',
+                    builder: (_, state) => InternalRepaymentScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      debtId: state.pathParameters['debtId']!,
+                    ),
+                  ),
+                  GoRoute(
                     path: 'supplies',
                     builder: (_, state) => SuppliesCatalogScreen(
                       houseId: state.pathParameters['houseId']!,
@@ -245,16 +273,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'supplies/debts',
-                    builder: (_, state) => HouseholdDebtsScreen(
-                      houseId: state.pathParameters['houseId']!,
-                    ),
+                    redirect: (_, state) =>
+                        '/houses/${state.pathParameters['houseId']}/account/debts',
                   ),
                   GoRoute(
                     path: 'supplies/debts/:debtId',
-                    builder: (_, state) => InternalRepaymentScreen(
-                      houseId: state.pathParameters['houseId']!,
-                      debtId: state.pathParameters['debtId']!,
-                    ),
+                    redirect: (_, state) =>
+                        '/houses/${state.pathParameters['houseId']}/account/debts/${state.pathParameters['debtId']}',
                   ),
                   GoRoute(
                     path: 'supplies/schedules',
@@ -273,9 +298,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'bonus',
-                    builder: (_, state) => HouseBonusScreen(
-                      houseId: state.pathParameters['houseId']!,
-                    ),
+                    redirect: (_, state) =>
+                        '/houses/${state.pathParameters['houseId']}/chores?tab=bonus',
                   ),
                   GoRoute(
                     path: 'bounties',
@@ -336,6 +360,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'chores',
                     builder: (context, state) => ChoreListScreen(
                       houseId: state.pathParameters['houseId']!,
+                      initialTab: state.uri.queryParameters['tab'],
                     ),
                   ),
                   GoRoute(
@@ -344,9 +369,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                       houseId: state.pathParameters['houseId']!,
                       createRoutine:
                           state.uri.queryParameters['routine'] == 'true',
-                      preset: RoutinePreset.fromKey(
-                        state.uri.queryParameters['preset'],
-                      ),
                     ),
                   ),
                   GoRoute(

@@ -80,7 +80,8 @@ void main() {
           find.text('Create First Routine'),
           owner ? findsOneWidget : findsNothing,
         );
-        expect(find.text('Add'), owner ? findsWidgets : findsNothing);
+        expect(find.text('Popular Templates'), findsNothing);
+        expect(find.text('Add'), findsNothing);
         if (owner) {
           await tester.tap(find.text('Create First Routine'));
           await tester.pumpAndSettle();
@@ -91,18 +92,7 @@ void main() {
           );
           router.pop();
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('Add').first);
-          await tester.tap(find.text('Add').first);
-          await tester.pumpAndSettle();
-          expect(
-            find.widgetWithText(TextFormField, 'Weekly Deep Clean'),
-            findsOneWidget,
-          );
-          expect(
-            tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-            isTrue,
-          );
-          expect(find.widgetWithText(TextFormField, '30'), findsOneWidget);
+          expect(find.text('Weekly Deep Clean'), findsNothing);
         }
         expect(tester.takeException(), isNull);
       },

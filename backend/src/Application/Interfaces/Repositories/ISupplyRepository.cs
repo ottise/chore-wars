@@ -9,6 +9,8 @@ public interface ISupplyRepository {
  Task ReserveAsync(Guid product, int quantity, CancellationToken ct);
  Task ReleaseAsync(Guid product, int quantity, CancellationToken ct);
  Task<SupplyOrder?> OrderAsync(Guid id, CancellationToken ct);
+ Task<SupplyOrderEmailDispatch?> ClaimEmailAsync(DateTime now, CancellationToken ct);
+ Task CompleteEmailAsync(Guid id, Guid leaseId, string state, string? errorCode, DateTime now, CancellationToken ct);
  Task<SupplyOrder?> RequestAsync(Guid house, Guid actor, Guid request, CancellationToken ct);
  Task<List<SupplyOrder>> OrdersAsync(Guid? house, Guid? supplier, CancellationToken ct);
  Task<SupplierPayment?> PaymentAsync(Guid id, CancellationToken ct);
@@ -31,6 +33,7 @@ public interface ISupplyRepository {
  void Add(Supplier value);
  void Add(SupplyProduct value);
  void Add(SupplyOrder value);
+ void Add(SupplyOrderActivity value);
  void Add(SupplierPayment value);
  void Add(PaymentWebhookReceipt value);
  void Add(InternalRepayment value);

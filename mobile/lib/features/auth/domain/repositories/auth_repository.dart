@@ -2,6 +2,8 @@ import '../entities/auth_models.dart';
 
 abstract interface class AuthRepository {
   Future<AuthUser> login({required String email, required String password});
+  Future<AuthUser> googleLogin(String idToken);
+  Future<void> linkGoogle(String idToken);
   Future<void> register({
     required String email,
     required String password,

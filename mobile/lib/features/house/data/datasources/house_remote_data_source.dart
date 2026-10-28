@@ -60,8 +60,6 @@ class HouseRemoteDataSource {
     required String houseId,
     required String newOwnerId,
   }) async {
-    await _dio.post<void>(
-      ApiEndpoints.transferOwnership(houseId, newOwnerId),
-    );
+    await _dio.post<void>(ApiEndpoints.transferOwnership(houseId, newOwnerId));
   }
 }

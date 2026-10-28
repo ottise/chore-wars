@@ -65,7 +65,7 @@ public class AuthService : IAuthService
     public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         var user = await _unitOfWork.Users.GetByEmailAsync(request.Email, cancellationToken);
-        if (user == null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (user == null || string.IsNullOrEmpty(user.PasswordHash) || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             throw new ForbiddenException("Invalid credentials.");
         }
@@ -167,7 +167,9 @@ public class AuthService : IAuthService
         if (user == null)
             throw new NotFoundException(nameof(User), userId);
 
-        return _mapper.Map<UserProfileResponse>(user);
+        var profile = _mapper.Map<UserProfileResponse>(user);
+        profile.GoogleLinked = user.GoogleSubject != null;
+        return profile;
     }
 
     public async Task<UserProfileResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken = default)

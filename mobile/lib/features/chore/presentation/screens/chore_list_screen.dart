@@ -13,14 +13,15 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../house/domain/entities/house_models.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
-import '../../domain/entities/routine_preset.dart';
+import '../../../house/presentation/screens/bonus_chores_screen.dart';
 import '../providers/chore_providers.dart';
 
-enum _Tab { routines, mine, team }
+enum _Tab { routines, mine, team, bonus }
 
 class ChoreListScreen extends ConsumerStatefulWidget {
-  const ChoreListScreen({required this.houseId, super.key});
+  const ChoreListScreen({required this.houseId, this.initialTab, super.key});
   final String houseId;
+  final String? initialTab;
 
   @override
   ConsumerState<ChoreListScreen> createState() => _ChoreListScreenState();
@@ -34,7 +35,11 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _Tab.values.length, vsync: this);
+    _tabController = TabController(
+      length: _Tab.values.length,
+      initialIndex: widget.initialTab == 'bonus' ? _Tab.bonus.index : 0,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -165,10 +170,13 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(text: 'Routines'),
             Tab(text: 'Mine'),
             Tab(text: 'Team'),
+            Tab(text: 'Bonus'),
           ],
         ),
       ),
@@ -229,6 +237,18 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                         houseId: widget.houseId,
                         seasonId: seasonId,
                       ),
+                      seasonId == null
+                          ? const Center(
+                              child: Text(
+                                'No season yet. Bonus chores will appear here.',
+                              ),
+                            )
+                          : BonusChoresScreen(
+                              houseId: widget.houseId,
+                              seasonId: seasonId,
+                              embedded: true,
+                              key: ValueKey(seasonId),
+                            ),
                     ],
                   ),
           ),
@@ -321,21 +341,6 @@ class _RoutinesTab extends ConsumerWidget {
                                 )
                               : null,
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Popular Templates',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 10),
-                        for (final preset in RoutinePreset.values)
-                          _RoutinePresetTile(
-                            preset: preset,
-                            onAdd: canCreate
-                                ? () => context.push(
-                                    '/houses/$houseId/chores/new?routine=true&preset=${preset.key}',
-                                  )
-                                : null,
-                          ),
                       ],
                     )
                   : ListView.separated(
@@ -992,63 +997,6 @@ class _RoutineEmpty extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoutinePresetTile extends StatelessWidget {
-  const _RoutinePresetTile({required this.preset, this.onAdd});
-  final RoutinePreset preset;
-  final VoidCallback? onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                switch (preset) {
-                  RoutinePreset.deepClean => Icons.auto_awesome_outlined,
-                  RoutinePreset.dishes => Icons.flatware_outlined,
-                  RoutinePreset.recycling => Icons.recycling_outlined,
-                },
-                size: 20,
-                color: colors.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    preset.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${preset.schedule} · +${preset.karma} Karma',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (onAdd != null)
-              TextButton(onPressed: onAdd, child: const Text('Add')),
           ],
         ),
       ),

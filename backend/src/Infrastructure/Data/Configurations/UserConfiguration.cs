@@ -17,6 +17,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(x => x.Email)
             .IsUnique();
 
+        builder.Property(x => x.GoogleSubject).HasMaxLength(255);
+        builder.HasIndex(x => x.GoogleSubject).IsUnique();
+
         builder.Property(x => x.PasswordHash)
             .IsRequired()
             .HasMaxLength(255);

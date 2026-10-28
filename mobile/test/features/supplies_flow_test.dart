@@ -6,7 +6,6 @@ import 'package:chore_wars/features/house/presentation/providers/house_providers
 import 'package:chore_wars/features/supplies/domain/repositories/supplies_repository.dart';
 import 'package:chore_wars/features/supplies/presentation/providers/supplies_providers.dart';
 import 'package:chore_wars/features/supplies/presentation/screens/supplies_catalog_screen.dart';
-import 'package:chore_wars/features/supplies/presentation/screens/supply_order_review_screen.dart';
 import 'package:chore_wars/features/supplies/presentation/screens/household_debts_screen.dart';
 import 'package:chore_wars/features/supplies/presentation/widgets/ai_supply_draft_card.dart';
 import 'package:flutter/material.dart';
@@ -39,10 +38,18 @@ class _Shop extends Fake implements SuppliesRepository {
   @override
   Future<List<SupplyData>> products(String supplier) async => [product];
   @override
-  Future<SupplyData> create(String house, SupplyData request) async {
+  Future<SupplyData> mutate(
+    String path,
+    SupplyData request, {
+    String method = 'POST',
+  }) async {
     requests.add(request);
+    expect(path, '/houses/house/orders/send');
     return {'id': 'saved'};
   }
+
+  @override
+  Future<List<SupplyData>> orders(String house) async => [];
 }
 
 void main() {
@@ -53,7 +60,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final router = GoRouter(
-      initialLocation: ai ? '/ai' : '/houses/house/supplies',
+      initialLocation: ai ? '/ai' : '/houses/house/orders',
       routes: [
         GoRoute(
           path: '/ai',
@@ -72,7 +79,7 @@ void main() {
           ),
         ),
         GoRoute(
-          path: '/houses/house/supplies',
+          path: '/houses/house/orders',
           builder: (_, state) => SuppliesCatalogScreen(
             houseId: 'house',
             aiDraft: state.extra is Map
@@ -81,16 +88,8 @@ void main() {
           ),
         ),
         GoRoute(
-          path: '/houses/house/supplies/review',
-          builder: (_, state) => SupplyOrderReviewScreen(
-            houseId: 'house',
-            selection: Map<String, dynamic>.from(state.extra as Map),
-          ),
-        ),
-        GoRoute(
-          path: '/houses/house/supplies/orders/saved',
-          builder: (_, _) =>
-              const Scaffold(body: Text('Saved real draft route')),
+          path: '/houses/house/orders/saved',
+          builder: (_, _) => const Scaffold(body: Text('Saved order log')),
         ),
       ],
     );
@@ -140,7 +139,7 @@ void main() {
 
   for (final ai in [false, true]) {
     testWidgets(
-      '${ai ? 'AI' : 'Manual'} selection uses the same quote and creates an unsubmitted draft',
+      '${ai ? 'AI' : 'Manual'} selection sends an email order without choosing payer or participants',
       (tester) async {
         final shop = _Shop();
         await setup(tester, shop, ai: ai);
@@ -155,34 +154,18 @@ void main() {
           await tester.tap(find.byTooltip('Add one Rice'));
           await tester.pumpAndSettle();
         }
-        await tester.ensureVisible(find.text('Review purchase'));
-        await tester.tap(find.text('Review purchase'));
+        await tester.ensureVisible(find.text('Send order'));
+        await tester.tap(find.text('Send order'));
         await tester.pumpAndSettle();
-        await captureSupplyScreen(tester, ai ? 'ai-review' : 'manual-review');
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Delivery address'),
-          'Test address',
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Delivery phone'),
-          '0123456789',
-        );
-        await tester.scrollUntilVisible(
-          find.text('Create draft'),
-          250,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(find.text('Create draft'));
-        await tester.pumpAndSettle();
-        expect(find.text('Saved real draft route'), findsOneWidget);
+        expect(find.text('Saved order log'), findsOneWidget);
         final request = shop.requests.single;
-        expect(request['payerUserId'], 'A');
+        expect(request.containsKey('payerUserId'), isFalse);
+        expect(request.containsKey('shares'), isFalse);
         expect(request['viaAI'], ai);
         expect((request['lines'] as List).single, {
           'productId': 'rice',
           'quantity': 1,
         });
-        expect((request['shares'] as List).length, ai ? 2 : 1);
         expect(tester.takeException(), isNull);
       },
     );

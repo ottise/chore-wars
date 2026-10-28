@@ -66,6 +66,8 @@ public class AppDbContext : DbContext
     public DbSet<SupplyDispute> SupplyDisputes { get; set; } = null!;
     public DbSet<SupplyProduct> SupplyProducts { get; set; } = null!;
     public DbSet<SupplyOrder> SupplyOrders { get; set; } = null!;
+    public DbSet<SupplyOrderEmailDispatch> SupplyOrderEmailDispatches { get; set; } = null!;
+    public DbSet<SupplyOrderActivity> SupplyOrderActivities { get; set; } = null!;
     public DbSet<SupplyOrderLine> SupplyOrderLines { get; set; } = null!;
     public DbSet<OrderCostShare> OrderCostShares { get; set; } = null!;
     public DbSet<SupplierPayment> SupplierPayments { get; set; } = null!;

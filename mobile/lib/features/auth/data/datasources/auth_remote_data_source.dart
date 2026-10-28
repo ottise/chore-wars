@@ -7,6 +7,18 @@ class AuthRemoteDataSource {
   const AuthRemoteDataSource(this._dio);
   final Dio _dio;
 
+  Future<AuthUser> googleLogin(String idToken) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiEndpoints.googleLogin,
+      data: {'idToken': idToken},
+    );
+    return AuthUser.fromJson(response.data!);
+  }
+
+  Future<void> linkGoogle(String idToken) async {
+    await _dio.post<void>(ApiEndpoints.googleLink, data: {'idToken': idToken});
+  }
+
   Future<AuthUser> login({
     required String email,
     required String password,

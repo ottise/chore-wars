@@ -25,7 +25,7 @@ public sealed class PostgresFixture : IAsyncDisposable {
         var values = settings ?? new Dictionary<string,string?>();
         values["ConnectionStrings:DefaultConnection"] = connection.ConnectionString;
         var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
-        var services=new ServiceCollection();services.AddLogging();services.AddInfrastructureServices(config);services.AddApplicationServices();
+        var services=new ServiceCollection();services.AddSingleton<IConfiguration>(config);services.AddLogging();services.AddInfrastructureServices(config);services.AddApplicationServices();
         configure?.Invoke(services);
         var provider=services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes=true });
         var fixture=new PostgresFixture(admin,name,provider);

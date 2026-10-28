@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../house/presentation/providers/current_house_provider.dart';
 import '../../../house/presentation/providers/house_providers.dart';
-import '../../../gamification/presentation/screens/leaderboard_screen.dart' as gamification;
+import '../../../gamification/presentation/screens/leaderboard_screen.dart'
+    as gamification;
 
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});

@@ -84,6 +84,9 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<SupplyNotificationConsumer>();
 
         services.AddScoped<IDatabaseSchemaStatus, DatabaseSchemaStatus>();
+        services.AddMemoryCache();
+        services.AddScoped<IEvidenceThumbnailService, ChoreWars.Infrastructure.Storage.EvidenceThumbnailService>();
+        services.AddScoped<IHouseCalendarRepository, ChoreWars.Infrastructure.Repositories.HouseCalendarRepository>();
         services.AddScoped<IDependencyHealthService, ChoreWars.Infrastructure.Diagnostics.DependencyHealthService>();
         services.AddSingleton<IWorkerHealthRegistry, ChoreWars.Infrastructure.Diagnostics.WorkerHealthRegistry>();
 
@@ -105,6 +108,8 @@ public static class InfrastructureServiceExtensions
         // Auth
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IAuthTokenProvider, JwtTokenProvider>();
+        services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.Section));
+        services.AddScoped<IGoogleIdentityVerifier, GoogleIdentityVerifier>();
 
         // Workers
         services.AddHostedService<ChoreAllocationWorker>();
@@ -114,6 +119,9 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<DeadlineReminderWorker>();
         
         services.AddHostedService<ChoreCompletedConsumer>();
+        services.Configure<ChoreWars.Infrastructure.Email.SupplyOrderEmailOptions>(configuration.GetSection("OrderEmail"));
+        services.AddScoped<ISupplyOrderEmailSender, ChoreWars.Infrastructure.Email.SmtpSupplyOrderEmailSender>();
+        services.AddHostedService<SupplyOrderEmailWorker>();
         services.AddHostedService<ChatMessageCreatedConsumer>();
         services.AddHostedService<BountyCreatedConsumer>();
         services.AddHostedService<BountyAcceptedConsumer>();

@@ -1,5 +1,6 @@
 import '../../../../core/widgets/app_page_bar.dart';
 import '../widgets/profile_karma_card.dart';
+import '../widgets/google_sign_in_button.dart';
 import '../../../../core/widgets/app_page_frame.dart';
 
 import 'package:flutter/material.dart';
@@ -57,8 +58,8 @@ class ProfileScreen extends ConsumerWidget {
                     dividerHeight: 0,
                     labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                     tabs: const [
-                      Tab(height: 40, text: 'Personal Profile'),
-                      Tab(height: 40, text: 'Schedule & Routine'),
+                      Tab(height: 40, text: 'Profile'),
+                      Tab(height: 40, text: 'Chore Settings'),
                     ],
                   ),
                 ),
@@ -187,6 +188,45 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (user.googleLinked)
+                          const ListTile(
+                            title: Text('Google account linked'),
+                            leading: Icon(Icons.check_circle_outline),
+                          )
+                        else
+                          GoogleSignInButton(
+                            title: 'Link Google',
+                            onToken: (token) async {
+                              try {
+                                await ref
+                                    .read(authRepositoryProvider)
+                                    .linkGoogle(token);
+                                ref.invalidate(userProfileProvider);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Google account linked.'),
+                                    ),
+                                  );
+                                }
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(apiErrorMessage(error)),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            onError: (message) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                              }
+                            },
+                          ),
                         if (selectedHouse != null) ...[
                           const SizedBox(height: 24),
                           ref
@@ -228,6 +268,23 @@ class ProfileScreen extends ConsumerWidget {
                                 const Divider(indent: 16, endIndent: 16),
                                 ListTile(
                                   leading: Icon(
+                                    Icons.receipt_long_outlined,
+                                    color: colors.primary,
+                                  ),
+                                  title: const Text('My Debts'),
+                                  subtitle: const Text(
+                                    'What I owe and what others owe me',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_outlined,
+                                  ),
+                                  onTap: () => context.push(
+                                    '/houses/$selectedHouse/account/debts',
+                                  ),
+                                ),
+                                const Divider(indent: 16, endIndent: 16),
+                                ListTile(
+                                  leading: Icon(
                                     Icons.home_outlined,
                                     color: colors.primary,
                                   ),
@@ -248,16 +305,6 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ],
                         const SizedBox(height: 20),
-                        TextButton.icon(
-                          onPressed: () => context.push('/bank-accounts'),
-                          icon: const Icon(Icons.account_balance_outlined),
-                          label: const Text('My bank details'),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => context.push('/supplier'),
-                          icon: const Icon(Icons.storefront_outlined),
-                          label: const Text('Supplier workspace'),
-                        ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: colors.error,
@@ -369,54 +416,42 @@ class _ScheduleSettings extends ConsumerWidget {
           error: error,
           onRetry: () => ref.invalidate(activeSeasonProvider(houseId)),
         ),
-        data: (season) => season == null
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No season is available to configure your schedule.',
-                  ),
+        data: (season) => ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'Set your availability, preferences and capacity to help plan household chores.',
+            ),
+            const SizedBox(height: 24),
+            if (season == null)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'A season is needed to edit your availability and preferences.',
                 ),
-              )
-            : ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Text(
-                    season['name']?.toString() ?? 'Current Season',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Set your availability, preferences and capacity to help plan household chores.',
-                  ),
-                  const SizedBox(height: 24),
-                  ListTile(
-                    title: const Text('Weekly Availability'),
-                    subtitle: const Text(
-                      'Choose the days and times you are available',
-                    ),
-                    onTap: () => context.push(
+              ),
+            ListTile(
+              title: const Text('Weekly Availability'),
+              subtitle: const Text(
+                'Choose the days and times you are available',
+              ),
+              onTap: season == null
+                  ? null
+                  : () => context.push(
                       '/houses/$houseId/seasons/${season['id']}/availability',
                     ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('Chore Preferences & Capacity'),
-                    subtitle: const Text(
-                      'Your preferred chores and workload limits',
-                    ),
-                    onTap: () => context.push(
+            ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Text('Chore Preferences & Capacity'),
+              subtitle: const Text('Your preferred chores and workload limits'),
+              onTap: season == null
+                  ? null
+                  : () => context.push(
                       '/houses/$houseId/seasons/${season['id']}/member-settings',
                     ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('Season Schedule'),
-                    onTap: () => context.push(
-                      '/houses/$houseId/seasons/${season['id']}/review',
-                    ),
-                  ),
-                ],
-              ),
+            ),
+          ],
+        ),
       );
 }

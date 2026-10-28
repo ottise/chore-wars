@@ -56,12 +56,6 @@ def validate_supplies(request, result):
     if result.intent == "supply_purchase":
         if not candidate.lines:
             result.missing_fields.append("available_catalog_products_and_quantities")
-        if candidate.payer_id is None:
-            result.missing_fields.append("payer")
-        if not candidate.participant_ids:
-            result.missing_fields.append("cost_sharing_participants")
-        if candidate.payer_id is not None and candidate.payer_id not in candidate.participant_ids:
-            result.missing_fields.append("payer_approval_and_participation")
         if len({line.product_id for line in candidate.lines}) != len(candidate.lines):
             raise ValueError("Duplicate catalog product")
         for line in candidate.lines:

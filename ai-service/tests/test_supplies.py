@@ -72,10 +72,10 @@ async def test_missing_payment_and_sharing_details_are_not_guessed(monkeypatch):
     client = GeminiClient(Settings(environment="test", service_key="x" * 32))
 
     async def generate(*args):
-        return {"intent": "supply_purchase", "summary": "Who will pay first and share the cost?", "supply": {
+        return {"intent": "supply_purchase", "summary": "Choose the quantities and send the order.", "supply": {
             "supplier_id": str(supplier), "lines": [{"product_id": str(product), "quantity": 1}]}}
 
     monkeypatch.setattr(client, "generate", generate)
     result = await client.interpret(r)
-    assert "payer" in result.missing_fields
-    assert "cost_sharing_participants" in result.missing_fields
+    assert result.missing_fields == []
+    assert result.requires_confirmation is True

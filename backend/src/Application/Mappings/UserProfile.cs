@@ -13,6 +13,7 @@ public class UserProfile : Profile
             .ForMember(dest => dest.Token, opt => opt.Ignore())
             .ForMember(dest => dest.RefreshToken, opt => opt.Ignore());
             
-        CreateMap<User, ChoreWars.Application.DTOs.User.UserProfileResponse>();
+        CreateMap<User, ChoreWars.Application.DTOs.User.UserProfileResponse>()
+            .ForMember(x => x.GoogleLinked, options => options.MapFrom(x => x.GoogleSubject != null));
     }
 }

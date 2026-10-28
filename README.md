@@ -58,6 +58,16 @@ cd chore-wars
    *(API runs at `http://localhost:5297`)*
 
 
+4. **Run Frontend**
+   ```powershell
+   cd mobile
+   flutter run
+   ```
+   Flutter uses its normal device and port selection. In VS Code, select
+   **Chore Wars Web** and press F5. The frontend uses the deployed backend
+   by default; see [mobile configuration](mobile/README.md) to use a local API.
+   For Google sign-in, register the actual frontend origin/port in Google Cloud.
+
 ## ✨ Features
 
 *Note: The project is currently under development. The features below describe the defined project scope; some features have not been implemented yet.*

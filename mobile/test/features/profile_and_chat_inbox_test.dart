@@ -127,8 +127,8 @@ void main() {
         'Private household',
         'Owner',
         'Member',
-        'Personal Profile',
-        'Schedule & Routine',
+        'Profile',
+        'Chore Settings',
         'My Karma Score',
         'My Notifications',
         'Household Chores',
@@ -143,7 +143,7 @@ void main() {
       expect(find.text('Edit account'), findsOneWidget);
       router.go('/houses/${house.id}/account');
       await tester.pumpAndSettle();
-      expect(find.text('Schedule & Routine'), findsOneWidget);
+      expect(find.text('Chore Settings'), findsOneWidget);
       expect(find.text('My Karma Score'), findsOneWidget);
       expect(householdReads, containsAll(['house:house-A', 'karma:house-A']));
       expect(tester.takeException(), isNull);
@@ -212,14 +212,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Personal Profile'), findsOneWidget);
-      expect(find.text('Schedule & Routine'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Chore Settings'), findsOneWidget);
       expect(find.text('My Karma Score'), findsOneWidget);
       expect(find.text('42'), findsOneWidget);
-      await tester.tap(find.text('Schedule & Routine'));
+      await tester.tap(find.text('Chore Settings'));
       await tester.pumpAndSettle();
       expect(
-        find.text('No season is available to configure your schedule.'),
+        find.text(
+          'A season is needed to edit your availability and preferences.',
+        ),
         findsOneWidget,
       );
       expect(find.text('My Karma Score'), findsNothing);

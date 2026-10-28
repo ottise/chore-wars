@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ChoreWars.Presentation.Controllers;
 
 [ApiController,Authorize]
-public sealed class ChoreEvidenceController(IEvidenceService evidence) : ControllerBase
+public sealed class ChoreEvidenceController(IEvidenceService evidence, IEvidenceThumbnailService thumbnails) : ControllerBase
 {
     private Guid Actor=>Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? throw new UnauthorizedAccessException());
     [HttpPost("api/occurrences/{id:guid}/evidence"),RequestSizeLimit(6_000_000)]
@@ -22,6 +22,12 @@ public sealed class ChoreEvidenceController(IEvidenceService evidence) : Control
     {
         var value=await evidence.ReadAsync(id,Actor,ct);Response.Headers.CacheControl="private, no-store";
         return File(value.Stream,value.ContentType);
+    }
+    [HttpGet("api/evidence/{id:guid}/thumbnail")]
+    public async Task<IActionResult> Thumbnail(Guid id, CancellationToken ct)
+    {
+        var bytes = await thumbnails.ReadAsync(id, Actor, ct); Response.Headers.CacheControl = "private, no-store";
+        return File(bytes, "image/jpeg");
     }
     [HttpPost("api/occurrences/{id:guid}/ai/verify-proof")]
     public async Task<IActionResult> Verify(Guid id,[FromBody]AIVerifyEvidenceRequest request,CancellationToken ct)=>Ok(await evidence.VerifyAsync(id,request.EvidenceId,Actor,ct));

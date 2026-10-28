@@ -60,10 +60,12 @@ public sealed class WorkerShutdownTests
         var logs = new Mock<ILoggerFactory>();
         logs.Setup(l => l.CreateLogger(It.IsAny<string>())).Returns(logger.Object);
         using var worker = Create(kind, scopes.Object, logs.Object);
-        await worker.StartAsync(shutdown.Token);
+        await worker.StartAsync(default);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // Stop the worker before releasing the scope; a caller token's wait handle can signal before linked cancellation propagates.
+        var stopping = worker.StopAsync(default);
         shutdown.Cancel();
-        await worker.StopAsync(default).WaitAsync(TimeSpan.FromSeconds(5));
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
         await worker.ExecuteTask!;
         Assert.Equal(TaskStatus.RanToCompletion, worker.ExecuteTask!.Status);
         logger.Verify(l => l.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<Exception>(), It.IsAny<Func<It.IsAnyType, Exception?, string>>()), Times.Never);

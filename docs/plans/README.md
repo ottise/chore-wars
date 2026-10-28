@@ -1,8 +1,10 @@
 # Tài liệu triển khai và nghiệm thu Chore Wars
 
-- [CI/CD GitHub Actions → Render — cập nhật 28/10/2026](github-actions-render-cicd-plan.vi.md): PR checks, PostgreSQL/Kafka tạm, auto deploy đúng SHA, health/dependency/smoke gates, migration riêng, rollback và checklist chạy độc lập Docker local. Có inventory tình trạng cloud hiện tại, secret và manifest file; đang ở bước kế hoạch, chưa tạo workflow.
+- [Chỉnh Order, My Account, Chore và lịch Overview — 28/10/2026](orders-account-calendar-navigation-redesign.vi.md): Order chọn số lượng → Send email → Mark as paid → log, có Call; không cần chủ thể khác duyệt, SMS để tương lai. Order thay Bonus ở bottom bar; Bonus vào Chore; My Debts trong Account; AI shortcut nhỏ; lịch có ảnh thật/+N; bỏ preset và mục thừa. Có manifest file FE/BE và nghiệm thu. **Mới lập kế hoạch, chưa sửa app.**
 
-- [Chi tiết từng file CI/CD và health — 28/10/2026](github-actions-render-cicd-file-manifest.vi.md): tạo/sửa/có điều kiện, công việc cụ thể, input/output, caller/callee, test, thứ tự triển khai và các cấu hình GitHub/Render/Aiven phải làm ngoài source. Đây là phụ lục kế hoạch, chưa thực thi.
+- [CI/CD GitHub Actions → Render — cập nhật 28/10/2026](github-actions-render-cicd-plan.vi.md): PR checks, PostgreSQL/Kafka tạm, deploy đúng SHA, health/dependency/smoke gates, migration riêng và rollback. Đã có code/workflow; production CD còn chờ cấu hình secrets/protection.
+
+- [Chi tiết từng file CI/CD và health — 28/10/2026](github-actions-render-cicd-file-manifest.vi.md): manifest triển khai và các cấu hình GitHub/Render/Aiven phải làm ngoài source. Phần CI/CD core đã được thực thi; xem runbook được liên kết trong tài liệu để kích hoạt production.
 
 - [Mua đồ thiết yếu, supplier, nợ trực tiếp và AI nhắc mua — 27/10/2026](household-supplies-supplier-and-ai-plan.vi.md): hai luồng manual/AI, payOS trả supplier, nội bộ hoàn trực tiếp người ứng; không gom quỹ/bù trừ. Mục 13–18 có future feature ngân hàng cá nhân, kiến trúc, manifest file sửa/tạo và luồng gọi giữa file. Chưa triển khai.
 
@@ -32,4 +34,10 @@ Các kế hoạch cũ được giữ để tham khảo lịch sử. Tài liệu 
 - [Biên bản kiểm chứng source non-AI mới nhất](../reports/non-ai-runtime-verification-2026-10-20.vi.md): 55 unit, 27 integration, 12 Flutter test PASS; gồm 6 PostgreSQL bắt buộc, 10 Kafka thật, hard crash/restart, journey 3/6 actor và UI quản trị lỗi theo owner. [Runbook chạy lại](../testing/runtime-execution-runbook.vi.md). Android thật/release/payOS vẫn hoãn theo scope người dùng.
 # Tiến độ CI/CD
 
+- [Bộ test case backend/frontend từ đầu đến cuối — 28/10/2026](../testing/backend-frontend-e2e-test-cases.vi.md): đăng nhập Google, nhà/QR, mùa/việc, chat/media/noti, AI urgent, Order email, công nợ, lịch ảnh và deploy. Có kịch bản hai người, oracle FE/BE và quy tắc evidence; mặc định NOT RUN.
+
 Workflow và scripts của kế hoạch GitHub Actions → Render đã có trong source. Cấu hình và các bước kích hoạt production nằm tại [CI/CD runbook](../../scripts/ci/README.md); CD chưa bật nếu chưa đặt `CD_ENABLED=true` cùng environment secrets/protection.
+
+- [Đăng nhập Google](google-sign-in.vi.md): token Google → xác minh backend → phiên Chore Wars; file cần thay đổi, liên kết tài khoản cũ và cấu hình OAuth.
+- [Bật Google sign-in trên Render/localhost](../google-sign-in-setup.vi.md): Client ID, frontend origin, liên kết tài khoản và migration.
+- [Cấu hình mail Order](../order-email-setup.vi.md): cấu hình Development/Render, migration và nghiệm thu gửi mail/ghi nhận thanh toán.

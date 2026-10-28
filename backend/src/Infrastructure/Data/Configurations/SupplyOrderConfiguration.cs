@@ -5,6 +5,10 @@ namespace ChoreWars.Infrastructure.Data.Configurations;
 public sealed class SupplyOrderConfiguration : IEntityTypeConfiguration<SupplyOrder> {
  public void Configure(EntityTypeBuilder<SupplyOrder> b) {
  b.HasKey(x => x.Id);
+ b.Property(x => x.Workflow).HasConversion<string>().HasMaxLength(32).HasDefaultValue(ChoreWars.Domain.Enums.SupplyOrderWorkflow.LEGACY_SHARED);
+ b.Property(x => x.SupplierEmail).HasMaxLength(320); b.Property(x => x.Note).HasMaxLength(1000);
+ b.Property(x => x.PaymentConfirmationSource).HasMaxLength(32); b.Property(x => x.PaymentReference).HasMaxLength(200);
+ b.Property(x => x.RecordedPaidAmount).HasPrecision(18, 0);
  b.HasIndex(x => new { x.HouseId, x.CreatorUserId, x.ClientRequestId }).IsUnique();
 b.HasIndex(x => new { x.HouseId, x.CreatedAt }); b.Property(x => x.Version).IsConcurrencyToken();
 b.HasOne<House>().WithMany().HasForeignKey(x => x.HouseId).OnDelete(DeleteBehavior.Restrict);

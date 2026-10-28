@@ -2,12 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Chore Wars Web (avoid Chrome debugger timeout)",
+      "name": "Chore Wars Web",
       "request": "launch",
       "type": "dart",
-      "deviceId": "web-server",
+      "deviceId": "chrome",
       "program": "lib/main.dart",
-      "args": ["--web-hostname", "localhost", "--web-port", "8080"]
+      "args": ["--dart-define-from-file=config/google.json"]
     }
   ]
 }

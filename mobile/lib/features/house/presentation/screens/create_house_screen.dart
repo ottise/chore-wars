@@ -7,7 +7,6 @@ import '../../../../core/widgets/primary_button.dart';
 import '../providers/house_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
 
-
 class CreateHouseScreen extends ConsumerStatefulWidget {
   const CreateHouseScreen({super.key});
 

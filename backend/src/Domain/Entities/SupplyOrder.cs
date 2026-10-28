@@ -1,6 +1,17 @@
 using ChoreWars.Domain.Enums;
 namespace ChoreWars.Domain.Entities;
 public sealed class SupplyOrder {
+public SupplyOrderWorkflow Workflow { get; set; }
+public string SupplierEmail { get; set; } = "";
+public string Note { get; set; } = "";
+public Guid? PaymentRecordRequestId { get; set; }
+public Guid? PaymentRecordedByUserId { get; set; }
+public DateTime? PaymentRecordedAt { get; set; }
+public decimal? RecordedPaidAmount { get; set; }
+public string? PaymentConfirmationSource { get; set; }
+public string? PaymentReference { get; set; }
+public SupplyOrderEmailDispatch? EmailDispatch { get; set; }
+public List<SupplyOrderActivity> Activities { get; set; } = [];
 public Guid Id { get; set; }
 public Guid HouseId { get; set; }
 public Guid SupplierId { get; set; }

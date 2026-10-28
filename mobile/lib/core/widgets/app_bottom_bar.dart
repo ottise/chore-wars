@@ -10,12 +10,12 @@ class AppBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Overview', 'Chore', 'Chat', 'Bonus', 'Bounty'];
+    const labels = ['Overview', 'Chore', 'Chat', 'Order', 'Bounty'];
     const icons = [
       Icons.home_outlined,
       Icons.checklist_outlined,
       Icons.chat_bubble_outline_rounded,
-      Icons.star_border_outlined,
+      Icons.shopping_bag_outlined,
       Icons.sell_outlined,
     ];
     final colors = Theme.of(context).colorScheme;

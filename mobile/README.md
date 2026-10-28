@@ -1,5 +1,17 @@
 # chore_wars
 
+## Run frontend normally
+
+From the `mobile` directory, run:
+
+```powershell
+flutter run
+```
+
+Flutter selects its device and port normally. The project PowerShell shortcut
+has been removed. In VS Code, select **Chore Wars Web** and press F5; Chrome
+uses Flutter's automatically selected port.
+
 ## Backend connection
 
 The app connects to the deployed backend by default:
@@ -13,32 +25,22 @@ refresh of an already-running development build does not recompile the app.
 To use a local backend explicitly:
 
 ```powershell
-flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
+flutter run -d chrome --dart-define-from-file=config/google.json --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
 ```
 
 For an Android emulator, replace `localhost` with `10.0.2.2`. Web deployments
 using `USE_SAME_ORIGIN=true` still route through their own `/api` and `/hubs` proxy.
 
-## Run in Chrome when automatic debugging times out
+## Optional launch helper
 
-From this `mobile` directory, run:
+`./scripts/run-web.ps1` runs the original Flutter SDK and loads
+`config/google.json`. It leaves port/device selection to Flutter by default.
+Use `-NoBrowser` for the web-server device and open the printed URL yourself.
+An explicit `-Port` is optional, never the default.
 
-```powershell
-.\scripts\run-web.ps1
-```
-
-The script opens Chrome at `http://localhost:8080` once compilation finishes.
-Use `-Port 8081` if 8080 is occupied, or `-NoBrowser` to open the URL yourself.
-Keep this terminal running; press `q` or `Ctrl+C` to stop it.
-
-In VS Code, select **Chore Wars Web (avoid Chrome debugger timeout)**.
-This launch configuration serves the app; open the URL printed in the terminal.
-
-This uses Flutter's `web-server` target, avoiding the automatic Chrome/DWDS
-debugger handshake that can time out in `WebkitDebugger.enable`. It does not
-repair the SDK debugger; Dart breakpoint debugging is limited in this mode.
-See [Flutter web setup](https://docs.flutter.dev/platform-integration/web/setup).
-The normal `flutter run -d chrome` command remains available.
+Google OAuth requires the actual browser origin, including its current port,
+to be registered under Authorized JavaScript origins. Update that origin when
+testing Google after a port change. The Web Client ID remains configured.
 
 Messages about newer package versions are informational. An AI offline screen
 is a separate backend/service configuration status, not a browser launch failure.

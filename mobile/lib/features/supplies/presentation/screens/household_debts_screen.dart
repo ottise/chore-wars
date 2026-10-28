@@ -29,7 +29,7 @@ class HouseholdDebtsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(userProfileProvider).asData?.value.id;
     return SuppliesPage(
-      title: 'Household Debts',
+      title: 'My Debts',
       child: ref
           .watch(purchaseDebtsProvider(houseId))
           .when(
@@ -55,10 +55,6 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                           for (final entry in {
                             'owe': 'I owe',
                             'owedToMe': 'Owed to me',
-                            'advanced': 'Advanced for purchases',
-                            'personalCost': 'My purchase costs',
-                            'repaid': 'Repaid to others',
-                            'received': 'Received from others',
                           }.entries)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -73,11 +69,12 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: () => context.push('/bank-accounts'), icon: const Icon(Icons.account_balance_outlined), label: const Text('Receiving account'))),
                     const Text(
                       'Direct debts are kept separately. No debts are transferred to another person or offset.',
                     ),
                     const SizedBox(height: 16),
-                    if (rows.isEmpty) const Text('No purchase debts yet.'),
+                    if (rows.isEmpty) const Text('No debts yet.'),
                     for (final owe in [true, false]) ...[
                       Text(
                         owe ? 'I owe' : 'Owed to me',
@@ -101,7 +98,7 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                               ),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => context.push(
-                                '/houses/$houseId/supplies/debts/${d['id']}',
+                                '/houses/$houseId/account/debts/${d['id']}',
                               ),
                             ),
                           ),
@@ -339,7 +336,7 @@ class _InternalRepaymentScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(supplyMoney(r['amount'])),
-                            Text('${r['reference']}\n${r['status']}'),
+                            Text('Debt · ${r['reference']}\n${r['status']}'),
                             if (r['responseReason'] != null)
                               Text(r['responseReason'].toString()),
                             if (!debtor && r['status'] == 'REPORTED') ...[

@@ -40,7 +40,7 @@ jobs:
     timeout-minutes: 35
     env:
       CHOREWARS_TEST_POSTGRES: Host=127.0.0.1;Port=55435;Database=postgres;Username=ci;Password=ci-disposable-only
-      CHOREWARS_TEST_KAFKA: localhost:59094
+      CHOREWARS_TEST_KAFKA: 127.0.0.1:59094
       CHOREWARS_TEST_AI_URL: http://127.0.0.1:18011
       CHOREWARS_TEST_AI_KEY: ci-contract-key-local-only-at-least-32
       AI_ENVIRONMENT: test
@@ -76,7 +76,7 @@ jobs:
     timeout-minutes: 25
     env:
       AI_TEST_POSTGRES_ADMIN: postgresql://ci:ci-disposable-only@127.0.0.1:55435/postgres
-      AI_TEST_KAFKA: localhost:59094
+      AI_TEST_KAFKA: 127.0.0.1:59094
       CHOREWARS_DEMO_POSTGRES_ADMIN: Host=127.0.0.1;Port=55435;Database=postgres;Username=ci;Password=ci-disposable-only
       AI_CORE_DEMO_MANIFEST: ${{ github.workspace }}/artifacts/ci/core-demo/manifest.json
     steps:

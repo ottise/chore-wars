@@ -25,18 +25,21 @@ class UserProfile {
     required this.email,
     required this.displayName,
     this.avatarUrl,
+    this.googleLinked = false,
   });
 
   final String id;
   final String email;
   final String displayName;
   final String? avatarUrl;
+  final bool googleLinked;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     id: json['id'].toString(),
     email: json['email']?.toString() ?? '',
     displayName: json['displayName']?.toString() ?? '',
     avatarUrl: json['avatarUrl']?.toString(),
+    googleLinked: json['googleLinked'] == true,
   );
 
   UserProfile copyWith({String? displayName, String? avatarUrl}) => UserProfile(
@@ -44,5 +47,6 @@ class UserProfile {
     email: email,
     displayName: displayName ?? this.displayName,
     avatarUrl: avatarUrl ?? this.avatarUrl,
+    googleLinked: googleLinked,
   );
 }

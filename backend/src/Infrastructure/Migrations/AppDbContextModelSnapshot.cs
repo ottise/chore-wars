@@ -1924,17 +1924,43 @@ namespace Infrastructure.Migrations
                     b.Property<Guid?>("LastRevisionRequestId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("PayerUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PaymentConfirmationSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("PaymentRecordRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PaymentRecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PaymentRecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<Guid?>("ProposalId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("QuoteExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("RecordedPaidAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
 
                     b.Property<decimal>("RefundedAmount")
                         .HasPrecision(18)
@@ -1951,6 +1977,11 @@ namespace Infrastructure.Migrations
 
                     b.Property<bool>("StockReserved")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("SupplierEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uuid");
@@ -1973,6 +2004,13 @@ namespace Infrastructure.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("integer");
 
+                    b.Property<string>("Workflow")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("LEGACY_SHARED");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatorUserId");
@@ -1989,6 +2027,99 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("SupplyOrders");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderActivity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "RecordedAt");
+
+                    b.ToTable("SupplyOrderActivities");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderEmailDispatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid?>("LeaseId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("State", "CreatedAt");
+
+                    b.ToTable("SupplyOrderEmailDispatches");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderLine", b =>
@@ -2197,6 +2328,10 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("GoogleSubject")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -2205,6 +2340,9 @@ namespace Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("GoogleSubject")
                         .IsUnique();
 
                     b.ToTable("Users");
@@ -2971,6 +3109,24 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderActivity", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithMany("Activities")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderEmailDispatch", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
+                        .WithOne("EmailDispatch")
+                        .HasForeignKey("ChoreWars.Domain.Entities.SupplyOrderEmailDispatch", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrderLine", b =>
                 {
                     b.HasOne("ChoreWars.Domain.Entities.SupplyOrder", null)
@@ -3110,6 +3266,10 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.SupplyOrder", b =>
                 {
+                    b.Navigation("Activities");
+
+                    b.Navigation("EmailDispatch");
+
                     b.Navigation("Lines");
 
                     b.Navigation("Shares");

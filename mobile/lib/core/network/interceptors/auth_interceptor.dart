@@ -64,6 +64,7 @@ class AuthInterceptor extends Interceptor {
         [
           ApiEndpoints.login,
           ApiEndpoints.register,
+          ApiEndpoints.googleLogin,
           ApiEndpoints.refreshToken,
         ].contains(request.path) ||
         request.extra['authRetried'] == true) {

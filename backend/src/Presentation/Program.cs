@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
 using ChoreWars.Presentation.Extensions;
 using System.IO;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,8 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration
         .AddJsonFile("appsettings.AI.local.json", optional: true, reloadOnChange: true)
         .AddJsonFile("appsettings.Supplies.local.json", optional: true, reloadOnChange: true)
+        .AddJsonFile("appsettings.OrderEmail.local.json", optional: true, reloadOnChange: true)
+        .AddJsonFile("appsettings.Google.local.json", optional: true, reloadOnChange: true)
         .AddEnvironmentVariables()
         .AddCommandLine(args);
 }
@@ -42,6 +46,13 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddPresentationServices();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("google-auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
 builder.Services.Configure<ChoreWars.Presentation.Health.DeploymentHealthOptions>(builder.Configuration.GetSection("DeploymentHealth"));
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddInfrastructureServices(builder.Configuration);
@@ -75,6 +86,7 @@ app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapPresentationEndpoints();
 app.MapHealthChecks("/health/live",new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions{Predicate=_=>false});

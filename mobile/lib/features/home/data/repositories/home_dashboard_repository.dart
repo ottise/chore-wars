@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import '../../../../core/network/api_endpoints.dart';
 import '../../../bounty/data/models/bounty_model.dart';
 import '../../domain/entities/home_dashboard.dart';
@@ -44,7 +45,10 @@ class HomeDashboardRepository {
       confirmedCount: (season?['confirmedCount'] as num?)?.toInt() ?? 0,
       requiredConfirmationCount:
           (season?['requiredConfirmationCount'] as num?)?.toInt() ?? 0,
-      chores: chores.whereType<Map<String, dynamic>>().map(_choreFromJson).toList(),
+      chores: chores
+          .whereType<Map<String, dynamic>>()
+          .map(_choreFromJson)
+          .toList(),
       bounties: bounties
           .whereType<Map<String, dynamic>>()
           .map(BountyModel.fromJson)

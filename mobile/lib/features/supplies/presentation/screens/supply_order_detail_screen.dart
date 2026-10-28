@@ -1,4 +1,5 @@
 import '../widgets/supplier_refund_tile.dart';
+import '../widgets/simple_order_detail_body.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +66,7 @@ class _SupplyOrderDetailScreenState
     final key = (house: widget.houseId, id: widget.orderId);
     final me = ref.watch(userProfileProvider).asData?.value.id;
     return SuppliesPage(
-      title: 'Purchase detail',
+      title: 'Order detail',
       child: ref
           .watch(supplyOrderProvider(key))
           .when(
@@ -75,6 +76,16 @@ class _SupplyOrderDetailScreenState
               () => ref.invalidate(supplyOrderProvider(key)),
             ),
             data: (o) {
+              if (o['workflow'] == 'SIMPLE_CONTACT') {
+                return SimpleOrderDetailBody(
+                  houseId: widget.houseId,
+                  order: o,
+                  isCreator: me == o['creatorUserId'],
+                  busy: _busy,
+                  error: _error,
+                  run: _run,
+                );
+              }
               final status = o['status'].toString();
               final isPayer = me == o['payerUserId'];
               final isCreator = me == o['creatorUserId'];

@@ -66,7 +66,7 @@ void main() {
                   'chat',
                   'ai',
                   'more',
-                  'bonus',
+                  'orders',
                   'bounties',
                   'ai/evaluations/:id',
                 ])
@@ -115,7 +115,7 @@ void main() {
     for (final entry in {
       'Chore': '/chores',
       'Chat': '/chat',
-      'Bonus': '/bonus',
+      'Order': '/orders',
       'Bounty': '/bounties',
       'Overview': '',
     }.entries) {

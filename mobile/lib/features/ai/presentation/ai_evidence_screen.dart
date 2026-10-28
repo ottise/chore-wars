@@ -3,6 +3,9 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../house/presentation/providers/house_calendar_providers.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
@@ -95,6 +98,7 @@ class _AiEvidenceScreenState extends ConsumerState<AiEvidenceScreen> {
         .post('/occurrences/${widget.occurrenceId}/evidence/$id/attach');
     if (active(captured)) {
       ref.invalidate(evidencePhotoProvider(id!));
+      ref.invalidate(houseCalendarProvider);
       setState(() => saved = true);
     }
   }

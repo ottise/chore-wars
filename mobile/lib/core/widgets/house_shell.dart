@@ -1,5 +1,6 @@
 import 'app_page_frame.dart';
 import 'app_bottom_bar.dart';
+import 'assistant_shortcut.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +38,7 @@ class HouseShell extends ConsumerWidget {
           '$base/chat/notifications',
         ].contains(location) ||
         location.startsWith('$base/supplies') ||
+        location.startsWith('$base/orders') ||
         RegExp('^${RegExp.escape(base)}/seasons/[^/]+/(leaderboard|rewards)\$')
             .hasMatch(location);
     final house = ref.watch(houseDetailProvider(houseId)).asData?.value;
@@ -48,21 +50,22 @@ class HouseShell extends ConsumerWidget {
       base,
       '$base/chores',
       '$base/chat',
-      '$base/bonus',
+      '$base/orders',
       '$base/bounties',
     ];
     final section = location.startsWith('$base/')
         ? location.substring(base.length + 1).split('/').first
         : '';
     final selected = switch (section) {
-      '' || 'supplies' => 0,
+      '' => 0,
+      'supplies' || 'orders' => 3,
       'chores' || 'urgent-event' || 'unresolved-chores' => 1,
       'chat' || 'ai' => 2,
-      'bonus' || 'rewards' || 'achievements' || 'karma' => 3,
+      'bonus' || 'rewards' || 'achievements' || 'karma' => 1,
       'seasons'
           when location.endsWith('/leaderboard') ||
               location.endsWith('/rewards') =>
-        3,
+        1,
       'bounties' || 'payments' => 4,
       _ => null,
     };
@@ -79,11 +82,16 @@ class HouseShell extends ConsumerWidget {
               '$base/payments',
             ].contains(location) ||
             location.startsWith('$base/supplies') ||
+            location.startsWith('$base/orders') ||
             RegExp('^${RegExp.escape(base)}/seasons/[^/]+/rewards\$')
                 .hasMatch(location));
     return Scaffold(
       backgroundColor: redesigned ? AppPageFrame.background : null,
       resizeToAvoidBottomInset: false,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButton: keyboard || conversation
+          ? null
+          : AssistantShortcut(houseId: houseId),
       body: SafeArea(
         bottom: false,
         child: Column(

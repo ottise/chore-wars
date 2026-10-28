@@ -1,5 +1,7 @@
 # Runbook mua hàng hai người và supplier
 
+> Legacy: tài liệu này mô tả luồng supplier/approval/payOS cũ. Luồng Order hiện tại dùng số lượng → Send email → Mark as paid, không cần supplier login/chia phần/approve. Nghiệm thu mới theo ORD-01…10 và E2E-04 trong [bộ test backend/frontend hiện hành](backend-frontend-e2e-test-cases.vi.md); không dùng các bước legacy bên dưới làm yêu cầu cho SIMPLE_CONTACT.
+
 Ngày cập nhật: 27/10/2026. Không dùng số thẻ/tài khoản thật hoặc chuyển tiền thật trong automated test.
 
 ## Chuẩn bị

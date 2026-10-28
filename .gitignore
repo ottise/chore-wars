@@ -79,3 +79,5 @@ ai-service/*.db
 # Supplier payment credentials stay on the server.
 backend/src/Presentation/appsettings.Supplies.local.json
 .env.supplies.local
+backend/src/Presentation/appsettings.OrderEmail.local.json
+backend/src/Presentation/appsettings.Google.local.json

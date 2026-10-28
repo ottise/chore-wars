@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/api_error_message.dart';
 import '../providers/auth_providers.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -250,6 +251,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                               ),
                               const SizedBox(height: 24),
+                              GoogleSignInButton(
+                                enabled: !_isLoading,
+                                onToken: _googleLogin,
+                                onError: (message) {
+                                  if (mounted) {
+                                    setState(() => _errorMessage = message);
+                                  }
+                                },
+                              ),
                               const Spacer(),
                               Padding(
                                 padding: const EdgeInsets.only(top: 24),
@@ -302,6 +312,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         TextInput.finishAutofillContext();
         context.go('/houses');
       }
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = apiErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _googleLogin(String idToken) async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref.read(authStateProvider.notifier).googleLogin(idToken);
+      if (mounted) context.go('/houses');
     } catch (error) {
       if (mounted) setState(() => _errorMessage = apiErrorMessage(error));
     } finally {

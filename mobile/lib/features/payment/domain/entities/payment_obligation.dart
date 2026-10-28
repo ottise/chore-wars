@@ -1,5 +1,12 @@
 enum PaymentStatus { pending, paid, disputed, cancelled, unknown }
-enum PaymentReason { bountyPayment, forcedReassignment, penalty, other, unknown }
+
+enum PaymentReason {
+  bountyPayment,
+  forcedReassignment,
+  penalty,
+  other,
+  unknown,
+}
 
 class PaymentObligation {
   final String id;

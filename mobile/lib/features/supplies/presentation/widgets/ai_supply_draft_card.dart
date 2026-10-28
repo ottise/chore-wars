@@ -25,12 +25,12 @@ class AiSupplyDraftCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Check current prices, delivery details and cost shares. Nothing has been ordered or paid yet.',
+            'Check the quantities, then send your order by email. Nothing has been sent or paid yet.',
           ),
           if ((candidate['lines'] as List? ?? []).isNotEmpty)
             FilledButton(
               onPressed: () =>
-                  context.push('/houses/$houseId/supplies', extra: candidate),
+                  context.push('/houses/$houseId/orders', extra: candidate),
               child: const Text('Review AI selection'),
             ),
           if (candidate['reminder'] is Map)
