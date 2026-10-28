@@ -27,7 +27,7 @@ final houseCalendarProvider = FutureProvider.autoDispose
                 HouseCalendarDay.fromJson(Map<String, dynamic>.from(v as Map)),
           )
           .toList();
-    });
+    }, retry: (retryCount, error) => null);
 
 typedef CalendarPhoto = ({String houseId, String evidenceId, bool thumbnail});
 final calendarPhotoProvider = FutureProvider.autoDispose

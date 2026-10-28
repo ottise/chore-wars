@@ -17,6 +17,12 @@ final suppliesRepositoryProvider = Provider<SuppliesRepository>((ref) {
 final suppliersProvider = FutureProvider.autoDispose(
   (ref) => ref.watch(suppliesRepositoryProvider).suppliers(),
 );
+final houseShopSuppliersProvider = FutureProvider.autoDispose
+    .family<List<SupplyData>, String>(
+      (ref, house) => ref
+          .watch(suppliesRepositoryProvider)
+          .list('/houses/$house/shop/suppliers'),
+    );
 final supplyProductsProvider = FutureProvider.autoDispose
     .family<List<SupplyData>, String>(
       (ref, supplier) =>

@@ -65,7 +65,6 @@ import '../../features/house/presentation/screens/qr_invite_screen.dart';
 import '../../features/house/presentation/screens/qr_join_screen.dart';
 import '../../features/house/presentation/screens/review_schedule_screen.dart';
 import '../../features/chat/presentation/screens/chat_room_screen.dart';
-import '../../features/chat/presentation/screens/chat_home_screen.dart';
 import '../../features/chat/presentation/screens/assistant_chat_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -418,9 +417,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'chat',
-                    builder: (context, state) => ChatHomeScreen(
-                      houseId: state.pathParameters['houseId']!,
-                    ),
+                    redirect: (context, state) =>
+                        state.uri.path.endsWith('/chat')
+                        ? '/houses/${state.pathParameters['houseId']}/chat/everyone'
+                        : null,
                     routes: [
                       GoRoute(
                         path: 'everyone',

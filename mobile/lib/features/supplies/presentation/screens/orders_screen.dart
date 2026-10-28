@@ -8,6 +8,7 @@ import '../../domain/repositories/supplies_repository.dart';
 import '../providers/supplies_providers.dart';
 import '../widgets/supplier_contact_card.dart';
 import '../widgets/supplies_ui.dart';
+import '../widgets/shop_item_dialog.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({
@@ -85,12 +86,34 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
+  Future<void> _addItem() async {
+    final supplierId = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ShopItemDialog(houseId: widget.houseId),
+    );
+    if (mounted && supplierId != null) {
+      setState(() {
+        _supplier = supplierId;
+        _quantities.clear();
+        _requestId = const Uuid().v4();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
     initialIndex: widget.initialTab,
     child: SuppliesPage(
       title: 'Orders',
+      actions: [
+        IconButton(
+          tooltip: 'Add shop item',
+          onPressed: _sending ? null : _addItem,
+          icon: const Icon(Icons.add),
+        ),
+      ],
       child: Column(
         children: [
           const TabBar(
@@ -113,17 +136,30 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   );
 
   Widget _shop() => ref
-      .watch(suppliersProvider)
+      .watch(houseShopSuppliersProvider(widget.houseId))
       .when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) =>
-            SupplyFailure(e, () => ref.invalidate(suppliersProvider)),
+        error: (e, _) => SupplyFailure(
+          e,
+          () => ref.invalidate(houseShopSuppliersProvider(widget.houseId)),
+        ),
         data: (shops) {
           if (shops.isEmpty) {
-            return const Padding(
+            return Padding(
               padding: EdgeInsets.all(20),
-              child: Text(
-                'No supplier is available yet. Your previous orders are in Orders.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'No shop items yet. Add an item and its contact details to get started.',
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _addItem,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add item'),
+                  ),
+                ],
               ),
             );
           }
@@ -164,7 +200,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                               .map(
                                 (s) => DropdownMenuItem(
                                   value: s['id'].toString(),
-                                  child: Text(s['name'].toString()),
+                                  child: Text(
+                                    s['name'].toString(),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -218,6 +257,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       tooltip: 'Add one ${p['name']}',
                                       onPressed:
                                           _sending ||
+                                              (_quantities[p['id']] ?? 0) >=
+                                                  1000 ||
                                               (_quantities[p['id']] ?? 0) >=
                                                   (p['availableQuantity']
                                                           as num? ??

@@ -5,6 +5,10 @@ import 'package:chore_wars/core/storage/secure_storage.dart';
 import 'package:chore_wars/core/widgets/house_shell.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
 import 'package:chore_wars/features/chat/presentation/screens/assistant_chat_screen.dart';
+import 'package:chore_wars/features/chat/presentation/screens/chat_room_screen.dart';
+import 'package:chore_wars/features/chat/data/repositories/chat_repository.dart';
+import 'package:chore_wars/features/chat/data/models/chat_room_model.dart';
+import 'package:chore_wars/features/chat/providers/chat_providers.dart';
 import 'package:chore_wars/features/house/domain/entities/house_models.dart';
 import 'package:chore_wars/features/house/presentation/providers/house_providers.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +43,12 @@ class _Tokens extends SecureStorage {
   Future<String?> getAccessToken() async => 'test-session';
 }
 
+class _UnavailableChat extends Fake implements ChatRepository {
+  @override
+  Future<ChatRoomModel> getHouseRoom(String houseId) async =>
+      throw StateError('Offline test room');
+}
+
 void main() {
   testWidgets('five tabs retain the URL household and mark deep links', (
     tester,
@@ -64,6 +74,7 @@ void main() {
                 for (final path in [
                   'chores',
                   'chat',
+                  'chat/everyone',
                   'ai',
                   'more',
                   'orders',
@@ -114,7 +125,7 @@ void main() {
     expect(find.byKey(const ValueKey('house-tab-4')), findsOneWidget);
     for (final entry in {
       'Chore': '/chores',
-      'Chat': '/chat',
+      'Chat': '/chat/everyone',
       'Order': '/orders',
       'Bounty': '/bounties',
       'Overview': '',
@@ -139,6 +150,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         secureStorageProvider.overrideWithValue(_Tokens()),
+        chatRepositoryProvider.overrideWithValue(_UnavailableChat()),
         notificationNotifierProvider.overrideWith(_Inbox.new),
         userProfileProvider.overrideWith(
           (ref) async => const UserProfile(
@@ -205,9 +217,14 @@ void main() {
     await tester.pumpAndSettle();
     router.go('/houses/house-B/chat');
     await tester.pumpAndSettle();
-    expect(find.text('AI Assistant'), findsOneWidget);
+    expect(find.byType(ChatRoomScreen), findsOneWidget);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      '/houses/house-B/chat/everyone',
+    );
+    expect(find.text('Private help with chores and schedules'), findsNothing);
     expect(find.text('Household Chat'), findsOneWidget);
-    await tester.tap(find.text('AI Assistant'));
+    router.go('/houses/house-B/chat/assistant');
     await tester.pumpAndSettle();
     expect(find.byType(AssistantChatScreen), findsOneWidget);
     expect(

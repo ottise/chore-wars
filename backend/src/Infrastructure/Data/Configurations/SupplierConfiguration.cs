@@ -7,6 +7,7 @@ public sealed class SupplierConfiguration : IEntityTypeConfiguration<Supplier> {
  b.HasKey(x => x.Id);
  b.HasIndex(x => x.OperatorUserId).IsUnique();
 b.HasOne<User>().WithMany().HasForeignKey(x => x.OperatorUserId).OnDelete(DeleteBehavior.Restrict);
+b.HasOne<House>().WithMany().HasForeignKey(x => x.HouseId).OnDelete(DeleteBehavior.Restrict);
 b.Property(x => x.Name).HasMaxLength(120); b.Property(x => x.Phone).HasMaxLength(24);
 b.Property(x => x.Email).HasMaxLength(254);
 b.Property(x => x.DeliveryArea).HasMaxLength(300); b.Property(x => x.DeliveryFee).HasPrecision(18,0);

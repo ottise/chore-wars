@@ -55,18 +55,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
-                      child: AutofillGroup(
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 460,
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
+                  child: AutofillGroup(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Row(
@@ -85,27 +91,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Chore Wars',
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              color: colors.onSurface,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Chores, together.',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Chore Wars',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                color: colors.onSurface,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Chores, together.',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -260,32 +268,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   }
                                 },
                               ),
-                              const Spacer(),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 24),
-                                child: Wrap(
-                                  alignment: WrapAlignment.center,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    Text(
-                                      'New here?',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: colors.onSurfaceVariant,
-                                          ),
-                                    ),
-                                    TextButton(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : () => context.go('/register'),
-                                      child: const Text('Create an Account'),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
-                        ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'New here?',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _isLoading
+                                      ? null
+                                      : () => context.go('/register'),
+                                  child: const Text('Create an Account'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

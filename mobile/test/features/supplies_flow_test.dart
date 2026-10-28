@@ -36,6 +36,12 @@ class _Shop extends Fake implements SuppliesRepository {
   @override
   Future<List<SupplyData>> suppliers() async => [supplier];
   @override
+  Future<List<SupplyData>> list(String path) async {
+    expect(path, '/houses/house/shop/suppliers');
+    return [supplier];
+  }
+
+  @override
   Future<List<SupplyData>> products(String supplier) async => [product];
   @override
   Future<SupplyData> mutate(

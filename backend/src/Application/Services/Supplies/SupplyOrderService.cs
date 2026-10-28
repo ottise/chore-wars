@@ -64,6 +64,7 @@ public sealed class SupplyOrderService(ISupplyRepository store, IUnitOfWork uow,
     private async Task<SupplyOrder> BuildDraftAsync(Guid house,Guid actor,CreateSupplyOrderRequest request,string fingerprint,CancellationToken ct)
     {
             var supplier = await store.SupplierAsync(request.SupplierId, ct) ?? throw new NotFoundException("Supplier not found.");
+            if (supplier.HouseId.HasValue) throw new ConflictException("Use the simple email order flow for household contacts.");
             if (!supplier.Active) throw new ConflictException("This supplier is unavailable.");
             var now = clock.GetUtcNow().UtcDateTime;
             var order = new SupplyOrder

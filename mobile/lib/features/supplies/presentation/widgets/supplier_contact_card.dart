@@ -36,6 +36,12 @@ class SupplierContactCard extends StatelessWidget {
                   onPressed: () => supplyCopy(context, 'Phone', phone),
                   child: const Text('Copy number'),
                 ),
+                TextButton.icon(
+                  onPressed: () =>
+                      supplyLaunch(context, Uri(scheme: 'sms', path: phone)),
+                  icon: const Icon(Icons.sms_outlined),
+                  label: const Text('Message'),
+                ),
               ],
             ),
           if (email.isNotEmpty)

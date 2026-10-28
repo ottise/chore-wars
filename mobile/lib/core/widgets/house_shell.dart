@@ -49,7 +49,7 @@ class HouseShell extends ConsumerWidget {
     final paths = [
       base,
       '$base/chores',
-      '$base/chat',
+      '$base/chat/everyone',
       '$base/orders',
       '$base/bounties',
     ];

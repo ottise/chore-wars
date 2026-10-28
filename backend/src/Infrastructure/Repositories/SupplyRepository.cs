@@ -10,7 +10,8 @@ namespace ChoreWars.Infrastructure.Repositories;
 public sealed class SupplyRepository(AppDbContext db) : ISupplyRepository
 {
     private IQueryable<SupplyOrder> Orders => db.SupplyOrders.Include(x => x.Lines).Include(x => x.Shares).Include(x => x.EmailDispatch).Include(x => x.Activities).AsSplitQuery();
-    public Task<List<Supplier>> SuppliersAsync(CancellationToken ct) => db.Suppliers.Where(x => x.Active).OrderBy(x => x.Name).ToListAsync(ct);
+    public Task<List<Supplier>> SuppliersAsync(CancellationToken ct) => db.Suppliers.Where(x => x.Active && x.HouseId == null).OrderBy(x => x.Name).ToListAsync(ct);
+    public Task<List<Supplier>> HouseSuppliersAsync(Guid house, CancellationToken ct) => db.Suppliers.Where(x => x.Active && (x.HouseId == null || x.HouseId == house)).OrderBy(x => x.Name).ToListAsync(ct);
     public Task<Supplier?> SupplierAsync(Guid id, CancellationToken ct) => db.Suppliers.SingleOrDefaultAsync(x => x.Id == id, ct);
     public Task<Supplier?> OperatorAsync(Guid actor, CancellationToken ct) => db.Suppliers.SingleOrDefaultAsync(x => x.OperatorUserId == actor, ct);
     public Task<List<SupplyProduct>> ProductsAsync(Guid supplier, CancellationToken ct) => db.SupplyProducts.Where(x => x.SupplierId == supplier).OrderBy(x => x.Name).ToListAsync(ct);

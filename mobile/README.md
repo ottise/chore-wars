@@ -14,8 +14,11 @@ Alternatively run `./scripts/run-web.ps1` from mobile or use the VS Code launch
 configuration **Chore Wars Web (localhost:7357)**.
 
 If 7357 is occupied, stop the previous frontend. The launcher reports the occupied
-port and does not silently switch to a random one. It waits for JavaScript before
-opening Chrome. Use `-NoBrowser` to open the URL yourself.
+port and does not silently switch to a random one. Flutter launches and manages
+Chrome directly, including its debug connection. Use `-NoBrowser` to open the URL
+yourself; this mode uses SSE for the external-browser debug client instead of
+WebSockets. After restarting the server, reload existing tabs so they reconnect
+to the current debug session. The old `?cwStart=...` launcher is no longer used.
 
 ## Backend connection
 

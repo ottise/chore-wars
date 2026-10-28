@@ -196,6 +196,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Start Your First Season'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text('Start Your First Season'), findsOneWidget);
         expect(find.text('Create New Season'), findsOneWidget);
         expect(find.textContaining('Couldn’t load'), findsNothing);

@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 
 import 'package:chore_wars/core/theme/app_theme.dart';
 import 'package:chore_wars/features/house/domain/entities/house_calendar_models.dart';
@@ -10,6 +13,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('month grid stays visible while loading and after an API error', (
+    tester,
+  ) async {
+    final pending = Completer<List<HouseCalendarDay>>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          houseCalendarProvider.overrideWith((ref, range) => pending.future),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HouseholdCalendar(houseId: 'house'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Mon'), findsOneWidget);
+    expect(find.text('Sun'), findsOneWidget);
+    expect(find.byType(GridView), findsOneWidget);
+    expect(find.text('No chores for this day.'), findsNothing);
+    pending.completeError(
+      DioException(
+        requestOptions: RequestOptions(path: '/calendar'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/calendar'),
+          statusCode: 404,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+    expect(
+      find.text('Calendar data is not available on this server yet.'),
+      findsOneWidget,
+    );
+    expect(find.text('No chores for this day.'), findsNothing);
+    await tester.tap(find.byTooltip('Next month'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GridView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   test('completion dates use Vietnam day rather than browser timezone', () {
     expect(
       vietnamDay(DateTime.utc(2026, 10, 27, 17, 5)),

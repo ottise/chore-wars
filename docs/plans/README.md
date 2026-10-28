@@ -41,3 +41,4 @@ Workflow và scripts của kế hoạch GitHub Actions → Render đã có trong
 - [Đăng nhập Google](google-sign-in.vi.md): token Google → xác minh backend → phiên Chore Wars; file cần thay đổi, liên kết tài khoản cũ và cấu hình OAuth.
 - [Bật Google sign-in trên Render/localhost](../google-sign-in-setup.vi.md): Client ID, frontend origin, liên kết tài khoản và migration.
 - [Cấu hình mail Order](../order-email-setup.vi.md): cấu hình Development/Render, migration và nghiệm thu gửi mail/ghi nhận thanh toán.
+- [Shop: thêm mặt hàng, gọi điện và nhắn tin](shop-items-contact-flows.vi.md): catalog riêng từng nhà, hai luồng liên hệ, file/API/migration và các sửa login, lịch, Chat đi kèm.

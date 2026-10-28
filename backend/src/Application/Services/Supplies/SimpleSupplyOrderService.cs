@@ -33,6 +33,7 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
             }
             EnsureEmailConfigured();
             var supplier = await store.SupplierAsync(request.SupplierId, ct) ?? throw new NotFoundException("Supplier not found.");
+            if (supplier.HouseId.HasValue && supplier.HouseId != house) throw new NotFoundException("Supplier not found.");
             if (!supplier.Active || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(supplier.Email))
                 throw new ConflictException("The supplier email is not available. You can call the supplier instead.");
             var now = clock.GetUtcNow().UtcDateTime;

@@ -3,6 +3,8 @@ namespace ChoreWars.Application.Interfaces.Services;
 public interface ISupplyCatalogService
 {
     Task<List<SupplierResponse>> SuppliersAsync(CancellationToken ct);
+    Task<List<SupplierResponse>> HouseSuppliersAsync(Guid house, Guid actor, CancellationToken ct);
+    Task<ShopItemResponse> CreateShopItemAsync(Guid house, Guid actor, CreateShopItemRequest request, CancellationToken ct);
     Task<SupplierResponse?> OwnAsync(Guid actor, CancellationToken ct);
     Task<bool> CanOperateAsync(Guid actor, CancellationToken ct);
     Task<SupplierResponse> SaveAsync(Guid actor, UpsertSupplierRequest request, CancellationToken ct);

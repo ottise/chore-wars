@@ -11,11 +11,42 @@ using FluentValidation;
 namespace ChoreWars.Application.Services.Supplies;
 public sealed class SupplyCatalogService(ISupplyRepository store, ISupplierOperatorAccess operators,
     IHouseMutationCoordinator mutations, IEventPublisher events, IValidator<UpsertSupplierRequest> supplierValidator,
-    IValidator<UpsertSupplyProductRequest> productValidator) : ISupplyCatalogService
+    IValidator<UpsertSupplyProductRequest> productValidator, IHouseAccessService access,
+    IValidator<CreateShopItemRequest> shopValidator) : ISupplyCatalogService
 {
     public static SupplierResponse Map(Supplier s) => new(s.Id,s.Name,s.Phone,s.Email,s.DeliveryArea,s.DeliveryFee);
     private static SupplyProductResponse Product(SupplyProduct p) => new(p.Id,p.SupplierId,p.Sku,p.Name,p.Unit,p.Price,p.AvailableQuantity,p.Active,p.Version);
     public async Task<List<SupplierResponse>> SuppliersAsync(CancellationToken ct) => (await store.SuppliersAsync(ct)).Select(Map).ToList();
+    public async Task<List<SupplierResponse>> HouseSuppliersAsync(Guid house, Guid actor, CancellationToken ct)
+    {
+        await access.EnsureActiveAsync(house, actor, ct);
+        return (await store.HouseSuppliersAsync(house, ct)).Select(Map).ToList();
+    }
+    public async Task<ShopItemResponse> CreateShopItemAsync(Guid house, Guid actor, CreateShopItemRequest r, CancellationToken ct)
+    {
+        await shopValidator.ValidateAndThrowAsync(r, ct);
+        return await mutations.RunAsync(house, async () =>
+        {
+            await access.EnsureActiveAsync(house, actor, ct);
+            await access.EnsureWritableAsync(house, ct);
+            var existing = await store.SupplierAsync(r.ClientRequestId, ct);
+            if (existing != null)
+            {
+                if (existing.HouseId != house) throw new ConflictException("This request ID is already in use.");
+                var product = (await store.ProductsAsync(existing.Id, ct)).Single();
+                if (existing.Name != r.ContactName.Trim() || existing.Phone != (r.Phone?.Trim() ?? "") || existing.Email != (r.Email?.Trim() ?? "") ||
+                    product.Name != r.Name.Trim() || product.Unit != r.Unit.Trim() || product.Price != r.Price)
+                    throw new ConflictException("This request ID belongs to different item details.");
+                return new ShopItemResponse(Map(existing), Product(product));
+            }
+            var contact = new Supplier { Id = r.ClientRequestId, HouseId = house, Name = r.ContactName.Trim(), Phone = r.Phone?.Trim() ?? "", Email = r.Email?.Trim() ?? "" };
+            // These are contact-list items, not inventory managed by a supplier account.
+            var item = new SupplyProduct { Id = Guid.NewGuid(), SupplierId = contact.Id, Sku = r.ClientRequestId.ToString("N"),
+                Name = r.Name.Trim(), Unit = r.Unit.Trim(), Price = r.Price, AvailableQuantity = 1_000_000 };
+            store.Add(contact); store.Add(item);
+            return new ShopItemResponse(Map(contact), Product(item));
+        }, ct);
+    }
     public async Task<SupplierResponse?> OwnAsync(Guid actor,CancellationToken ct) { var s=await store.OperatorAsync(actor,ct); return s == null ? null : Map(s); }
     public Task<bool> CanOperateAsync(Guid actor,CancellationToken ct) => Task.FromResult(operators.CanOperate(actor));
     public async Task<SupplierResponse> SaveAsync(Guid actor,UpsertSupplierRequest r,CancellationToken ct)
@@ -32,6 +63,7 @@ public sealed class SupplyCatalogService(ISupplyRepository store, ISupplierOpera
     public async Task<List<SupplyProductResponse>> ProductsAsync(Guid supplier,bool includeInactive,Guid actor,CancellationToken ct)
     {
         var s=await store.SupplierAsync(supplier,ct)??throw new NotFoundException("Supplier not found.");
+        if(s.HouseId is Guid house) await access.EnsureActiveAsync(house,actor,ct);
         if(includeInactive && s.OperatorUserId!=actor) throw new ForbiddenException();
         return (await store.ProductsAsync(supplier,ct)).Where(x=>includeInactive||x.Active).Select(Product).ToList();
     }

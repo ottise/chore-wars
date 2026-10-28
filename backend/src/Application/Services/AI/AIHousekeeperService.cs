@@ -307,7 +307,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var catalog = new Dictionary<string,object>();
         var allowedProducts = new Dictionary<Guid,SupplyProduct>();
         if (uow.Supplies is { } supplies)
-            foreach (var supplier in await supplies.SuppliersAsync(ct))
+            foreach (var supplier in await supplies.HouseSuppliersAsync(house,ct))
                 foreach (var product in (await supplies.ProductsAsync(supplier.Id,ct)).Where(p=>p.Active)) {
                     allowedProducts[product.Id]=product;
                     catalog[product.Id.ToString()]=new{supplier_id=product.SupplierId,name=product.Name,unit=product.Unit,price=(long)product.Price,available_quantity=product.AvailableQuantity};

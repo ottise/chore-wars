@@ -2,6 +2,7 @@ using ChoreWars.Domain.Entities;
 namespace ChoreWars.Application.Interfaces.Repositories;
 public interface ISupplyRepository {
  Task<List<Supplier>> SuppliersAsync(CancellationToken ct);
+ Task<List<Supplier>> HouseSuppliersAsync(Guid house, CancellationToken ct);
  Task<Supplier?> SupplierAsync(Guid id, CancellationToken ct);
  Task<Supplier?> OperatorAsync(Guid actor, CancellationToken ct);
  Task<List<SupplyProduct>> ProductsAsync(Guid supplier, CancellationToken ct);

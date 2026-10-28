@@ -50,6 +50,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   final ScrollController _scrollController = ScrollController();
   String? _roomId;
+  String? _roomError;
   bool _isLoadingRoom = true;
   int _roomLoadGeneration = 0;
 
@@ -81,9 +82,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       }
     } catch (e) {
       if (mounted && generation == _roomLoadGeneration) {
-        setState(() => _isLoadingRoom = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+        setState(() {
+          _isLoadingRoom = false;
+          _roomError = apiErrorMessage(e);
+        });
       }
     }
   }
@@ -114,8 +116,23 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
     if (_roomId == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Chat Error')),
-        body: const Center(child: Text('Could not load chat room')),
+        appBar: AppBar(title: const Text('Household Chat')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_roomError ?? 'Could not load the household conversation.'),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() => _isLoadingRoom = true);
+                  _initChat();
+                },
+                child: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -134,8 +151,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to Chat',
-          onPressed: () => context.go('/houses/${widget.houseId}/chat'),
+          tooltip: 'Back to Overview',
+          onPressed: () => context.go('/houses/${widget.houseId}'),
           icon: const Icon(Icons.arrow_back_outlined, size: 21),
         ),
         titleSpacing: 0,

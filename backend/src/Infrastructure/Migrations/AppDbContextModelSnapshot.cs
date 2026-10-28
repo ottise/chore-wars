@@ -1712,12 +1712,15 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");
 
+                    b.Property<Guid?>("HouseId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<Guid>("OperatorUserId")
+                    b.Property<Guid?>("OperatorUserId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Phone")
@@ -1726,6 +1729,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("character varying(24)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("HouseId");
 
                     b.HasIndex("OperatorUserId")
                         .IsUnique();
@@ -3032,11 +3037,15 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.Supplier", b =>
                 {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ChoreWars.Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("OperatorUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.SupplierPayment", b =>
