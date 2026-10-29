@@ -93,9 +93,24 @@ def test_three_stable_samples_and_auth_boundary():
             return httpx.Response(200, json={"sha": SHA})
         if request.url.path == "/health/ready":
             return httpx.Response(200, text="Healthy")
+        if request.url.path == "/api/auth/google":
+            return httpx.Response(403)
         return httpx.Response(401)
     with httpx.Client(transport=httpx.MockTransport(route)) as client:
         assert verify(client, "https://example.com", SHA, "backend", attempts=3, interval=0)["state"] == "pass"
+
+
+def test_backend_health_cannot_hide_missing_google_endpoint():
+    def route(request):
+        if request.url.path == "/health/version":
+            return httpx.Response(200, json={"sha": SHA})
+        if request.url.path == "/health/ready":
+            return httpx.Response(200, text="Healthy")
+        if request.url.path == "/api/auth/google":
+            return httpx.Response(404)
+        return httpx.Response(401)
+    with httpx.Client(transport=httpx.MockTransport(route)) as client:
+        assert verify(client, "https://example.com", SHA, "backend", attempts=3, interval=0)["state"] == "fail"
 
 
 def test_core_pass_does_not_claim_full():

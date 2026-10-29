@@ -38,6 +38,9 @@ def verify(client, base: str, sha: str, kind: str, attempts=60, interval=10) -> 
                     boundary = client.get(base + "/api/deployment/health")
                     if boundary.status_code != 401:
                         raise ValueError("deployment_health_auth_boundary_failed")
+                    google = client.post(base + "/api/auth/google", json={"idToken": "invalid-deployment-route-probe"})
+                    if google.status_code not in (400, 403, 409):
+                        raise ValueError("google_auth_route_missing_or_broken")
                 return {"sha": sha, "state": "pass", "stableReadiness": stable}
         except (httpx.HTTPError, ValueError):
             stable = 0

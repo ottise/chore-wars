@@ -3,6 +3,22 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('missing Google endpoint has a sign-in-specific safe message', () {
+    for (final path in [
+      '/auth/google',
+      'https://example.test/api/auth/google',
+    ]) {
+      final request = RequestOptions(path: path);
+      final error = DioException(
+        requestOptions: request,
+        response: Response<dynamic>(requestOptions: request, statusCode: 404),
+      );
+      expect(
+        apiErrorMessage(error),
+        contains('Google sign-in is temporarily unavailable'),
+      );
+    }
+  });
   RequestOptions request() => RequestOptions(path: '/test');
 
   test('uses backend ProblemDetails detail', () {

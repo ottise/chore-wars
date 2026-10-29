@@ -9,21 +9,24 @@ import 'package:chore_wars/core/storage/secure_storage.dart';
 
 class MemoryTokens extends SecureStorage {
   String? access = 'old';
+  String? refresh = 'refresh';
   @override
   Future<String?> getAccessToken() async => access;
   @override
-  Future<String?> getRefreshToken() async => 'refresh';
+  Future<String?> getRefreshToken() async => refresh;
   @override
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
   }) async {
     access = accessToken;
+    refresh = refreshToken;
   }
 
   @override
   Future<void> deleteTokens() async {
     access = null;
+    refresh = null;
   }
 }
 
@@ -31,14 +34,20 @@ class RefreshAdapter implements HttpClientAdapter {
   int refreshes = 0;
   bool denyRetry = false;
   bool denyRefresh = false;
+  Completer<void>? refreshStarted;
+  Completer<void>? releaseRefresh;
+  final requests = <RequestOptions>[];
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    requests.add(options);
     if (options.path == ApiEndpoints.refreshToken) {
       refreshes++;
+      refreshStarted?.complete();
+      if (releaseRefresh != null) await releaseRefresh!.future;
       await Future<void>.delayed(const Duration(milliseconds: 10));
       if (denyRefresh) return ResponseBody.fromString('{}', 403);
       return ResponseBody.fromString(
@@ -65,6 +74,73 @@ class RefreshAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  for (final deny in [false, true]) {
+    test(
+      'old refresh (denied=$deny) cannot replace a new Google session',
+      () async {
+        final adapter = RefreshAdapter()
+          ..denyRefresh = deny
+          ..refreshStarted = Completer<void>()
+          ..releaseRefresh = Completer<void>();
+        final tokens = MemoryTokens();
+        var current = true;
+        var expired = 0;
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+          ..httpClientAdapter = adapter;
+        dio.interceptors.add(
+          AuthInterceptor(
+            secureStorage: tokens,
+            dio: dio,
+            isSessionCurrent: () => current,
+            onSessionExpired: () => expired++,
+          ),
+        );
+        final pending = expectLater(
+          dio.get('/profile'),
+          throwsA(isA<DioException>()),
+        );
+        await adapter.refreshStarted!.future;
+        await tokens.saveTokens(
+          accessToken: 'google-session',
+          refreshToken: 'google-refresh',
+        );
+        current = false;
+        adapter.releaseRefresh!.complete();
+        await pending;
+        await Future<void>.delayed(Duration.zero);
+        expect(tokens.access, 'google-session');
+        expect(tokens.refresh, 'google-refresh');
+        expect(expired, 0);
+        expect(
+          adapter.requests.where((r) => r.path == '/profile'),
+          hasLength(1),
+        );
+        dio.close();
+      },
+    );
+  }
+  test('public Google exchange sends no stale bearer and never refreshes on rejection', () async {
+    final adapter = RefreshAdapter();
+    final tokens = MemoryTokens();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = adapter;
+    dio.interceptors.add(AuthInterceptor(secureStorage: tokens, dio: dio));
+    await expectLater(
+      dio.post(
+        ApiEndpoints.googleLogin,
+        data: {'idToken': 'rejected-test-token'},
+        options: Options(headers: {'Authorization': 'Bearer stale'}),
+      ),
+      throwsA(isA<DioException>()),
+    );
+    expect(
+      adapter.requests.single.headers.containsKey('Authorization'),
+      isFalse,
+    );
+    expect(adapter.refreshes, 0);
+    expect(tokens.access, 'old');
+    dio.close();
+  });
   test('refresh denied during multipart clears the session without replaying upload', () async {
     final adapter = RefreshAdapter()..denyRefresh = true;
     final tokens = MemoryTokens();

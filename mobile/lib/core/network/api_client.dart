@@ -8,7 +8,7 @@ import '../storage/secure_storage.dart';
 import 'interceptors/auth_interceptor.dart';
 
 final dioProvider = Provider<Dio>((ref) {
-  ref.watch(sessionEpochProvider);
+  final session = ref.watch(sessionEpochProvider);
   final dio = Dio(
     BaseOptions(
       baseUrl: AppConstants.apiBaseUrl,
@@ -27,6 +27,8 @@ final dioProvider = Provider<Dio>((ref) {
     AuthInterceptor(
       secureStorage: secureStorage,
       dio: dio,
+      isSessionCurrent: () =>
+          ref.mounted && ref.read(sessionEpochProvider) == session,
       onSessionExpired: () {
         ref.read(sessionExpiryProvider.notifier).advance();
         ref.read(sessionEpochProvider.notifier).advance();

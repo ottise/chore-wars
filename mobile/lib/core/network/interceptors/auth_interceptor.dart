@@ -10,26 +10,40 @@ class AuthInterceptor extends Interceptor {
     required this.secureStorage,
     required this.dio,
     this.onSessionExpired,
+    this.isSessionCurrent,
   });
   final void Function()? onSessionExpired;
+  final bool Function()? isSessionCurrent;
   final SecureStorage secureStorage;
   final Dio dio;
   Future<String?>? _refreshing;
   bool _expired = false;
+  bool get _current => isSessionCurrent?.call() ?? true;
+  bool _publicAuth(RequestOptions request) => [
+    ApiEndpoints.login,
+    ApiEndpoints.register,
+    ApiEndpoints.googleLogin,
+    ApiEndpoints.refreshToken,
+  ].any((path) => request.path == path || request.uri.path == '/api$path');
   @override
   Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await secureStorage.getAccessToken();
-    if (token != null) options.headers['Authorization'] = 'Bearer $token';
+    if (_publicAuth(options)) {
+      options.headers.remove('Authorization');
+    } else {
+      final token = await secureStorage.getAccessToken();
+      if (token != null) options.headers['Authorization'] = 'Bearer $token';
+    }
     handler.next(options);
   }
 
   Future<String?> _refresh() async {
     try {
       final token = await secureStorage.getRefreshToken();
-      if (token == null) return null;
+      final accessBefore = await secureStorage.getAccessToken();
+      if (token == null || !_current) return null;
       final result = await dio.post<Map<String, dynamic>>(
         ApiEndpoints.refreshToken,
         data: {'refreshToken': token},
@@ -37,6 +51,11 @@ class AuthInterceptor extends Interceptor {
       final access = result.data?['token']?.toString() ?? '';
       final refresh = result.data?['refreshToken']?.toString() ?? '';
       if (access.isEmpty || refresh.isEmpty) return null;
+      if (!_current ||
+          await secureStorage.getRefreshToken() != token ||
+          await secureStorage.getAccessToken() != accessBefore) {
+        return null;
+      }
       await secureStorage.saveTokens(
         accessToken: access,
         refreshToken: refresh,
@@ -53,20 +72,18 @@ class AuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     final request = err.requestOptions;
+    if (!_current) {
+      handler.next(err);
+      return;
+    }
     if (err.response?.statusCode == 401 &&
         request.extra['authRetried'] == true) {
-      await secureStorage.deleteTokens();
+      await _expire(request);
       handler.next(err);
-      _notifyExpired();
       return;
     }
     if (err.response?.statusCode != 401 ||
-        [
-          ApiEndpoints.login,
-          ApiEndpoints.register,
-          ApiEndpoints.googleLogin,
-          ApiEndpoints.refreshToken,
-        ].contains(request.path) ||
+        _publicAuth(request) ||
         request.extra['authRetried'] == true) {
       handler.next(err);
       return;
@@ -85,10 +102,9 @@ class AuthInterceptor extends Interceptor {
           if (identical(_refreshing, inFlight)) _refreshing = null;
         }
       }
-      if (token == null) {
-        await secureStorage.deleteTokens();
+      if (token == null || !_current) {
+        if (_current) await _expire(request);
         handler.next(err);
-        _notifyExpired();
         return;
       }
       // A multipart upload cannot safely replay its already-consumed stream.
@@ -104,10 +120,23 @@ class AuthInterceptor extends Interceptor {
     }
   }
 
+  Future<void> _expire(RequestOptions request) async {
+    final current = await secureStorage.getAccessToken();
+    if (!_current ||
+        current != null &&
+            request.headers['Authorization'] != 'Bearer $current') {
+      return;
+    }
+    await secureStorage.deleteTokens();
+    if (_current) _notifyExpired();
+  }
+
   void _notifyExpired() {
     if (!_expired) {
       _expired = true;
-      scheduleMicrotask(() => onSessionExpired?.call());
+      scheduleMicrotask(() {
+        if (_current) onSessionExpired?.call();
+      });
     }
   }
 }

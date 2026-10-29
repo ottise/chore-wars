@@ -7,6 +7,11 @@ String apiErrorMessage(Object error) {
 
   final data = error.response?.data;
   final status = error.response?.statusCode;
+  if (status == 404 &&
+      (error.requestOptions.path == '/auth/google' ||
+          error.requestOptions.uri.path == '/api/auth/google')) {
+    return 'Google sign-in is temporarily unavailable. Please use email and password or try again later.';
+  }
   if (status != null && status >= 500) return _statusMessage(status);
   if (data is Map) {
     final detail = _mapValue(data, 'detail') ?? _mapValue(data, 'message');
