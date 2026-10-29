@@ -32,7 +32,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python -m scripts.ci.migration_manifest --base-ref "${BASE_SHA:-0000000000000000000000000000000000000000}" --output artifacts/ci/migration-manifest.json
       - run: python -m scripts.ci.source_policy
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: {name: backend-unit, path: 'artifacts/ci/', retention-days: 7, if-no-files-found: error}
   runtime-integration:
@@ -67,7 +67,7 @@ jobs:
       # The cross-runtime Flutter suite runs in the flutter job below.
       - run: dotnet test backend/tests/IntegrationTests -c Release --no-build --filter 'FullyQualifiedName!~FrontendNetworkTests' --logger 'trx;LogFileName=runtime.trx' --results-directory artifacts/ci
       - run: python -m scripts.ci.check_results artifacts/ci/runtime.trx
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: {name: runtime-integration, path: 'artifacts/ci/*.trx', retention-days: 7, if-no-files-found: error}
       - if: always()
@@ -98,7 +98,7 @@ jobs:
       - working-directory: ai-service
         run: python -m pytest -q --junitxml=../artifacts/ci/ai.xml
       - run: python -m scripts.ci.check_results artifacts/ci/gates.xml artifacts/ci/ai.xml
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: {name: ai-tests, path: 'artifacts/ci/*.xml', retention-days: 7, if-no-files-found: error}
       - if: always()
@@ -131,9 +131,9 @@ jobs:
       - working-directory: mobile
         run: flutter test
       - run: bash mobile/scripts/build-render-web.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with: {name: frontend-web, path: mobile/build/web, retention-days: 7, if-no-files-found: error}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: {name: frontend-backend-contract, path: 'artifacts/ci/frontend-network.*', retention-days: 7, if-no-files-found: error}
       - if: always()
