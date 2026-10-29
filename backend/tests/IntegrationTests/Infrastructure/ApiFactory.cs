@@ -13,6 +13,7 @@ public sealed class ApiFactory(PostgresFixture database) : WebApplicationFactory
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?> {
             ["ConnectionStrings:DefaultConnection"]=database.ConnectionString,
+            ["EmailVerification:Required"]="false",
             ["Jwt:Secret"]="integration-test-signing-secret-at-least-sixty-four-characters-long-2026",
             ["Jwt:Issuer"]="ChoreWarsTest", ["Jwt:Audience"]="ChoreWarsTestUsers"
         }));

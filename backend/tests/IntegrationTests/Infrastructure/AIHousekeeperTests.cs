@@ -22,13 +22,17 @@ namespace IntegrationTests.Infrastructure;
 
 public class AIHousekeeperTests
 {
+    private sealed class DaytimeClock(DateTime utc) : TimeProvider {
+        public override DateTimeOffset GetUtcNow() => new(utc);
+    }
     [PostgresFact]
     public async Task PromptUrgentPlanNotifiesOnlyNamedTargetAndRequiresApproval()
     {
         var client=new Mock<IAIHousekeeperClient>();
-        await using var f=await Fixture(s=>s.AddScoped(_=>client.Object));
+        var now=DateTime.UtcNow.Date.AddHours(3);
+        await using var f=await Fixture(s=>{s.AddScoped(_=>client.Object);s.AddSingleton<TimeProvider>(new DaytimeClock(now));});
         var data=await CoreConcurrencyTests.Seed(f);
-        var readyBy=DateTime.UtcNow.AddHours(2);
+        var readyBy=now.AddHours(2);
         client.Setup(c=>c.PostAsync(data.HouseId,data.Users[0],"/v1/urgent/plan",It.IsAny<object>(),It.IsAny<CancellationToken>()))
             .ReturnsAsync(JsonSerializer.SerializeToElement(new{status="READY",urgent_payload=new UrgentEventPayload {
                 SeasonId=data.SeasonId,DeadlineMinutes=120,ReadyByUtc=readyBy,GuestCount=10,Title="Party preparation",PlanVersion="blitz-v1",

@@ -9,7 +9,7 @@ public sealed class ShopItemValidationTests
     {
         var validator = new CreateShopItemRequestValidator();
         Assert.True(validator.Validate(Valid).IsValid);
-        Assert.True(validator.Validate(Valid with { Phone = "", Email = "shop@example.test" }).IsValid);
+        Assert.False(validator.Validate(Valid with { Phone = "", Email = "shop@example.test" }).IsValid);
         foreach (var request in new[] { Valid with { Phone = "" }, Valid with { Phone = "tel:bad" }, Valid with { Email = "bad" }, Valid with { Price = 0 }, Valid with { Price = 1.5m }, Valid with { Name = " " } })
             Assert.False(validator.Validate(request).IsValid);
     }

@@ -12,6 +12,7 @@ public class User
     public string DisplayName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime? EmailVerifiedAt { get; set; }
 
     public ICollection<HouseMember> HouseMembers { get; set; } = new List<HouseMember>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();

@@ -20,7 +20,7 @@ class _Shop extends Fake implements SuppliesRepository {
   static const supplier = {
     'id': 'shop',
     'name': 'Test supplier',
-    'phone': '',
+    'phone': '0901234567',
     'email': 'shop@example.test',
     'deliveryArea': 'Test area',
     'deliveryFee': 0,
@@ -145,7 +145,7 @@ void main() {
 
   for (final ai in [false, true]) {
     testWidgets(
-      '${ai ? 'AI' : 'Manual'} selection sends an email order without choosing payer or participants',
+      '${ai ? 'AI' : 'Manual'} selection prepares an SMS order without choosing payer or participants',
       (tester) async {
         final shop = _Shop();
         await setup(tester, shop, ai: ai);
@@ -153,15 +153,15 @@ void main() {
           await tester.tap(find.text('Review AI selection'));
           await tester.pumpAndSettle();
         }
-        expect(find.text('Contact number not available'), findsOneWidget);
+        expect(find.text('0901234567'), findsOneWidget);
         await captureSupplyScreen(tester, ai ? 'ai-catalog' : 'manual-catalog');
         if (!ai) {
           await tester.ensureVisible(find.byTooltip('Add one Rice'));
           await tester.tap(find.byTooltip('Add one Rice'));
           await tester.pumpAndSettle();
         }
-        await tester.ensureVisible(find.text('Send order'));
-        await tester.tap(find.text('Send order'));
+        await tester.ensureVisible(find.text('Save & open SMS'));
+        await tester.tap(find.text('Save & open SMS'));
         await tester.pumpAndSettle();
         expect(find.text('Saved order log'), findsOneWidget);
         final request = shop.requests.single;

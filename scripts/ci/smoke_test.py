@@ -41,6 +41,13 @@ def verify(client, base: str, sha: str, kind: str, attempts=60, interval=10) -> 
                     google = client.post(base + "/api/auth/google", json={"idToken": "invalid-deployment-route-probe"})
                     if google.status_code not in (400, 403, 409):
                         raise ValueError("google_auth_route_missing_or_broken")
+                    house = "00000000-0000-0000-0000-000000000001"
+                    for method, path in [("GET", f"/api/houses/{house}/shop/suppliers"),
+                                         ("POST", f"/api/houses/{house}/shop/items"),
+                                         ("POST", f"/api/houses/{house}/orders/send")]:
+                        response = client.request(method, base + path)
+                        if response.status_code != 401:
+                            raise ValueError("shop_route_missing_or_auth_boundary_failed")
                 return {"sha": sha, "state": "pass", "stableReadiness": stable}
         except (httpx.HTTPError, ValueError):
             stable = 0

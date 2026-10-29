@@ -39,7 +39,7 @@ public sealed class HouseShopTests
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Null((await db.Suppliers.SingleAsync()).OperatorUserId);
         Assert.Single(await db.SupplyProducts.ToListAsync());
-        Assert.Single(await db.SupplyOrderEmailDispatches.ToListAsync());
+        Assert.Empty(await db.SupplyOrderEmailDispatches.ToListAsync());
     }
 
     [PostgresFact]
@@ -49,9 +49,10 @@ public sealed class HouseShopTests
         await using var scope = f.Services.CreateAsyncScope();
         var service = scope.ServiceProvider.GetRequiredService<ISupplyCatalogService>();
         var item = await service.CreateShopItemAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), "Water", "bottle", 20000, "Water shop", "0901234567", ""), default);
-        await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>().SendAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), item.Supplier.Id, [new(item.Product.Id, 1)]), default));
-        Assert.Empty(await scope.ServiceProvider.GetRequiredService<AppDbContext>().SupplyOrders.ToListAsync());
-        await service.CreateShopItemAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), "Rice", "bag", 150000, "Rice shop", "", "rice@example.test"), default);
+        var order = await scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>().SendAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), item.Supplier.Id, [new(item.Product.Id, 1)]), default);
+        Assert.Equal("SIMPLE_SMS", order.Workflow);
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<AppDbContext>().SupplyOrderEmailDispatches.ToListAsync());
+        await service.CreateShopItemAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), "Rice", "bag", 150000, "Rice shop", "0901234567", "rice@example.test"), default);
         Assert.Equal(2, (await service.HouseSuppliersAsync(seed.HouseId, seed.Users[1], default)).Count);
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         (await db.Houses.SingleAsync()).IsArchived = true; await db.SaveChangesAsync();

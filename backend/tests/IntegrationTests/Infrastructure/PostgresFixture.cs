@@ -24,8 +24,11 @@ public sealed class PostgresFixture : IAsyncDisposable {
         connection.Database=name;
         var values = settings ?? new Dictionary<string,string?>();
         values["ConnectionStrings:DefaultConnection"] = connection.ConnectionString;
+        values.TryAdd("EmailVerification:Required", "false");
         var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var services=new ServiceCollection();services.AddSingleton<IConfiguration>(config);services.AddLogging();services.AddInfrastructureServices(config);services.AddApplicationServices();
+        // In-process service tests persist notifications but do not run a SignalR host.
+        services.AddSingleton( Moq.Mock.Of<ChoreWars.Application.Interfaces.Services.INotificationRealtimePublisher>());
         configure?.Invoke(services);
         var provider=services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes=true });
         var fixture=new PostgresFixture(admin,name,provider);

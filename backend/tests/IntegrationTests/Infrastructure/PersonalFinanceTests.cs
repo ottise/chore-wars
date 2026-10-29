@@ -84,11 +84,12 @@ public sealed class PersonalFinanceTests
     public async Task MigrationBackfillsOnlyTheActualDebtorAsAuthorOfExistingTransferReports()
     {
         await using var f=await PostgresFixture.CreateAsync();
-        await using(var down=f.Services.CreateAsyncScope())await down.ServiceProvider.GetRequiredService<AppDbContext>().GetService<IMigrator>().MigrateAsync("20261028112536_AddHouseholdShopContacts");
         var seed=await CoreConcurrencyTests.Seed(f);var id=await Debt(f,seed);var transfer=Guid.NewGuid();
+        await using(var down=f.Services.CreateAsyncScope())await down.ServiceProvider.GetRequiredService<AppDbContext>().GetService<IMigrator>().MigrateAsync("20261028112536_AddHouseholdShopContacts");
         await using var scope=f.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<AppDbContext>();var request=Guid.NewGuid();var now=DateTime.UtcNow;
         await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO \"InternalRepayments\" (\"Id\",\"ObligationId\",\"ClientRequestId\",\"Amount\",\"Reference\",\"Status\",\"ReportedAt\") VALUES ({transfer},{id},{request},{20000},'legacy','REPORTED',{now})");
         await db.GetService<IMigrator>().MigrateAsync();
+        Assert.All(await db.Users.ToListAsync(), user => Assert.NotNull(user.EmailVerifiedAt));
         var row=await db.InternalRepayments.SingleAsync();Assert.Equal(seed.Users[1],row.RecordedByUserId);Assert.Equal("DEBTOR_REPORTED",row.Source);Assert.Equal(20000,row.Amount);Assert.Equal(InternalRepaymentStatus.REPORTED,row.Status);
     }
     [PostgresFact]

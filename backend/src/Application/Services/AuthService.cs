@@ -18,21 +18,25 @@ public class AuthService : IAuthService
     private readonly IMapper _mapper;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IAuthTokenProvider _tokenProvider;
+    private readonly IEmailOtpService? _emailOtp;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IMapper mapper,
         IPasswordHasher passwordHasher,
-        IAuthTokenProvider tokenProvider)
+        IAuthTokenProvider tokenProvider, IEmailOtpService? emailOtp = null)
     {
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _passwordHasher = passwordHasher;
         _tokenProvider = tokenProvider;
+        _emailOtp = emailOtp;
     }
 
     public async Task RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
+        if (_emailOtp?.Required == true && !_emailOtp.IsConfigured)
+            throw new ConflictException("Account email is not available yet. Please try again later or sign in with Google.");
         var existingUser = await _unitOfWork.Users.GetByEmailAsync(request.Email, cancellationToken);
         if (existingUser != null)
         {
@@ -42,10 +46,11 @@ public class AuthService : IAuthService
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = request.Email,
+            Email = request.Email.Trim().ToLowerInvariant(),
             DisplayName = request.DisplayName,
             PasswordHash = _passwordHasher.Hash(request.Password),
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            EmailVerifiedAt = _emailOtp?.Required == true ? null : DateTime.UtcNow
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -69,6 +74,8 @@ public class AuthService : IAuthService
         {
             throw new ForbiddenException("Invalid credentials.");
         }
+        if (_emailOtp?.Required == true && !user.EmailVerifiedAt.HasValue)
+            throw new ForbiddenException("Verify your email before signing in. Use Verify email to request a code.");
 
         var response = _mapper.Map<LoginResponse>(user);
         response.Token = _tokenProvider.GenerateJwtToken(user);

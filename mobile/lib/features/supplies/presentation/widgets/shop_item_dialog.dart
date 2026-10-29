@@ -97,7 +97,7 @@ class _ShopItemDialogState extends ConsumerState<ShopItemDialog> {
                       ),
                       validator: (raw) {
                         final value = raw?.trim() ?? '';
-                        if (index < 4 && value.isEmpty) {
+                        if (index < 5 && value.isEmpty) {
                           return 'This field is required.';
                         }
                         if (index == 2) {
@@ -129,7 +129,7 @@ class _ShopItemDialogState extends ConsumerState<ShopItemDialog> {
                     ),
                   ),
                 const Text(
-                  'Saved for this household. Email is required to send an order.',
+                  'Saved for this household. A phone number is required to prepare an SMS order. Email is optional contact information.',
                 ),
                 if (_error != null)
                   Padding(

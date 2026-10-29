@@ -21,13 +21,15 @@ public partial class HouseService : IHouseService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IHouseRealtimeAccess? _realtimeAccess;
     private readonly IMapper _mapper;
+    private readonly IMembershipChoreRedistributor? _redistributor;
 
-    public HouseService(IUnitOfWork unitOfWork, IMapper mapper, IHouseMutationCoordinator? mutationCoordinator = null, IHouseRealtimeAccess? realtimeAccess = null, TimeProvider? clock = null)
+    public HouseService(IUnitOfWork unitOfWork, IMapper mapper, IHouseMutationCoordinator? mutationCoordinator = null, IHouseRealtimeAccess? realtimeAccess = null, TimeProvider? clock = null, IMembershipChoreRedistributor? redistributor = null)
     {
         _clock = clock ?? TimeProvider.System;
         _mutations = mutationCoordinator; _realtimeAccess = realtimeAccess;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
+        _redistributor = redistributor;
     }
 
     public async Task<HouseResponse> CreateHouseAsync(CreateHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -120,6 +122,8 @@ public partial class HouseService : IHouseService
             member.JoinedAt = _clock.GetUtcNow().UtcDateTime;
             if (existingMember == null) await _unitOfWork.HouseMembers.AddAsync(member, cancellationToken);
             else _unitOfWork.HouseMembers.Update(member);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (_redistributor != null) await _redistributor.RedistributeAsync(house.Id, userId, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }

@@ -36,17 +36,12 @@ public class SimpleOrderCalendarTests
         await using var scope = f.Services.CreateAsyncScope(); var service = scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>();
         var first = await service.SendAsync(seed.HouseId, seed.Users[0], request, default);
         Assert.Equal(first.Id, (await service.SendAsync(seed.HouseId, seed.Users[0], request, default)).Id);
-        Assert.Empty(first.Shares); Assert.Equal(OrderEmailState.Queued, first.EmailStatus);
+        Assert.Empty(first.Shares); Assert.Equal("NOT_REQUESTED", first.EmailStatus);
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.Single(await db.SupplyOrders.ToListAsync()); Assert.Single(await db.SupplyOrderEmailDispatches.ToListAsync());
+        Assert.Single(await db.SupplyOrders.ToListAsync()); Assert.Empty(await db.SupplyOrderEmailDispatches.ToListAsync());
         Assert.Empty(await db.ActionProposals.ToListAsync()); Assert.Empty(await db.PaymentObligations.ToListAsync());
         var payment = new RecordSupplyOrderPaymentRequest(Guid.NewGuid(), 2000, "bank reference");
-        await Assert.ThrowsAsync<ConflictException>(() => service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default));
         await Assert.ThrowsAsync<ForbiddenException>(() => service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[1], payment, default));
-        var repository = scope.ServiceProvider.GetRequiredService<ISupplyRepository>();
-        var dispatch = await repository.ClaimEmailAsync(DateTime.UtcNow, default);
-        Assert.NotNull(dispatch);
-        await repository.CompleteEmailAsync(dispatch.Id, dispatch.LeaseId!.Value, OrderEmailState.Sent, null, DateTime.UtcNow, default);
         var paid = await service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default);
         var retry = await service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default);
         Assert.Equal(paid.Id, retry.Id); Assert.Equal(OrderEmailState.UserReported, paid.PaymentConfirmationSource);
@@ -57,12 +52,14 @@ public class SimpleOrderCalendarTests
     }
 
     [PostgresFact]
-    public async Task MissingEmailConfigurationDoesNotCreateAnOrderOrPretendToSend()
+    public async Task SmsOrderDoesNotDependOnEmailConfiguration()
     {
         await using var f = await Fixture(false); var seed = await CoreConcurrencyTests.Seed(f); var catalog = await Catalog(f, seed.Users[0]);
         await using var scope = f.Services.CreateAsyncScope();
-        await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>().SendAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), catalog.Supplier, [new(catalog.Product, 1)]), default));
-        Assert.Empty(await scope.ServiceProvider.GetRequiredService<AppDbContext>().SupplyOrders.ToListAsync());
+        var order = await scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>().SendAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), catalog.Supplier, [new(catalog.Product, 1)]), default);
+        Assert.Equal("SIMPLE_SMS", order.Workflow);
+        Assert.Single(await scope.ServiceProvider.GetRequiredService<AppDbContext>().SupplyOrders.ToListAsync());
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<AppDbContext>().SupplyOrderEmailDispatches.ToListAsync());
     }
 
     [PostgresFact]
@@ -71,13 +68,19 @@ public class SimpleOrderCalendarTests
         await using var f = await Fixture(); var seed = await CoreConcurrencyTests.Seed(f); var catalog = await Catalog(f, seed.Users[0]);
         await using var scope = f.Services.CreateAsyncScope(); var service = scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>();
         var order = await service.SendAsync(seed.HouseId, seed.Users[0], new(Guid.NewGuid(), catalog.Supplier, [new(catalog.Product, 1)]), default);
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var legacy = await context.SupplyOrders.SingleAsync();
+        legacy.Workflow = SupplyOrderWorkflow.SIMPLE_CONTACT;
+        legacy.EmailDispatch = new() { Id = Guid.NewGuid(), OrderId = legacy.Id, Recipient = "legacy@example.test", Subject = "Old order", Body = "Archived request", CreatedAt = DateTime.UtcNow };
+        context.SupplyOrderEmailDispatches.Add(legacy.EmailDispatch);
+        await context.SaveChangesAsync();
         var store = scope.ServiceProvider.GetRequiredService<ISupplyRepository>();
         var now = DateTime.UtcNow; Assert.NotNull(await store.ClaimEmailAsync(now, default));
         Assert.Null(await store.ClaimEmailAsync(now.AddMinutes(3), default));
         Assert.Equal(OrderEmailState.Unknown, (await store.OrderAsync(order.Id, default))!.EmailDispatch!.State);
         Assert.Null(await store.ClaimEmailAsync(now.AddMinutes(4), default));
-        await service.RetryEmailAsync(seed.HouseId, order.Id, seed.Users[0], default);
-        Assert.NotNull(await store.ClaimEmailAsync(now.AddMinutes(4), default));
+        await Assert.ThrowsAsync<ConflictException>(() => service.RetryEmailAsync(seed.HouseId, order.Id, seed.Users[0], default));
+        Assert.Null(await store.ClaimEmailAsync(now.AddMinutes(4), default));
     }
 
     [PostgresFact]

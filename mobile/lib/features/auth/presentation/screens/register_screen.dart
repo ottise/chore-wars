@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../widgets/email_code_dialog.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -190,7 +191,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             displayName: _displayNameCtrl.text.trim(),
           );
       if (mounted) {
-        showAppMessage(context, 'Account created. Please sign in.');
+        final verified = await showEmailCodeDialog(
+          context,
+          email: _emailCtrl.text.trim(),
+        );
+        if (!mounted) return;
+        showAppMessage(
+          context,
+          verified == true
+              ? 'Email verified. Please sign in.'
+              : 'Account created. Verify your email before signing in.',
+        );
         context.go('/login');
       }
     } catch (error) {

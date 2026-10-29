@@ -701,6 +701,44 @@ namespace Infrastructure.Migrations
                     b.ToTable("Seasons");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.EmailOtpChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Purpose", "CreatedAt");
+
+                    b.ToTable("EmailOtpChallenges");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.FailedEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2345,6 +2383,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("GoogleSubject")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
@@ -2662,6 +2703,15 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("House");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.EmailOtpChallenge", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.FailedEvent", b =>

@@ -24,6 +24,9 @@ class AuthInterceptor extends Interceptor {
     ApiEndpoints.register,
     ApiEndpoints.googleLogin,
     ApiEndpoints.refreshToken,
+    '/auth/email-otp/request',
+    '/auth/email-otp/verify',
+    '/auth/password/reset',
   ].any((path) => request.path == path || request.uri.path == '/api$path');
   @override
   Future<void> onRequest(

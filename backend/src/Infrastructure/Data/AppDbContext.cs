@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<FailedEventReplay> FailedEventReplays { get; set; } = null!;
     public DbSet<ProcessedMessage> ProcessedMessages { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
+    public DbSet<EmailOtpChallenge> EmailOtpChallenges { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<House> Houses { get; set; } = null!;
     public DbSet<HouseMember> HouseMembers { get; set; } = null!;

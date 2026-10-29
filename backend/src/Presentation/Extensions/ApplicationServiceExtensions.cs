@@ -42,6 +42,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         services.AddScoped<IHouseService, HouseService>();
+        services.AddScoped<IMembershipChoreRedistributor, MembershipChoreRedistributor>();
         services.AddScoped<ISeasonService, SeasonService>();
         services.AddScoped<IChoreService, ChoreService>();
         services.AddScoped<IGamificationService, GamificationService>();

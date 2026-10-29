@@ -78,6 +78,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           _requestId = const Uuid().v4();
         });
         context.push('/houses/${widget.houseId}/orders/${order['id']}');
+        await supplyOpenOrderSms(context, order);
       }
     } catch (error) {
       if (mounted) setState(() => _error = apiErrorMessage(error));
@@ -308,18 +309,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         onPressed:
                             _sending ||
                                 selected.isEmpty ||
-                                (supplier['email']?.toString().trim().isEmpty ??
+                                (supplier['phone']?.toString().trim().isEmpty ??
                                     true)
                             ? null
                             : () => _send(supplier, selected),
                         icon: const Icon(Icons.send_outlined),
                         label: Text(
-                          _sending ? 'Sending request…' : 'Send order',
+                          _sending ? 'Saving order…' : 'Save & open SMS',
                         ),
                       ),
-                      if (supplier['email']?.toString().trim().isEmpty ?? true)
+                      if (supplier['phone']?.toString().trim().isEmpty ?? true)
                         const Text(
-                          'Supplier email is not available. You can call instead.',
+                          'Add a supplier phone number to prepare an SMS order.',
                         ),
                     ],
                   );
@@ -359,7 +360,11 @@ class OrdersHistoryBody extends ConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                       title: Text(order['supplierName'].toString()),
                       subtitle: Text(
-                        '${supplyMoney(order['total'])} · ${order['workflow'] == 'SIMPLE_CONTACT'
+                        '${supplyMoney(order['total'])} · ${order['workflow'] == 'SIMPLE_SMS'
+                            ? order['paymentConfirmationSource'] != null
+                                  ? 'Payment recorded'
+                                  : 'Order saved'
+                            : order['workflow'] == 'SIMPLE_CONTACT'
                             ? order['paymentConfirmationSource'] != null
                                   ? 'Payment recorded'
                                   : switch (order['emailStatus']) {

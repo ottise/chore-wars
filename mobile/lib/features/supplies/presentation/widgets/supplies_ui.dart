@@ -10,6 +10,26 @@ import '../../../../core/widgets/app_page_bar.dart';
 String supplyMoney(Object? value) =>
     '${NumberFormat.decimalPattern('en').format(value is num ? value : 0)} VND';
 
+String supplySmsBody(Map<String, dynamic> order) => [
+  'Order ${order['id']}',
+  for (final line in order['lines'] as List? ?? [])
+    '${line['quantity']} x ${line['name']} (${line['unit']})',
+  'Total: ${supplyMoney(order['total'])}',
+  if (order['note']?.toString().isNotEmpty == true) order['note'].toString(),
+].join('\n');
+
+Future<void> supplyOpenOrderSms(
+  BuildContext context,
+  Map<String, dynamic> order,
+) => supplyLaunch(
+  context,
+  Uri(
+    scheme: 'sms',
+    path: order['supplierPhone']?.toString() ?? '',
+    query: 'body=${Uri.encodeComponent(supplySmsBody(order))}',
+  ),
+);
+
 String financeSourceLabel(Object? value) => switch (value) {
   'ORDER' => 'Supplier order',
   'BOUNTY_PAYMENT' => 'Bounty payment',

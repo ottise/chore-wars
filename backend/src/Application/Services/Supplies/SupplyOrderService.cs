@@ -237,7 +237,7 @@ public sealed class SupplyOrderService(ISupplyRepository store, IUnitOfWork uow,
         },ct);
     }
     public static void CheckVersion(SupplyOrder order, int version) {
-        if (order.Workflow == SupplyOrderWorkflow.SIMPLE_CONTACT) throw new ConflictException("Use Send order and Record payment for this order.");
+        if (order.Workflow is SupplyOrderWorkflow.SIMPLE_CONTACT or SupplyOrderWorkflow.SIMPLE_SMS) throw new ConflictException("Use Save order and Record payment for this order.");
         if (order.Version != version) throw new ConflictException("This order changed. Refresh and review the latest version."); }
     private void CheckQuote(SupplyOrder o) { if (clock.GetUtcNow().UtcDateTime >= o.QuoteExpiresAt) throw new ConflictException("This quote expired. Create a new draft to review current prices."); }
     private Task Notify(SupplyOrder order, Guid actor, Guid? recipient, string title, string message, CancellationToken ct) =>

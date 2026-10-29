@@ -1,5 +1,7 @@
 # Gửi email đơn hàng
 
+> Thay đổi ngày 29/10/2026: luồng email supplier đã được ngừng. Đơn mới lưu dưới dạng SIMPLE_SMS và mở ứng dụng SMS để người dùng tự gửi; worker email supplier không còn đăng ký chạy. Tài liệu dưới đây là thông tin triển khai cũ. Email hiện chỉ dùng OTP tài khoản, xem [Account email OTP](account-email-otp.vi.md).
+
 ## Trạng thái triển khai
 
 Đơn mới: chọn sản phẩm/số lượng → Send → queue email backend → Sent → Mark as paid → log người ghi nhận, số tiền, thời gian. Không tạo công nợ hay cần người khác duyệt. Mark as paid là USER_REPORTED, không phải ngân hàng xác minh. Order cũ/payOS giữ luồng legacy riêng.

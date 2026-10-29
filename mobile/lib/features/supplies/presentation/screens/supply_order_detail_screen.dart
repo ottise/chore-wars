@@ -76,7 +76,8 @@ class _SupplyOrderDetailScreenState
               () => ref.invalidate(supplyOrderProvider(key)),
             ),
             data: (o) {
-              if (o['workflow'] == 'SIMPLE_CONTACT') {
+              if (o['workflow'] == 'SIMPLE_CONTACT' ||
+                  o['workflow'] == 'SIMPLE_SMS') {
                 return SimpleOrderDetailBody(
                   houseId: widget.houseId,
                   order: o,

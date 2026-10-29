@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/email_code_dialog.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -259,6 +262,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                               ),
                               const SizedBox(height: 24),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  TextButton(
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () async {
+                                            final done =
+                                                await showEmailCodeDialog(
+                                                  context,
+                                                  email: _emailCtrl.text.trim(),
+                                                );
+                                            if (context.mounted && done == true) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Email verified. You can sign in now.',
+                                                      ),
+                                                    ),
+                                                  );
+                                            }
+                                          },
+                                    child: const Text('Verify email'),
+                                  ),
+                                  TextButton(
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () async {
+                                            final done =
+                                                await showEmailCodeDialog(
+                                                  context,
+                                                  email: _emailCtrl.text.trim(),
+                                                  resetPassword: true,
+                                                );
+                                            if (context.mounted && done == true) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'Password reset. Sign in with your new password.',
+                                                      ),
+                                                    ),
+                                                  );
+                                            }
+                                          },
+                                    child: const Text('Forgot password?'),
+                                  ),
+                                ],
+                              ),
                               GoogleSignInButton(
                                 enabled: !_isLoading,
                                 onToken: _googleLogin,

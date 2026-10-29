@@ -33,6 +33,7 @@ public sealed class GoogleAuthService(IUnitOfWork unitOfWork, IGoogleIdentityVer
                 };
                 await unitOfWork.Users.AddAsync(user, cancellationToken);
             }
+            user.EmailVerifiedAt ??= clock.GetUtcNow().UtcDateTime;
             var response = new LoginResponse
             {
                 UserId = user.Id, DisplayName = user.DisplayName,
@@ -71,6 +72,7 @@ public sealed class GoogleAuthService(IUnitOfWork unitOfWork, IGoogleIdentityVer
             if (linkedUser != null && linkedUser.Id != userId || user.GoogleSubject != null && user.GoogleSubject != identity.Subject)
                 throw new ConflictException("This account already has a different Google link.");
             user.GoogleSubject = identity.Subject;
+            user.EmailVerifiedAt ??= clock.GetUtcNow().UtcDateTime;
             unitOfWork.Users.Update(user);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await unitOfWork.CommitTransactionAsync(cancellationToken);

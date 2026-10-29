@@ -122,7 +122,10 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<ChoreCompletedConsumer>();
         services.Configure<ChoreWars.Infrastructure.Email.SupplyOrderEmailOptions>(configuration.GetSection("OrderEmail"));
         services.AddScoped<ISupplyOrderEmailSender, ChoreWars.Infrastructure.Email.SmtpSupplyOrderEmailSender>();
-        services.AddHostedService<SupplyOrderEmailWorker>();
+        services.AddHttpClient("account-email", client => client.Timeout = TimeSpan.FromSeconds(20))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddScoped<IAccountEmailSender, ChoreWars.Infrastructure.Email.AccountEmailSender>();
+        services.AddScoped<IEmailOtpService, ChoreWars.Infrastructure.Auth.EmailOtpService>();
         services.AddHostedService<ChatMessageCreatedConsumer>();
         services.AddHostedService<BountyCreatedConsumer>();
         services.AddHostedService<BountyAcceptedConsumer>();

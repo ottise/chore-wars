@@ -45,12 +45,7 @@ class SupplierContactCard extends StatelessWidget {
               ],
             ),
           if (email.isNotEmpty)
-            TextButton.icon(
-              onPressed: () =>
-                  supplyLaunch(context, Uri(scheme: 'mailto', path: email)),
-              icon: const Icon(Icons.mail_outline),
-              label: Text(email),
-            ),
+            SelectableText(email),
         ],
       ),
     );

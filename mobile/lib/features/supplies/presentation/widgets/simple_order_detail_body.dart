@@ -107,6 +107,7 @@ class SimpleOrderDetailBody extends ConsumerWidget {
     final sent = order['emailStatus'] == 'SENT';
     final uncertain = order['emailStatus'] == 'UNKNOWN';
     final recorded = order['paymentConfirmationSource'] != null;
+    final sms = order['workflow'] == 'SIMPLE_SMS';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
       children: [
@@ -118,6 +119,31 @@ class SimpleOrderDetailBody extends ConsumerWidget {
           },
         ),
         const SizedBox(height: 20),
+        if (sms)
+          SupplySurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Order saved'),
+                const Text(
+                  'Send the prepared message in your SMS app. Opening the app does not confirm the message was sent.',
+                ),
+                TextButton.icon(
+                  onPressed: () => supplyOpenOrderSms(context, order),
+                  icon: const Icon(Icons.sms_outlined),
+                  label: const Text('Open SMS'),
+                ),
+                TextButton(
+                  onPressed: () => supplyCopy(
+                    context,
+                    'Order message',
+                    supplySmsBody(order),
+                  ),
+                  child: const Text('Copy message'),
+                ),
+              ],
+            ),
+          ),
         SupplySurface(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,67 +174,31 @@ class SimpleOrderDetailBody extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 20),
-        SupplySurface(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                sent
-                    ? 'Email sent'
-                    : uncertain
-                    ? 'Email result unknown'
-                    : order['emailStatus'] == 'FAILED'
-                    ? 'Email failed'
-                    : 'Sending email…',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              Text(
-                sent
-                    ? 'The email service accepted your order. This does not confirm the supplier has read it.'
-                    : uncertain
-                    ? 'The supplier may have received it. Check before sending again.'
-                    : 'The order stays here while the email is processed.',
-              ),
-              if (isCreator && (uncertain || order['emailStatus'] == 'FAILED'))
-                TextButton(
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          final again = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Send email again?'),
-                              content: const Text(
-                                'Check with the supplier first if the previous result is unknown. A resend may deliver another email.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Send again'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (again == true) {
-                            await run(() async {
-                              await ref
-                                  .read(suppliesRepositoryProvider)
-                                  .mutate(
-                                    '/houses/$houseId/orders/${order['id']}/retry-email',
-                                    {},
-                                  );
-                            });
-                          }
-                        },
-                  child: const Text('Retry email'),
+        if (!sms)
+          SupplySurface(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sent
+                      ? 'Email sent'
+                      : uncertain
+                      ? 'Email result unknown'
+                      : order['emailStatus'] == 'FAILED'
+                      ? 'Email failed'
+                      : 'Sending email…',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-            ],
+                Text(
+                  sent
+                      ? 'The email service accepted your order. This does not confirm the supplier has read it.'
+                      : uncertain
+                      ? 'The supplier may have received it. Check before sending again.'
+                      : 'Email ordering has been retired. Contact the supplier by phone or SMS.',
+                ),
+              ],
+            ),
           ),
-        ),
         const SizedBox(height: 20),
         if (recorded)
           SupplySurface(
@@ -233,7 +223,9 @@ class SimpleOrderDetailBody extends ConsumerWidget {
           )
         else if (isCreator)
           FilledButton.icon(
-            onPressed: sent && !busy ? () => _record(context, ref) : null,
+            onPressed: (sent || sms) && !busy
+                ? () => _record(context, ref)
+                : null,
             icon: const Icon(Icons.check_outlined),
             label: const Text('Mark as paid'),
           ),
