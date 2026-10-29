@@ -64,7 +64,8 @@ jobs:
           python -m uvicorn tests.contract_server:app --factory --host 127.0.0.1 --port 18011 > /tmp/contract.log 2>&1 &
           python ../scripts/ci/wait_http.py http://127.0.0.1:18011/health/live
       - run: dotnet build backend/ChoreWars.slnx -c Release
-      - run: dotnet test backend/tests/IntegrationTests -c Release --no-build --logger 'trx;LogFileName=runtime.trx' --results-directory artifacts/ci
+      # The cross-runtime Flutter suite runs in the flutter job below.
+      - run: dotnet test backend/tests/IntegrationTests -c Release --no-build --filter 'FullyQualifiedName!~FrontendNetworkTests' --logger 'trx;LogFileName=runtime.trx' --results-directory artifacts/ci
       - run: python -m scripts.ci.check_results artifacts/ci/runtime.trx
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -109,15 +110,34 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with: {persist-credentials: false}
       - run: bash mobile/scripts/install-flutter.sh
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with: {global-json-file: global.json}
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with: {python-version: '3.12.14'}
       - working-directory: mobile
         run: flutter pub get --enforce-lockfile
       - working-directory: mobile
         run: flutter analyze lib test
+      - name: Start disposable database for frontend/backend contracts
+        run: docker compose -p cw-frontend-ci -f docker-compose.ci.yml up -d --wait --wait-timeout 180 postgres
+      - name: Run real Flutter repositories and SignalR against Kestrel
+        env:
+          CHOREWARS_TEST_POSTGRES: Host=127.0.0.1;Port=55435;Database=postgres;Username=ci;Password=ci-disposable-only
+          CHOREWARS_TEST_FLUTTER: flutter
+        run: |
+          mkdir -p artifacts/ci
+          dotnet test backend/tests/IntegrationTests -c Release --filter 'FullyQualifiedName~FrontendNetworkTests' --logger 'trx;LogFileName=frontend-network.trx' --results-directory artifacts/ci
+          python -m scripts.ci.check_results artifacts/ci/frontend-network.trx
       - working-directory: mobile
         run: flutter test
       - run: bash mobile/scripts/build-render-web.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: {name: frontend-web, path: mobile/build/web, retention-days: 7, if-no-files-found: error}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with: {name: frontend-backend-contract, path: 'artifacts/ci/frontend-network.*', retention-days: 7, if-no-files-found: error}
+      - if: always()
+        run: docker compose -p cw-frontend-ci -f docker-compose.ci.yml down -v
   container-build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
