@@ -185,7 +185,7 @@ class HouseDetailScreen extends ConsumerWidget {
                           ),
                           ListTile(
                             leading: const Icon(Icons.calendar_month_outlined),
-                            title: const Text('Household Schedule'),
+                            title: const Text('Household Summary'),
                             trailing: const Icon(Icons.chevron_right_outlined),
                             onTap: () => context.push(
                               '$base/seasons/${season.asData!.value!['id']}/review',
@@ -241,7 +241,7 @@ class _SeasonCard extends StatelessWidget {
             ? 'You Have Approved the Schedule'
             : 'Schedule Awaiting Approval',
         '${season!['confirmedCount'] ?? 0}/${season!['requiredConfirmationCount'] ?? 0} members have approved. Everyone must agree before the season starts.',
-        'Review Schedule',
+        'Household Summary',
         '$base/seasons/${season!['id']}/review',
       ),
       2 => (

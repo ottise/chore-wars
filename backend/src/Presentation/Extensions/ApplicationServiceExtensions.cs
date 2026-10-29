@@ -11,6 +11,8 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IPersonalFinanceService, PersonalFinanceService>();
+        services.AddScoped<IHouseholdSummaryService, HouseholdSummaryService>();
         services.AddScoped<IHouseCalendarService, ChoreWars.Application.Services.HouseCalendarService>();
         services.AddScoped<ISimpleSupplyOrderService, ChoreWars.Application.Services.Supplies.SimpleSupplyOrderService>();
         services.AddScoped<IAIContextBuilder, ChoreWars.Application.Services.AI.AIContextBuilder>();

@@ -1,3 +1,5 @@
+import '../widgets/household_summary_sections.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -255,7 +257,44 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 4,
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Household Summary'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh schedule',
+            onPressed: _busy ? null : _load,
+            icon: const Icon(Icons.refresh_outlined),
+          ),
+        ],
+        bottom: const TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [
+            Tab(text: 'Schedule'),
+            Tab(text: 'Spending & Payments'),
+            Tab(text: 'Chore Completion'),
+            Tab(text: 'Member Contributions'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        children: [
+          _schedule(context),
+          for (var section = 1; section <= 3; section++)
+            HouseholdSummarySection(
+              houseId: widget.houseId,
+              seasonId: widget.seasonId,
+              section: section,
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _schedule(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final me = ref.watch(userProfileProvider).asData?.value.id;
     final members = _summary['members'] as List? ?? [];
@@ -263,382 +302,326 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
       0,
       (total, row) => total + ((row['totalAssignedKarma'] as num?) ?? 0),
     );
-    final amounts =
-        members.map((row) => (row['totalAssignedKarma'] as num?) ?? 0).toList()
-          ..sort();
-    final gap = amounts.isEmpty ? 0 : amounts.last - amounts.first;
     final signedCount = members
         .where((row) => _signed(row['userId'].toString()))
         .length;
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Review Schedule',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _busy ? null : _load,
-            icon: const Icon(Icons.refresh_outlined, size: 21),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
+        if (_busy) const LinearProgressIndicator(),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(_error!, style: TextStyle(color: colors.error)),
           ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          if (_busy) const LinearProgressIndicator(),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(_error!, style: TextStyle(color: colors.error)),
-            ),
-          if (_season != null) ...[
-            _panel(
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      Chip(
-                        label: Text(
-                          '${_season!['name'] ?? 'Season'} · Revision ${_season!['scheduleRevision'] ?? 0}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onPrimaryFixedVariant,
-                          ),
-                        ),
-                        backgroundColor: colors.primaryFixed,
-                      ),
-                      _status(
-                        '$signedCount/${members.length} approvals',
-                        signedCount == members.length && members.isNotEmpty,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'All active members must approve the same schedule revision before the season starts.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  if (_season!['lastRejectionReason'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        'Revision requested: ${_season!['lastRejectionReason']}',
-                        style: TextStyle(color: colors.error, fontSize: 12),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
+        if (_season != null) ...[
+          _panel(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'MEMBER WORKLOAD & KARMA',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Chip(
+                      label: Text(
+                        '${_season!['name'] ?? 'Season'} · Revision ${_season!['scheduleRevision'] ?? 0}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onPrimaryFixedVariant,
+                        ),
+                      ),
+                      backgroundColor: colors.primaryFixed,
                     ),
+                    _status(
+                      '$signedCount/${members.length} approvals',
+                      signedCount == members.length && members.isNotEmpty,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'All active members must approve the same schedule revision before the season starts.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
-                Text(
-                  '${members.length} members',
-                  style: TextStyle(fontSize: 12, color: colors.primary),
-                ),
+                if (_season!['lastRejectionReason'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Revision requested: ${_season!['lastRejectionReason']}',
+                      style: TextStyle(color: colors.error, fontSize: 12),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 12),
-            for (final member in members)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _panel(
-                  Builder(
-                    builder: (context) {
-                      final id = member['userId'].toString();
-                      final name =
-                          member['displayName']?.toString() ?? 'Member';
-                      final karma = (member['totalAssignedKarma'] as num?) ?? 0;
-                      final share = totalKarma > 0 ? karma / totalKarma : 0.0;
-                      final signed = _signed(id);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: id == me
-                                      ? colors.primaryContainer
-                                      : colors.tertiaryFixed,
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Text(
-                                  name.isEmpty
-                                      ? '?'
-                                      : name.characters.first.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: id == me
-                                        ? colors.onPrimaryContainer
-                                        : colors.onTertiaryFixedVariant,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '$name${id == me ? ' · You' : ''}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      '$karma Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
-                                      style: TextStyle(
-                                        color: colors.onSurfaceVariant,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              _status(
-                                signed
-                                    ? 'Approved'
-                                    : _rejected(id)
-                                    ? 'Rejected'
-                                    : 'Pending',
-                                signed,
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 26),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Chore Share ${(share * 100).toStringAsFixed(1)}%',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${member['totalChores'] ?? 0} tasks',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: share.clamp(0.0, 1.0).toDouble(),
-                              minHeight: 6,
-                              color: id == me
-                                  ? colors.primaryContainer
-                                  : colors.tertiary,
-                              backgroundColor: colors.surfaceContainerHigh,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'MEMBER WORKLOAD & KARMA',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            if (members.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colors.errorContainer.withValues(alpha: .25),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colors.error.withValues(alpha: .2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Assigned Karma Gap: $gap Karma',
+              Text(
+                '${members.length} members',
+                style: TextStyle(fontSize: 12, color: colors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final member in members)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _panel(
+                Builder(
+                  builder: (context) {
+                    final id = member['userId'].toString();
+                    final name = member['displayName']?.toString() ?? 'Member';
+                    final karma = (member['totalAssignedKarma'] as num?) ?? 0;
+                    final share = totalKarma > 0 ? karma / totalKarma : 0.0;
+                    final signed = _signed(id);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: id == me
+                                    ? colors.primaryContainer
+                                    : colors.tertiaryFixed,
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Text(
+                                name.isEmpty
+                                    ? '?'
+                                    : name.characters.first.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: id == me
+                                      ? colors.onPrimaryContainer
+                                      : colors.onTertiaryFixedVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$name${id == me ? ' · You' : ''}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '$karma Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            _status(
+                              signed
+                                  ? 'Approved'
+                                  : _rejected(id)
+                                  ? 'Rejected'
+                                  : 'Pending',
+                              signed,
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 26),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Chore Share ${(share * 100).toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${member['totalChores'] ?? 0} tasks',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: share.clamp(0.0, 1.0).toDouble(),
+                            minHeight: 6,
+                            color: id == me
+                                ? colors.primaryContainer
+                                : colors.tertiary,
+                            backgroundColor: colors.surfaceContainerHigh,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          for (final warning in _summary['warnings'] as List? ?? [])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(warning.toString()),
+            ),
+          _panel(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'MEMBER CONFIRMATIONS',
                         style: TextStyle(
-                          color: colors.error,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      for (final warning in _summary['warnings'] as List? ?? [])
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            warning.toString(),
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            _panel(
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'MEMBER CONFIRMATIONS',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '$signedCount/${members.length}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  for (final member in members)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                member['displayName']?.toString() ?? 'Member',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            _status(
-                              _signed(member['userId'].toString())
-                                  ? 'Confirmed'
-                                  : _rejected(member['userId'].toString())
-                                  ? 'Rejected'
-                                  : 'Awaiting',
-                              _signed(member['userId'].toString()),
-                            ),
-                          ],
-                        ),
+                    ),
+                    Text(
+                      '$signedCount/${members.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
-                ],
+                  ],
+                ),
+                const SizedBox(height: 14),
+                for (final member in members)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              member['displayName']?.toString() ?? 'Member',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          _status(
+                            _signed(member['userId'].toString())
+                                ? 'Confirmed'
+                                : _rejected(member['userId'].toString())
+                                ? 'Rejected'
+                                : 'Awaiting',
+                            _signed(member['userId'].toString()),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_reviewing) ...[
+            FilledButton.icon(
+              onPressed: _busy || _confirmed || _error != null
+                  ? null
+                  : () => _act('confirm'),
+              icon: const Icon(Icons.done_all_outlined, size: 18),
+              label: Text(
+                _confirmed
+                    ? 'Confirmed · Waiting for Everyone'
+                    : 'Confirm & Approve Schedule',
               ),
             ),
-            const SizedBox(height: 16),
-            if (_reviewing) ...[
-              FilledButton.icon(
-                onPressed: _busy || _confirmed || _error != null
-                    ? null
-                    : () => _act('confirm'),
-                icon: const Icon(Icons.done_all_outlined, size: 18),
-                label: Text(
-                  _confirmed
-                      ? 'Confirmed · Waiting for Everyone'
-                      : 'Confirm & Approve Schedule',
-                ),
-              ),
-              TextButton(
-                onPressed: _busy ? null : () => _act('reject'),
-                child: const Text('Request Changes & Return to Draft'),
-              ),
-            ],
-            if (_draft && _owner) ...[
-              OutlinedButton(
-                onPressed: _busy ? null : _importRoutine,
-                child: const Text('Import reusable routine'),
-              ),
-              OutlinedButton(
-                onPressed: _busy ? null : () => _act('generate-schedule'),
-                child: const Text('Generate / regenerate draft'),
-              ),
-              FilledButton(
-                onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
-                    ? null
-                    : () => _act('submit-review'),
-                child: const Text('Submit for everyone to review'),
-              ),
-            ],
-            const SizedBox(height: 12),
-            _panel(
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                initiallyExpanded: _draft,
-                title: Text(
-                  'Assignment Details (${_occurrences.length})',
-                  style: const TextStyle(fontSize: 13),
-                ),
-                children: [
-                  for (final item in _occurrences)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        item['choreName'] ?? '',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      subtitle: Text(
-                        '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: _draft && _owner
-                          ? TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _assign(
-                                      Map<String, dynamic>.from(item),
-                                    ),
-                              child: const Text('Assign'),
-                            )
-                          : null,
-                    ),
-                ],
-              ),
+            TextButton(
+              onPressed: _busy ? null : () => _act('reject'),
+              child: const Text('Request Changes & Return to Draft'),
             ),
           ],
+          if (_draft && _owner) ...[
+            OutlinedButton(
+              onPressed: _busy ? null : _importRoutine,
+              child: const Text('Import reusable routine'),
+            ),
+            OutlinedButton(
+              onPressed: _busy ? null : () => _act('generate-schedule'),
+              child: const Text('Generate / regenerate draft'),
+            ),
+            FilledButton(
+              onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
+                  ? null
+                  : () => _act('submit-review'),
+              child: const Text('Submit for everyone to review'),
+            ),
+          ],
+          const SizedBox(height: 12),
+          _panel(
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              initiallyExpanded: _draft,
+              title: Text(
+                'Assignment Details (${_occurrences.length})',
+                style: const TextStyle(fontSize: 13),
+              ),
+              children: [
+                for (final item in _occurrences)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      item['choreName'] ?? '',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: _draft && _owner
+                        ? TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () =>
+                                      _assign(Map<String, dynamic>.from(item)),
+                            child: const Text('Assign'),
+                          )
+                        : null,
+                  ),
+              ],
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }

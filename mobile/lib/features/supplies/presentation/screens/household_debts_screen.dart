@@ -8,12 +8,15 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/repositories/supplies_repository.dart';
 import '../providers/supplies_providers.dart';
 import '../widgets/supplies_ui.dart';
+import '../widgets/debt_action_sheet.dart';
+import '../../../payment/presentation/providers/payment_history_provider.dart';
+import '../../../house/presentation/providers/household_summary_provider.dart';
 
 final purchaseDebtProvider = FutureProvider.autoDispose
-    .family<SupplyData, String>(
-      (ref, id) => ref
+    .family<SupplyData, ({String house, String id})>(
+      (ref, key) => ref
           .watch(suppliesRepositoryProvider)
-          .get('/payment-obligations/$id/purchase-debt'),
+          .get('/houses/${key.house}/me/debts/${key.id}'),
     );
 final repaymentInstructionsProvider = FutureProvider.autoDispose
     .family<SupplyData, String>(
@@ -25,9 +28,37 @@ final repaymentInstructionsProvider = FutureProvider.autoDispose
 class HouseholdDebtsScreen extends ConsumerWidget {
   const HouseholdDebtsScreen({required this.houseId, super.key});
   final String houseId;
+  Future<void> _actions(
+    BuildContext context,
+    WidgetRef ref,
+    Map debt,
+    String? me,
+  ) async {
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => DebtActionSheet(
+        houseId: houseId,
+        debt: Map<String, dynamic>.from(debt),
+        debtor: debt['debtorUserId'] == me,
+      ),
+    );
+    ref.invalidate(
+      purchaseDebtProvider((house: houseId, id: debt['id'].toString())),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(userProfileProvider).asData?.value.id;
+    if (me == null) {
+      return SuppliesPage(title: 'My Debts', child: ref.watch(userProfileProvider).when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
+        data: (_) => const Center(child: Text('Sign in to view your finances.')),
+      ));
+    }
     return SuppliesPage(
       title: 'My Debts',
       child: ref
@@ -39,7 +70,10 @@ class HouseholdDebtsScreen extends ConsumerWidget {
               () => ref.invalidate(purchaseDebtsProvider(houseId)),
             ),
             data: (summary) {
-              final rows = (summary['debts'] as List? ?? []).cast<Map>();
+              final rows = (summary['debts'] as List? ?? [])
+                  .cast<Map>()
+                  .where((d) => (d['remainingAmount'] as num? ?? 0) > 0)
+                  .toList();
               return RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(purchaseDebtsProvider(houseId));
@@ -69,12 +103,22 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: () => context.push('/bank-accounts'), icon: const Icon(Icons.account_balance_outlined), label: const Text('Receiving account'))),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => context.push('/bank-accounts'),
+                        icon: const Icon(Icons.account_balance_outlined),
+                        label: const Text('Receiving account'),
+                      ),
+                    ),
                     const Text(
                       'Direct debts are kept separately. No debts are transferred to another person or offset.',
                     ),
                     const SizedBox(height: 16),
-                    if (rows.isEmpty) const Text('No debts yet.'),
+                    if (rows.isEmpty)
+                      const Text(
+                        'No outstanding debts. Settled transfers are in Payment History.',
+                      ),
                     for (final owe in [true, false]) ...[
                       Text(
                         owe ? 'I owe' : 'Owed to me',
@@ -86,20 +130,37 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: SupplySurface(
-                            child: ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                owe
-                                    ? 'Pay ${d['creditorName']}'
-                                    : '${d['debtorName']} owes you',
-                              ),
-                              subtitle: Text(
-                                '${supplyMoney(d['remainingAmount'])} remaining · ${d['status']}',
-                              ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => context.push(
-                                '/houses/$houseId/account/debts/${d['id']}',
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    owe
+                                        ? 'Pay ${d['creditorName']}'
+                                        : '${d['debtorName']} owes you',
+                                  ),
+                                  subtitle: Text(
+                                    '${supplyMoney(d['remainingAmount'])} remaining · ${financeSourceLabel(d['reason'])} · ${d['status'] == 'DISPUTED' ? 'Disputed' : 'Pending'}',
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () => context.push(
+                                    '/houses/$houseId/account/debts/${d['id']}',
+                                  ),
+                                ),
+                                if ((d['remainingAmount'] as num? ?? 0) > 0 &&
+                                    d['status'] == 'PENDING')
+                                  TextButton.icon(
+                                    onPressed: () =>
+                                        _actions(context, ref, d, me),
+                                    icon: Icon(
+                                      owe ? Icons.north_east : Icons.south_west,
+                                    ),
+                                    label: Text(
+                                      owe ? 'Mark as paid' : 'Confirm received',
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
@@ -155,9 +216,13 @@ class _InternalRepaymentScreenState
         _requestId = const Uuid().v4();
         _amount.clear();
         _reference.clear();
-        ref.invalidate(purchaseDebtProvider(widget.debtId));
+        ref.invalidate(
+          purchaseDebtProvider((house: widget.houseId, id: widget.debtId)),
+        );
         ref.invalidate(repaymentInstructionsProvider(widget.debtId));
         ref.invalidate(purchaseDebtsProvider(widget.houseId));
+        ref.invalidate(paymentHistoryProvider);
+        ref.invalidate(householdSummaryProvider);
       }
     } catch (e) {
       if (mounted) setState(() => _error = apiErrorMessage(e));
@@ -169,15 +234,29 @@ class _InternalRepaymentScreenState
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(userProfileProvider).asData?.value.id;
+    if (me == null) {
+      return SuppliesPage(title: 'My Debts', child: ref.watch(userProfileProvider).when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
+        data: (_) => const Center(child: Text('Sign in to view your finances.')),
+      ));
+    }
     return SuppliesPage(
       title: 'Direct repayment',
       child: ref
-          .watch(purchaseDebtProvider(widget.debtId))
+          .watch(
+            purchaseDebtProvider((house: widget.houseId, id: widget.debtId)),
+          )
           .when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => SupplyFailure(
               e,
-              () => ref.invalidate(purchaseDebtProvider(widget.debtId)),
+              () => ref.invalidate(
+                purchaseDebtProvider((
+                  house: widget.houseId,
+                  id: widget.debtId,
+                )),
+              ),
             ),
             data: (d) {
               final debtor = d['debtorUserId'] == me;
@@ -207,12 +286,37 @@ class _InternalRepaymentScreenState
                       ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => context.push(
-                      '/houses/${widget.houseId}/supplies/orders/${d['sourceOrderId']}',
+                  if (d['sourceOrderId'] != null)
+                    TextButton(
+                      onPressed: () => context.push(
+                        '/houses/${widget.houseId}/supplies/orders/${d['sourceOrderId']}',
+                      ),
+                      child: const Text('View source purchase'),
                     ),
-                    child: const Text('View source purchase'),
-                  ),
+                  if (!debtor && remaining > 0)
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () async {
+                              await showModalBottomSheet<bool>(
+                                context: context,
+                                isScrollControlled: true,
+                                showDragHandle: true,
+                                builder: (_) => DebtActionSheet(
+                                  houseId: widget.houseId,
+                                  debt: d,
+                                  debtor: false,
+                                ),
+                              );
+                              ref.invalidate(
+                                purchaseDebtProvider((
+                                  house: widget.houseId,
+                                  id: widget.debtId,
+                                )),
+                              );
+                            },
+                      child: const Text('Confirm received'),
+                    ),
                   if (debtor && remaining > 0) ...[
                     ref
                         .watch(repaymentInstructionsProvider(widget.debtId))

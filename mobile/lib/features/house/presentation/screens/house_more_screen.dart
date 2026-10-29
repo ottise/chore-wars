@@ -179,8 +179,8 @@ class HouseMoreScreen extends ConsumerWidget {
                     : Column(
                         children: [
                           link(
-                            'Chore Schedule',
-                            'Review assignments & household workload',
+                            'Household Summary',
+                            'Schedule, spending & chore contributions',
                             Icons.calendar_month_outlined,
                             '$base/seasons/${s['id']}/review',
                             highlighted: true,
@@ -254,10 +254,10 @@ class HouseMoreScreen extends ConsumerWidget {
               ),
               const Divider(indent: 18, endIndent: 18),
               link(
-                'Payment Confirmations',
-                'Review payments for completed bounties',
+                'Payment History',
+                'Your money in and money out',
                 Icons.payments_outlined,
-                '/houses/$houseId/payments',
+                '/houses/$houseId/account/payments',
               ),
             ]),
             Center(

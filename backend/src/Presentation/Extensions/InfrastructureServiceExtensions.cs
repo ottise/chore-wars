@@ -76,6 +76,7 @@ public static class InfrastructureServiceExtensions
 
 
         services.AddScoped<ISupplyRepository, SupplyRepository>();
+        services.AddScoped<IPersonalFinanceReadRepository, PersonalFinanceReadRepository>();
         services.Configure<ChoreWars.Infrastructure.Payments.PayOsOptions>(configuration.GetSection("Supplies:PayOS"));
         services.AddSingleton<ISupplierOperatorAccess, ChoreWars.Infrastructure.Payments.SupplierOperatorAccess>();
         services.AddHttpClient<IPurchasePaymentGateway, ChoreWars.Infrastructure.Payments.PayOsPurchasePaymentGateway>(http => http.Timeout = TimeSpan.FromSeconds(25));

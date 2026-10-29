@@ -250,19 +250,19 @@ class ProfileScreen extends ConsumerWidget {
                               children: [
                                 ListTile(
                                   leading: Icon(
-                                    Icons.notifications_none_outlined,
+                                    Icons.payments_outlined,
                                     color: colors.primary,
                                   ),
-                                  title: const Text('My Notifications'),
+                                  title: const Text('Payment History'),
                                   subtitle: const Text(
-                                    'Chores, reminders & chat',
+                                    'Your money in and money out',
                                   ),
                                   trailing: const Icon(
                                     Icons.chevron_right_outlined,
                                     size: 18,
                                   ),
                                   onTap: () => context.push(
-                                    '/notifications?houseId=${Uri.encodeComponent(selectedHouse)}',
+                                    '/houses/$selectedHouse/account/payments',
                                   ),
                                 ),
                                 const Divider(indent: 16, endIndent: 16),
@@ -290,14 +290,14 @@ class ProfileScreen extends ConsumerWidget {
                                   ),
                                   title: const Text('Household Chores'),
                                   subtitle: const Text(
-                                    'Routines & assigned chores',
+                                    'Your assigned chores',
                                   ),
                                   trailing: const Icon(
                                     Icons.chevron_right_outlined,
                                     size: 18,
                                   ),
                                   onTap: () => context.push(
-                                    '/houses/$selectedHouse/chores',
+                                    '/houses/$selectedHouse/chores?tab=mine',
                                   ),
                                 ),
                               ],

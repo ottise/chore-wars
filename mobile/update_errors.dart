@@ -30,7 +30,7 @@ void main() {
       }
       
       file.writeAsStringSync(content);
-      print('Updated \${file.path}');
+      stdout.writeln('Updated \${file.path}');
     }
   }
 }

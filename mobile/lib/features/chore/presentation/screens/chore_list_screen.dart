@@ -31,18 +31,33 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _generating = false;
+  int _initialIndex(String? tab) => switch (tab) {
+    'mine' => _Tab.mine.index,
+    'team' => _Tab.team.index,
+    'bonus' => _Tab.bonus.index,
+    _ => _Tab.routines.index,
+  };
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
       length: _Tab.values.length,
-      initialIndex: widget.initialTab == 'bonus' ? _Tab.bonus.index : 0,
+      initialIndex: _initialIndex(widget.initialTab),
       vsync: this,
     );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChoreListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab ||
+        oldWidget.houseId != widget.houseId) {
+      _tabController.index = _initialIndex(widget.initialTab);
+    }
   }
 
   @override

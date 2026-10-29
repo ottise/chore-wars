@@ -918,6 +918,9 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("ObligationId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Reference")
                         .IsRequired()
                         .HasMaxLength(300)
@@ -933,11 +936,20 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("DEBTOR_REPORTED");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RecordedByUserId");
 
                     b.HasIndex("ObligationId", "ClientRequestId")
                         .IsUnique();
@@ -2710,6 +2722,11 @@ namespace Infrastructure.Migrations
                         .HasForeignKey("ObligationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.KarmaTransaction", b =>

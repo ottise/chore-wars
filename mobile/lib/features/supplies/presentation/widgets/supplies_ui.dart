@@ -10,6 +10,16 @@ import '../../../../core/widgets/app_page_bar.dart';
 String supplyMoney(Object? value) =>
     '${NumberFormat.decimalPattern('en').format(value is num ? value : 0)} VND';
 
+String financeSourceLabel(Object? value) => switch (value) {
+  'ORDER' => 'Supplier order',
+  'BOUNTY_PAYMENT' => 'Bounty payment',
+  'FORCED_REASSIGNMENT' => 'Chore compensation',
+  'PENALTY' => 'Penalty',
+  'HOUSEHOLD_PURCHASE' => 'Shared purchase',
+  'OTHER' => 'Personal debt',
+  _ => 'Debt',
+};
+
 class SuppliesPage extends StatelessWidget {
   const SuppliesPage({
     required this.title,

@@ -116,7 +116,7 @@ void main() {
           image.dispose();
         });
       }
-      await tester.tap(find.text('Chore Schedule'));
+      await tester.tap(find.text('Household Summary'));
       await tester.pumpAndSettle();
       expect(find.text('Review route'), findsOneWidget);
     },

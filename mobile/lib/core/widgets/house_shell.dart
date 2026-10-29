@@ -27,6 +27,7 @@ class HouseShell extends ConsumerWidget {
     final redesigned =
         [
           '$base/account',
+          '$base/account/payments',
           '$base/chores',
           '$base/rewards',
           '$base/achievements',
@@ -77,6 +78,7 @@ class HouseShell extends ConsumerWidget {
         redesigned &&
         ([
               '$base/account',
+              '$base/account/payments',
               '$base/karma/history',
               '$base/seasons/new',
               '$base/payments',

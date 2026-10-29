@@ -37,5 +37,5 @@ class SuppliesRepositoryImpl implements SuppliesRepository {
   ) => mutate('/houses/$house/supply-orders/$id/$action', body);
   @override
   Future<SupplyData> debts(String house) =>
-      get('/houses/$house/purchase-debts');
+      get('/houses/$house/me/debts');
 }

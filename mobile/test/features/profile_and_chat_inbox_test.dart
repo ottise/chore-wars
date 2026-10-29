@@ -131,6 +131,8 @@ void main() {
         'Chore Settings',
         'My Karma Score',
         'My Notifications',
+        'Payment History',
+        'My Debts',
         'Household Chores',
       ]) {
         expect(find.text(text), findsNothing);

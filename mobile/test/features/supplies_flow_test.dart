@@ -227,8 +227,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pay Bob'), findsOneWidget);
       expect(find.text('Bob owes you'), findsOneWidget);
-      expect(find.text('50 VND remaining · PENDING'), findsOneWidget);
-      expect(find.text('120 VND remaining · PENDING'), findsOneWidget);
+      expect(find.text('50 VND remaining · Debt · Pending'), findsOneWidget);
+      expect(find.text('120 VND remaining · Debt · Pending'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

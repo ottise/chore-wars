@@ -20,7 +20,7 @@ void main() {
 
     if (changed) {
       file.writeAsStringSync(content);
-      print('Fixed \${file.path}');
+      stdout.writeln('Fixed \${file.path}');
     }
   }
 }

@@ -42,3 +42,4 @@ Workflow và scripts của kế hoạch GitHub Actions → Render đã có trong
 - [Bật Google sign-in trên Render/localhost](../google-sign-in-setup.vi.md): Client ID, frontend origin, liên kết tài khoản và migration.
 - [Cấu hình mail Order](../order-email-setup.vi.md): cấu hình Development/Render, migration và nghiệm thu gửi mail/ghi nhận thanh toán.
 - [Shop: thêm mặt hàng, gọi điện và nhắn tin](shop-items-contact-flows.vi.md): catalog riêng từng nhà, hai luồng liên hệ, file/API/migration và các sửa login, lịch, Chat đi kèm.
+- [My Account: Payment History, My Debts và Household Summary](account-payments-debts-household-summary.vi.md): kế hoạch yêu cầu mới, chuyển lịch sử khỏi Bounty, hai chiều xác nhận nợ, bỏ shortcut thông báo, vào Mine và bốn mục tổng hợp trong nhà.

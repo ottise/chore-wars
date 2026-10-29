@@ -254,6 +254,8 @@ public class BountyService : IBountyService
 
         await EnsureHouseMemberAsync(payment.HouseId, userId, cancellationToken);
         if (payment.Status == PaymentObligationStatus.PAID) return;
+        if (_unitOfWork.Supplies is { } supplies && (await supplies.RepaymentsAsync(paymentId, cancellationToken)).Any(x => x.Status != InternalRepaymentStatus.REJECTED))
+            throw new ConflictException("Use My Debts to review the existing transfer records.");
         if (payment.Reason == PaymentObligationReason.FORCED_REASSIGNMENT)
         {
             var occurrence = payment.OccurrenceId.HasValue ? await _unitOfWork.ChoreOccurrences.GetByIdAsync(payment.OccurrenceId.Value, cancellationToken) : null;

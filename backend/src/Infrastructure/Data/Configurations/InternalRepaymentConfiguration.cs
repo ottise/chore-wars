@@ -5,6 +5,8 @@ namespace ChoreWars.Infrastructure.Data.Configurations;
 public sealed class InternalRepaymentConfiguration : IEntityTypeConfiguration<InternalRepayment> {
  public void Configure(EntityTypeBuilder<InternalRepayment> b) {
  b.HasKey(x => x.Id);
+ b.Property(x => x.Source).HasMaxLength(30).HasDefaultValue("DEBTOR_REPORTED");
+ b.HasOne<User>().WithMany().HasForeignKey(x => x.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
  b.HasIndex(x => new { x.ObligationId, x.ClientRequestId }).IsUnique();
 b.HasOne<PaymentObligation>().WithMany().HasForeignKey(x => x.ObligationId).OnDelete(DeleteBehavior.Restrict);
 b.Property(x => x.Status).HasConversion<string>(); b.Property(x => x.Amount).HasPrecision(18,0);

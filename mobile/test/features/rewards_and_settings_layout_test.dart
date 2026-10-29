@@ -38,6 +38,7 @@ import 'package:chore_wars/features/house/presentation/screens/create_season_scr
 import 'package:chore_wars/features/house/presentation/screens/house_settings_screen.dart';
 import 'package:chore_wars/features/payment/domain/entities/payment_obligation.dart';
 import 'package:chore_wars/features/payment/presentation/providers/payment_providers.dart';
+import 'package:chore_wars/features/payment/presentation/providers/payment_history_provider.dart';
 import 'package:chore_wars/features/payment/presentation/screens/payment_obligations_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -225,6 +226,37 @@ Future<void> mount(
                   payment('pending', PaymentStatus.pending),
                   payment('paid', PaymentStatus.paid),
                 ],
+        ),
+        paymentHistoryProvider.overrideWith(
+          (ref, query) async => {
+            'moneyIn': 50000,
+            'moneyOut': 0,
+            'totalCount': 2,
+            'items': [
+              if (query.direction != 'IN')
+                {
+                  'sourceId': 'pending',
+                  'source': 'BOUNTY_PAYMENT',
+                  'counterparty': 'Pending recipient',
+                  'amount': 20000,
+                  'direction': 'OUT',
+                  'recordedAt': '2026-10-28T10:00:00Z',
+                  'status': 'PENDING_CONFIRMATION',
+                  'confirmationSource': 'DEBTOR_REPORTED',
+                },
+              if (query.direction != 'OUT')
+                {
+                  'sourceId': 'paid',
+                  'source': 'BOUNTY_PAYMENT',
+                  'counterparty': 'Confirmed sender',
+                  'amount': 50000,
+                  'direction': 'IN',
+                  'recordedAt': '2026-10-28T11:00:00Z',
+                  'status': 'CONFIRMED',
+                  'confirmationSource': 'RECIPIENT_CONFIRMED',
+                },
+            ],
+          },
         ),
       ],
       child: RepaintBoundary(
@@ -481,16 +513,31 @@ void main() {
   );
 
   testWidgets(
-    'payment history excludes pending obligations and has no confirm action',
+    'payment history labels pending transfers without offering receipt actions',
     (tester) async {
       await mount(tester, const PaymentObligationsScreen(houseId: 'house'));
-      expect(find.text('Status: Pending'), findsOneWidget);
-      expect(find.text('Confirm Received'), findsOneWidget);
-      await tester.tap(find.text('Settled History'));
+      expect(find.textContaining('Pending confirmation'), findsOneWidget);
+      expect(find.text('Confirm Received'), findsNothing);
+      await tester.tap(find.text('Money in'));
       await tester.pumpAndSettle();
-      expect(find.text('Status: Pending'), findsNothing);
-      expect(find.text('Status: Recipient confirmed receipt'), findsOneWidget);
+      expect(find.textContaining('Pending confirmation'), findsNothing);
+      expect(find.textContaining('Recipient confirmed'), findsOneWidget);
       expect(find.text('Confirm Received'), findsNothing);
     },
   );
+  testWidgets('chore deep links select Mine and update to Team on navigation', (
+    tester,
+  ) async {
+    await mount(
+      tester,
+      const ChoreListScreen(houseId: 'house', initialTab: 'mine'),
+    );
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+    await mount(
+      tester,
+      const ChoreListScreen(houseId: 'house', initialTab: 'team'),
+    );
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+    expect(tester.takeException(), isNull);
+  });
 }

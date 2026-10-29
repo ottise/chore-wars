@@ -246,6 +246,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Confirm & Approve Schedule'),
         250,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.tap(find.text('Confirm & Approve Schedule'));
       await tester.pumpAndSettle();
