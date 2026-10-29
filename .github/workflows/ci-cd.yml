@@ -19,7 +19,7 @@ jobs:
         with: {fetch-depth: 0, persist-credentials: false}
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with: {global-json-file: global.json}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: {python-version: '3.12.14'}
       - run: dotnet restore backend/ChoreWars.slnx
       - run: |
@@ -51,7 +51,7 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with: {global-json-file: global.json}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: {python-version: '3.12.14'}
       - run: docker compose -p cw-ci -f docker-compose.ci.yml up -d --wait --wait-timeout 180
       - run: echo 'CHOREWARS_TEST_KAFKA_CONTAINER=cw-runtime-kafka-00000000000000000000000000000001' >> "$GITHUB_ENV"
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with: {persist-credentials: false}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: {python-version: '3.12.14'}
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with: {global-json-file: global.json}
@@ -112,7 +112,7 @@ jobs:
       - run: bash mobile/scripts/install-flutter.sh
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with: {global-json-file: global.json}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: {python-version: '3.12.14'}
       - working-directory: mobile
         run: flutter pub get --enforce-lockfile
