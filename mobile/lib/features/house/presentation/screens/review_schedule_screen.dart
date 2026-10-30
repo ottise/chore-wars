@@ -1,4 +1,5 @@
 import '../widgets/household_summary_sections.dart';
+import '../providers/household_summary_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -261,11 +262,20 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     length: 4,
     child: Scaffold(
       appBar: AppBar(
-        title: const Text('Household Summary'),
+        title: const Text(
+          'Household Summary',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh schedule',
-            onPressed: _busy ? null : _load,
+            onPressed: _busy
+                ? null
+                : () {
+                    ref.invalidate(householdSummaryProvider);
+                    _load();
+                  },
             icon: const Icon(Icons.refresh_outlined),
           ),
         ],
@@ -313,6 +323,15 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(_error!, style: TextStyle(color: colors.error)),
+          ),
+        if (_error != null && !_busy)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+            ),
           ),
         if (_season != null) ...[
           _panel(

@@ -18,5 +18,9 @@ public sealed class FileMediaStorage(IOptions<MediaStorageOptions> options) : IM
         catch (FileNotFoundException) { throw new NotFoundException("Media file is unavailable."); }
         catch (DirectoryNotFoundException) { throw new NotFoundException("Media file is unavailable."); }
     }
-    public Task DeleteAsync(string key, CancellationToken ct) { File.Delete(FilePath(key)); return Task.CompletedTask; }
+    public Task DeleteAsync(string key, CancellationToken ct) {
+        try { File.Delete(FilePath(key)); }
+        catch (DirectoryNotFoundException) { /* Already absent, including after a server restart. */ }
+        return Task.CompletedTask;
+    }
 }

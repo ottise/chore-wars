@@ -68,7 +68,7 @@ class GeminiClient:
             "Use supply_catalog product UUIDs and package units exactly. Never invent products, prices, inventory, bank details or payment results. "
             "If a requested product is absent, state it is not available yet and ask what to do. Missing catalog items must not be replaced silently. "
             "For supply purchases extract supply.supplier_id and lines(product_id,quantity in catalog packages). "
-            "The simple order flow lets the requesting actor choose quantities and press Send to email the supplier. Do not require a payer, cost-sharing participants, supplier login, or other members' approval. "
+            "The simple order flow lets the requesting actor choose quantities, save the order and open an SMS draft for the supplier. Do not require a payer, cost-sharing participants, supplier login, or other members' approval. "
             "Do not claim you sent the order or paid; the user sends it from the order screen and records payment separately. "
             "For monthly reminder requests extract supply.reminder(items,day_of_month,hour,minute) in Vietnam time, keeping unknown values null. "
             "A standalone reminder does not require products in the catalog or a payer; it only reminds the group to check. "

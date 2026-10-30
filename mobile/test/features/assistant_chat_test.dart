@@ -1,4 +1,5 @@
 import 'package:chore_wars/features/ai/data/ai_repository.dart';
+import 'package:chore_wars/features/ai/presentation/ai_voice_controls.dart';
 import 'package:chore_wars/features/chat/presentation/screens/assistant_chat_screen.dart';
 import 'package:chore_wars/features/house/presentation/providers/house_providers.dart';
 import 'package:chore_wars/features/house/domain/entities/house_models.dart';
@@ -58,7 +59,7 @@ void main() {
       expect(find.text('AI Settings'), findsNothing);
       expect(find.textContaining('Internal provider'), findsNothing);
       expect(
-        find.text('Your message could not be sent. Please try again.'),
+        find.text('An unexpected error occurred. Please try again.'),
         findsOneWidget,
       );
       expect(
@@ -79,6 +80,17 @@ void main() {
         isEmpty,
       );
       expect(tester.takeException(), isNull);
+      final voice = tester.widget<AiVoiceControls>(
+        find.byType(AiVoiceControls),
+      );
+      voice.controller.text = 'I am free tomorrow from 8 AM to 10 AM';
+      voice.onFinalResult!(voice.controller.text);
+      await tester.pumpAndSettle();
+      expect(
+        repository.calls.last,
+        'house-B/interpret:I am free tomorrow from 8 AM to 10 AM',
+      );
+      expect(repository.calls.length, 3);
     },
   );
 }

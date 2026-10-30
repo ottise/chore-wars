@@ -11,12 +11,14 @@ class AiVoiceControls extends StatefulWidget {
     this.disabled = false,
     this.compact = false,
     this.speechLocale = 'en-US',
+    this.onFinalResult,
   });
   final TextEditingController controller;
   final String summary;
   final bool disabled;
   final bool compact;
   final String speechLocale;
+  final ValueChanged<String>? onFinalResult;
   @override
   State<AiVoiceControls> createState() => _AiVoiceControlsState();
 }
@@ -149,16 +151,21 @@ class _AiVoiceControlsState extends State<AiVoiceControls>
         );
         return;
       }
+      var submitted = false;
       await speech.listen(
         localeId: kIsWeb ? _speechLocale : available.first.localeId,
         listenFor: const Duration(seconds: 30),
         onResult: (result) {
-          if (!mounted || operation != generation) return;
+          if (!mounted || operation != generation || widget.disabled) return;
           final text = result.recognizedWords;
           widget.controller.value = TextEditingValue(
             text: text,
             selection: TextSelection.collapsed(offset: text.length),
           );
+          if (result.finalResult && text.trim().isNotEmpty && !submitted) {
+            submitted = true;
+            widget.onFinalResult?.call(text.trim());
+          }
         },
         listenOptions: SpeechListenOptions(
           cancelOnError: true,

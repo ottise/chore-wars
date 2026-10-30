@@ -17,19 +17,33 @@ class MyHousesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Houses'),
+        title: const Text(
+          'My Houses',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          IconButton(
-            tooltip: 'Scan QR to join',
-            icon: const Icon(Icons.qr_code_scanner_outlined),
-            onPressed: () => context.push('/houses/qr-join'),
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Scan QR to join',
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                    onPressed: () => context.push('/houses/qr-join'),
+                  ),
+                  IconButton(
+                    tooltip: 'Profile',
+                    icon: const Icon(Icons.person_outline_rounded),
+                    onPressed: () => context.push('/profile'),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
           ),
-          IconButton(
-            tooltip: 'Profile',
-            icon: const Icon(Icons.person_outline_rounded),
-            onPressed: () => context.push('/profile'),
-          ),
-          const SizedBox(width: 4),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

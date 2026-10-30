@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
 import '../../../ai/data/ai_repository.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../providers/action_proposal_providers.dart';
 import 'assistant_requests.dart';
@@ -82,11 +83,9 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
         setState(() => _sent = true);
         _refreshRequests();
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = 'The plan could not be prepared. Check the participants, time budget and availability, then try again.',
-        );
+        setState(() => _error = apiErrorMessage(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

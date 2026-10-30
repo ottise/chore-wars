@@ -9,6 +9,8 @@ import '../providers/supplies_providers.dart';
 import '../widgets/supplier_contact_card.dart';
 import '../widgets/supplies_ui.dart';
 import '../widgets/shop_item_dialog.dart';
+import '../widgets/shop_presets.dart';
+import '../widgets/simple_order_detail_body.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({
@@ -49,7 +51,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     super.dispose();
   }
 
-  Future<void> _send(SupplyData supplier, List<SupplyData> selected) async {
+  Future<void> _send(
+    SupplyData supplier,
+    List<SupplyData> selected, {
+    bool recordPayment = false,
+  }) async {
     if (_sending) return;
     setState(() {
       _sending = true;
@@ -77,8 +83,27 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           _note.clear();
           _requestId = const Uuid().v4();
         });
+        if (recordPayment) {
+          await recordSupplyPayment(context, ref, widget.houseId, order, (
+            action,
+          ) async {
+            try {
+              await action();
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Order saved. ${apiErrorMessage(error)}'),
+                  ),
+                );
+              }
+            }
+          });
+          ref.invalidate(supplyOrdersProvider(widget.houseId));
+        }
+        if (!mounted) return;
         context.push('/houses/${widget.houseId}/orders/${order['id']}');
-        await supplyOpenOrderSms(context, order);
+        if (!recordPayment) await supplyOpenOrderSms(context, order);
       }
     } catch (error) {
       if (mounted) setState(() => _error = apiErrorMessage(error));
@@ -87,11 +112,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
-  Future<void> _addItem() async {
+  Future<void> _addItem([ShopPreset? preset]) async {
     final supplierId = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => ShopItemDialog(houseId: widget.houseId),
+      builder: (_) => ShopItemDialog(houseId: widget.houseId, preset: preset),
     );
     if (mounted && supplierId != null) {
       setState(() {
@@ -155,6 +180,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     'No shop items yet. Add an item and its contact details to get started.',
                   ),
                   const SizedBox(height: 16),
+                  ShopPresets(onSelect: (p) => _addItem(p)),
+                  const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _addItem,
                     icon: const Icon(Icons.add),
@@ -191,8 +218,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
                     children: [
+                      ShopPresets(
+                        onSelect: _sending ? null : (p) => _addItem(p),
+                      ),
+                      const SizedBox(height: 24),
                       if (shops.length > 1)
                         DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: supplier['id'].toString(),
                           decoration: const InputDecoration(
                             labelText: 'Supplier',
@@ -317,6 +349,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         label: Text(
                           _sending ? 'Saving order…' : 'Save & open SMS',
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _sending || selected.isEmpty
+                            ? null
+                            : () => _send(
+                                supplier,
+                                selected,
+                                recordPayment: true,
+                              ),
+                        icon: const Icon(Icons.payments_outlined),
+                        label: const Text('Save & record payment'),
                       ),
                       if (supplier['phone']?.toString().trim().isEmpty ?? true)
                         const Text(

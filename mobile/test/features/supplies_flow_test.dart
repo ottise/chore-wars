@@ -50,8 +50,11 @@ class _Shop extends Fake implements SuppliesRepository {
     String method = 'POST',
   }) async {
     requests.add(request);
-    expect(path, '/houses/house/orders/send');
-    return {'id': 'saved'};
+    expect([
+      '/houses/house/orders/send',
+      '/houses/house/orders/saved/record-payment',
+    ], contains(path));
+    return {'id': 'saved', 'total': 240000};
   }
 
   @override
@@ -160,7 +163,16 @@ void main() {
           await tester.tap(find.byTooltip('Add one Rice'));
           await tester.pumpAndSettle();
         }
-        await tester.ensureVisible(find.text('Save & open SMS'));
+        await tester.scrollUntilVisible(
+          find.text('Save & open SMS'),
+          180,
+          scrollable: find
+              .descendant(
+                of: find.byType(ListView).first,
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         await tester.tap(find.text('Save & open SMS'));
         await tester.pumpAndSettle();
         expect(find.text('Saved order log'), findsOneWidget);
@@ -176,6 +188,34 @@ void main() {
       },
     );
   }
+  testWidgets('shop saves the order before recording a separate payment', (
+    tester,
+  ) async {
+    final shop = _Shop();
+    await setup(tester, shop);
+    await tester.tap(find.byTooltip('Add one Rice'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Save & record payment'),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.text('Save & record payment'));
+    await tester.pumpAndSettle();
+    expect(shop.requests.length, 1);
+    expect(find.text('Mark as paid'), findsOneWidget);
+    await tester.tap(find.text('Save payment'));
+    await tester.pumpAndSettle();
+    expect(shop.requests.length, 2);
+    expect(shop.requests.last['amount'], 240000);
+    expect(find.text('Saved order log'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'direct debts keep opposite directions and show individual remaining amounts',
     (tester) async {

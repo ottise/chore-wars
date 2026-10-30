@@ -18,7 +18,7 @@ final houseRepositoryProvider = Provider<HouseRepository>((ref) {
 
 final myHousesProvider = FutureProvider.autoDispose<List<House>>((ref) {
   return ref.watch(houseRepositoryProvider).getMyHouses();
-});
+}, retry: (_, _) => null);
 
 final houseDetailProvider = FutureProvider.autoDispose.family<House, String>((
   ref,

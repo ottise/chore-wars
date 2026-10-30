@@ -25,8 +25,23 @@ public sealed class AIHousekeeperHttpClient(HttpClient http, IOptions<AIOptions>
         var sequence=await db.Houses.AsNoTracking().Where(h=>h.Id==house).Select(h=>h.AiTelemetrySequence).SingleAsync(ct);
         request.Headers.Add("X-Core-Sequence",sequence.ToString(System.Globalization.CultureInfo.InvariantCulture));
         if (body != null) request.Content = JsonContent.Create(body);
-        using var response = await http.SendAsync(request, ct);
-        if (!response.IsSuccessStatusCode) throw new ConflictException($"AI request failed ({(int)response.StatusCode}). No business changes were applied.");
-        return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+        try
+        {
+            using var response = await http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var message = "The assistant could not process this request. Please try again. No changes were made.";
+                if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+                    message = "The assistant is temporarily unavailable. Please try again shortly. No changes were made.";
+                if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+                    message = "The assistant connection needs attention. Please try again later. No changes were made.";
+                throw new ConflictException(message);
+            }
+            return await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        { throw new ConflictException("The assistant is taking longer to start. Please try again shortly. No changes were made."); }
+        catch (HttpRequestException)
+        { throw new ConflictException("The assistant could not be reached. Please try again shortly. No changes were made."); }
     }
 }

@@ -40,4 +40,4 @@ final calendarPhotoProvider = FutureProvider.autoDispose
             options: Options(responseType: ResponseType.bytes),
           );
       return Uint8List.fromList(response.data!);
-    });
+    }, retry: (_, _) => null);

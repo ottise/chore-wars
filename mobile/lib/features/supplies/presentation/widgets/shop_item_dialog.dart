@@ -4,10 +4,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/utils/api_error_message.dart';
 import '../providers/supplies_providers.dart';
+import 'shop_presets.dart';
 
 class ShopItemDialog extends ConsumerStatefulWidget {
-  const ShopItemDialog({required this.houseId, super.key});
+  const ShopItemDialog({required this.houseId, this.preset, super.key});
   final String houseId;
+  final ShopPreset? preset;
 
   @override
   ConsumerState<ShopItemDialog> createState() => _ShopItemDialogState();
@@ -19,6 +21,18 @@ class _ShopItemDialogState extends ConsumerState<ShopItemDialog> {
   String _requestId = const Uuid().v4();
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final preset = widget.preset;
+    if (preset != null) {
+      _fields[0].text = preset.name;
+      _fields[1].text = preset.unit;
+      _fields[2].text = '${preset.price}';
+      _fields[3].text = '${preset.name} supplier';
+    }
+  }
 
   @override
   void dispose() {
@@ -72,6 +86,13 @@ class _ShopItemDialogState extends ConsumerState<ShopItemDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (widget.preset != null)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'This is an editable suggestion. Confirm the price with your supplier.',
+                    ),
+                  ),
                 for (var index = 0; index < _fields.length; index++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),

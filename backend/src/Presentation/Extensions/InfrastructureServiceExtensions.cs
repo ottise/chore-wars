@@ -39,7 +39,7 @@ public static class InfrastructureServiceExtensions
         services.AddHostedService<ChoreWars.Infrastructure.AI.AIChatInsightWorker>();
         services.AddHttpClient<IAIHousekeeperClient, ChoreWars.Infrastructure.AI.AIHousekeeperHttpClient>(http => {
             http.BaseAddress = new Uri(configuration["AI:BaseUrl"] ?? "http://ai-api:8000");
-            http.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:RequestTimeoutSeconds") ?? 30);
+            http.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:RequestTimeoutSeconds") ?? 90);
         });
 
         services.AddScoped<IAfterCommitActions, ChoreWars.Infrastructure.Concurrency.AfterCommitActions>();
@@ -71,7 +71,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IActionProposalRepository, ActionProposalRepository>();
 
         services.Configure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(configuration.GetSection("MediaStorage"));
-        services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.FileMediaStorage>();
+        services.AddScoped<ChoreWars.Infrastructure.Storage.FileMediaStorage>();
+        services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.DatabaseMediaStorage>();
         services.AddScoped<IAvatarStorage, ChoreWars.Infrastructure.Storage.AvatarStorage>();
         services.AddHttpClient("google-avatar", client => client.Timeout = TimeSpan.FromSeconds(8))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });

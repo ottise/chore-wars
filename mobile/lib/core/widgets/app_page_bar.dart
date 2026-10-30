@@ -65,7 +65,19 @@ class AppPageBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         ],
       ),
-      actions: actions,
+      actions: actions == null
+          ? null
+          : [
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actions!,
+                  ),
+                ),
+              ),
+            ],
     );
   }
 }

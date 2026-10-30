@@ -16,43 +16,56 @@ final suppliesRepositoryProvider = Provider<SuppliesRepository>((ref) {
 });
 final suppliersProvider = FutureProvider.autoDispose(
   (ref) => ref.watch(suppliesRepositoryProvider).suppliers(),
+  retry: (_, _) => null,
 );
 final houseShopSuppliersProvider = FutureProvider.autoDispose
     .family<List<SupplyData>, String>(
       (ref, house) => ref
           .watch(suppliesRepositoryProvider)
           .list('/houses/$house/shop/suppliers'),
+      retry: (_, _) => null,
     );
 final supplyProductsProvider = FutureProvider.autoDispose
     .family<List<SupplyData>, String>(
       (ref, supplier) =>
           ref.watch(suppliesRepositoryProvider).products(supplier),
+      retry: (_, _) => null,
     );
 final supplyOrdersProvider = FutureProvider.autoDispose
     .family<List<SupplyData>, String>(
       (ref, house) => ref.watch(suppliesRepositoryProvider).orders(house),
+      retry: (_, _) => null,
     );
 final supplyOrderProvider = FutureProvider.autoDispose
-    .family<SupplyData, ({String house, String id})>((ref, key) {
-      final timer = Timer.periodic(const Duration(seconds: 15), (_) {
-        if (ref.mounted) ref.invalidateSelf();
-      });
-      ref.onDispose(timer.cancel);
-      return ref.watch(suppliesRepositoryProvider).order(key.house, key.id);
-    });
+    .family<SupplyData, ({String house, String id})>((ref, key) async {
+      final order = await ref
+          .watch(suppliesRepositoryProvider)
+          .order(key.house, key.id);
+      if (ref.mounted && order['workflow'] != 'SIMPLE_SMS') {
+        final timer = Timer(const Duration(seconds: 15), () {
+          if (ref.mounted) ref.invalidateSelf();
+        });
+        ref.onDispose(timer.cancel);
+      }
+      return order;
+    }, retry: (_, _) => null);
 final purchaseDebtsProvider = FutureProvider.autoDispose
     .family<SupplyData, String>(
       (ref, house) => ref.watch(suppliesRepositoryProvider).debts(house),
+      retry: (_, _) => null,
     );
 final supplySchedulesProvider = FutureProvider.autoDispose
     .family<List<SupplyData>, String>(
       (ref, house) => ref
           .watch(suppliesRepositoryProvider)
           .list('/houses/$house/supply-schedules'),
+      retry: (_, _) => null,
     );
 final supplierProfileProvider = FutureProvider.autoDispose<SupplyData>(
   (ref) => ref.watch(suppliesRepositoryProvider).get('/supplier/profile'),
+  retry: (_, _) => null,
 );
 final ownBankProvider = FutureProvider.autoDispose<SupplyData>(
   (ref) => ref.watch(suppliesRepositoryProvider).get('/user/bank-account'),
+  retry: (_, _) => null,
 );

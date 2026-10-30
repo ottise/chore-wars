@@ -1524,6 +1524,21 @@ namespace Infrastructure.Migrations
                     b.ToTable("PaymentWebhookReceipts");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.PrivateMediaFile", b =>
+                {
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("StorageKey");
+
+                    b.ToTable("PrivateMediaFiles");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.ProcessedMessage", b =>
                 {
                     b.Property<string>("Consumer")

@@ -1,4 +1,5 @@
 import '../../../../core/widgets/app_page_frame.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../supplies/presentation/widgets/ai_supply_draft_card.dart';
 
 import 'package:flutter/material.dart';
@@ -125,9 +126,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
       });
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = 'Your message could not be sent. Please try again.',
-        );
+        setState(() => _error = apiErrorMessage(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -467,6 +466,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                       alignment: Alignment.centerLeft,
                       child: AiVoiceControls(
                         controller: _input,
+                        onFinalResult: (_) => Future.microtask(_send),
                         summary:
                             _messages.where((m) => !m.mine).firstOrNull?.text ??
                             '',

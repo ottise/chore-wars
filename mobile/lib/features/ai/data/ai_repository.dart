@@ -20,7 +20,11 @@ class AiRepository {
     String path,
     Map<String, dynamic> body,
   ) async {
-    final response = await dio.post('/houses/$house/ai/$path', data: body);
+    final response = await dio.post(
+      '/houses/$house/ai/$path',
+      data: body,
+      options: Options(receiveTimeout: const Duration(seconds: 110)),
+    );
     return Map<String, dynamic>.from(response.data as Map);
   }
 

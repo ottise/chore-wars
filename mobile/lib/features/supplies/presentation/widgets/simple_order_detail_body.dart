@@ -10,33 +10,24 @@ import 'supplier_contact_card.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
-class SimpleOrderDetailBody extends ConsumerWidget {
-  const SimpleOrderDetailBody({
-    required this.houseId,
-    required this.order,
-    required this.isCreator,
-    required this.busy,
-    required this.run,
-    this.error,
-    super.key,
-  });
-  final String houseId;
-  final SupplyData order;
-  final bool isCreator, busy;
-  final String? error;
-  final Future<void> Function(Future<void> Function()) run;
-
-  Future<void> _record(BuildContext context, WidgetRef ref) async {
-    final amount = TextEditingController(
-      text: (order['total'] as num).toStringAsFixed(0),
-    );
-    final reference = TextEditingController();
-    final requestId = const Uuid().v4();
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Mark as paid'),
-        content: Column(
+Future<void> recordSupplyPayment(
+  BuildContext context,
+  WidgetRef ref,
+  String houseId,
+  SupplyData order,
+  Future<void> Function(Future<void> Function()) run,
+) async {
+  final amount = TextEditingController(
+    text: (order['total'] as num).toStringAsFixed(0),
+  );
+  final reference = TextEditingController();
+  final requestId = const Uuid().v4();
+  final accepted = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Mark as paid'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
@@ -58,41 +49,58 @@ class SimpleOrderDetailBody extends ConsumerWidget {
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = num.tryParse(amount.text);
-              if (value != null &&
-                  value > 0 &&
-                  value <= 1000000000 &&
-                  value == value.truncateToDouble()) {
-                Navigator.pop(ctx, true);
-              }
-            },
-            child: const Text('Save payment'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final value = num.tryParse(amount.text);
+            if (value != null &&
+                value > 0 &&
+                value <= 1000000000 &&
+                value == value.truncateToDouble()) {
+              Navigator.pop(ctx, true);
+            }
+          },
+          child: const Text('Save payment'),
+        ),
+      ],
+    ),
+  );
+  final value = num.tryParse(amount.text);
+  final note = reference.text;
+  // Dispose after the dialog route has released its text fields.
+  Future<void>.delayed(const Duration(milliseconds: 300), () {
+    amount.dispose();
+    reference.dispose();
+  });
+  if (accepted != true || value == null) return;
+  await run(() async {
+    await ref.read(suppliesRepositoryProvider).mutate(
+      '/houses/$houseId/orders/${order['id']}/record-payment',
+      {'clientRequestId': requestId, 'amount': value, 'reference': note},
     );
-    final value = num.tryParse(amount.text);
-    final note = reference.text;
-    // Dispose after the dialog route has released its text fields.
-    Future<void>.delayed(const Duration(milliseconds: 300), () {
-      amount.dispose();
-      reference.dispose();
-    });
-    if (accepted != true || value == null) return;
-    await run(() async {
-      await ref.read(suppliesRepositoryProvider).mutate(
-        '/houses/$houseId/orders/${order['id']}/record-payment',
-        {'clientRequestId': requestId, 'amount': value, 'reference': note},
-      );
-    });
-  }
+  });
+}
+
+class SimpleOrderDetailBody extends ConsumerWidget {
+  const SimpleOrderDetailBody({
+    required this.houseId,
+    required this.order,
+    required this.isCreator,
+    required this.busy,
+    required this.run,
+    this.error,
+    super.key,
+  });
+  final String houseId;
+  final SupplyData order;
+  final bool isCreator, busy;
+  final String? error;
+  final Future<void> Function(Future<void> Function()) run;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -224,7 +232,7 @@ class SimpleOrderDetailBody extends ConsumerWidget {
         else if (isCreator)
           FilledButton.icon(
             onPressed: (sent || sms) && !busy
-                ? () => _record(context, ref)
+                ? () => recordSupplyPayment(context, ref, houseId, order, run)
                 : null,
             icon: const Icon(Icons.check_outlined),
             label: const Text('Mark as paid'),

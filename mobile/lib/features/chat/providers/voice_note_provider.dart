@@ -1,5 +1,7 @@
 import '../../../../core/storage/session_provider.dart';
 
+import 'dart:async';
+
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -12,21 +14,21 @@ final privateMediaProvider = FutureProvider.autoDispose
     .family<Uint8List, String>((ref, id) async {
       ref.watch(sessionEpochProvider);
       final lease = ref.keepAlive();
+      final timer = Timer(const Duration(minutes: 5), lease.close);
       final cancel = CancelToken();
-      ref.onDispose(() => cancel.cancel());
-      try {
-        final response = await ref
-            .watch(dioProvider)
-            .get<List<int>>(
-              '/media/$id',
-              options: Options(responseType: ResponseType.bytes),
-              cancelToken: cancel,
-            );
-        return Uint8List.fromList(response.data!);
-      } finally {
-        lease.close();
-      }
-    });
+      ref.onDispose(() {
+        timer.cancel();
+        cancel.cancel();
+      });
+      final response = await ref
+          .watch(dioProvider)
+          .get<List<int>>(
+            '/media/$id',
+            options: Options(responseType: ResponseType.bytes),
+            cancelToken: cancel,
+          );
+      return Uint8List.fromList(response.data!);
+    }, retry: (_, _) => null);
 final audioPlaybackProvider = Provider.autoDispose<AudioPlaybackService>((ref) {
   ref.watch(sessionEpochProvider);
   final service = AudioPlaybackService();
