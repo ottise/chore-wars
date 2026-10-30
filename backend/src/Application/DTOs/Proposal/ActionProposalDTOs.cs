@@ -27,6 +27,7 @@ public class ActionProposalResponse
     public Guid HouseId { get; set; }
     public Guid RoomId { get; set; }
     public Guid CreatorId { get; set; }
+    public string? CreatorName { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ProposalType Type { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]

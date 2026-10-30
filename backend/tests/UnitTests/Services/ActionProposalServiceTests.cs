@@ -1,3 +1,4 @@
+using ChoreWars.Application.DTOs.AI;
 using System.Text.Json;
 using ChoreWars.Application.DTOs.Proposal;
 using ChoreWars.Application.Interfaces.Repositories;
@@ -96,6 +97,13 @@ public class ActionProposalServiceTests
         fixture.Occurrences.Setup(x => x.GetByIdAsync(sourceId, It.IsAny<CancellationToken>())).ReturnsAsync(source);
         fixture.Occurrences.Setup(x => x.GetByIdAsync(targetOccurrenceId, It.IsAny<CancellationToken>())).ReturnsAsync(target);
 
+        var invitation = await fixture.Service.CreateProposalAsync(fixture.HouseId, new CreateProposalRequest {
+            Type = ProposalType.CHORE_SWAP, Title = "Swap chores", PayloadJson = payload, TargetUserIds = [targetId]
+        }, fixture.CreatorId);
+        fixture.Notifications.Verify(x => x.CreateNotificationAsync(targetId, fixture.HouseId,
+            It.IsAny<string>(), It.IsAny<string>(), nameof(NotificationType.AI_REQUEST), "AI_REQUEST", invitation.Id,
+            It.IsAny<CancellationToken>()), Times.Once);
+
         var response = await fixture.Service.RespondProposalAsync(proposal.Id, new RespondProposalRequest
         {
             Status = ConfirmationStatus.CONFIRMED
@@ -106,7 +114,7 @@ public class ActionProposalServiceTests
         Assert.Equal(fixture.CreatorId, target.AssignedUserId);
         fixture.Occurrences.Verify(x => x.Update(source), Times.Once);
         fixture.Occurrences.Verify(x => x.Update(target), Times.Once);
-        fixture.UnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        fixture.UnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -160,7 +168,7 @@ public class ActionProposalServiceTests
             fixture.HouseId,
             It.IsAny<string>(),
             It.IsAny<string>(),
-            nameof(NotificationType.URGENT_EVENT),
+            nameof(NotificationType.AI_REQUEST),
             ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest,
             proposal.Id,
             It.IsAny<CancellationToken>()), Times.Exactly(2));
@@ -179,6 +187,33 @@ public class ActionProposalServiceTests
             Guid.NewGuid()));
 
         fixture.UnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ScheduleReplanInvitesEachRequiredMemberAndWaitsForConsent()
+    {
+        var fixture = new Fixture();
+        var targetId = Guid.NewGuid();
+        fixture.ActiveMember(targetId);
+        fixture.ScheduleChanges.Setup(x => x.ValidateAsync(fixture.HouseId, It.IsAny<ScheduleChangePayload>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HashSet<Guid> { fixture.CreatorId, targetId });
+        fixture.ScheduleChanges.Setup(x => x.ApplyAsync(fixture.HouseId, It.IsAny<ScheduleChangePayload>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        ActionProposal? stored = null;
+        fixture.Proposals.Setup(x => x.AddAsync(It.IsAny<ActionProposal>(), It.IsAny<CancellationToken>()))
+            .Callback<ActionProposal, CancellationToken>((proposal, _) => stored = proposal).Returns(Task.CompletedTask);
+        var created = await fixture.Service.CreateProposalAsync(fixture.HouseId, new CreateProposalRequest {
+            Type = ProposalType.SCHEDULE_REPLAN, Title = "Replan future work", PayloadJson = "{}", TargetUserIds = [targetId]
+        }, fixture.CreatorId);
+        fixture.Notifications.Verify(x => x.CreateNotificationAsync(targetId, fixture.HouseId,
+            It.IsAny<string>(), It.IsAny<string>(), nameof(NotificationType.AI_REQUEST), "AI_REQUEST", created.Id,
+            It.IsAny<CancellationToken>()), Times.Once);
+        fixture.ScheduleChanges.Verify(x => x.ApplyAsync(It.IsAny<Guid>(), It.IsAny<ScheduleChangePayload>(), It.IsAny<CancellationToken>()), Times.Never);
+        fixture.Proposals.Setup(x => x.GetByIdForUpdateAsync(created.Id, It.IsAny<CancellationToken>())).ReturnsAsync(stored);
+        var confirmed = await fixture.Service.RespondProposalAsync(created.Id,
+            new RespondProposalRequest { Status = ConfirmationStatus.CONFIRMED }, targetId);
+        Assert.Equal(ProposalStatus.APPROVED, confirmed.Status);
+        fixture.ScheduleChanges.Verify(x => x.ApplyAsync(fixture.HouseId, It.IsAny<ScheduleChangePayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
@@ -200,6 +235,7 @@ public class ActionProposalServiceTests
         public Mock<IChoreSeasonRepository> Seasons { get; } = new();
         public Mock<IActionProposalRealtimePublisher> Realtime { get; } = new();
         public Mock<INotificationService> Notifications { get; } = new();
+        public Mock<IScheduleChangeService> ScheduleChanges { get; } = new();
         public ActionProposalService Service { get; }
 
         public Fixture(TimeProvider? clock = null)
@@ -230,7 +266,7 @@ public class ActionProposalServiceTests
             Chats.Setup(x => x.GetRoomByHouseIdAsync(HouseId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatRoom { Id = RoomId, HouseId = HouseId });
             ActiveMember(CreatorId);
-            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true, notificationService: Notifications.Object, clock: clock);
+            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true, notificationService: Notifications.Object, clock: clock, scheduleChanges: ScheduleChanges.Object);
         }
 
         public void ActiveMember(Guid userId) => Members

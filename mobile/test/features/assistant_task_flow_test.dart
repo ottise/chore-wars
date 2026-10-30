@@ -95,7 +95,9 @@ void main() {
         expect(find.text('Clean table · B · 15 min'), findsOneWidget);
         expect(api.paths, ['urgent/request']);
         expect(
-          find.textContaining('Requests sent to Chore → Bonus.'),
+          find.textContaining(
+            'Requests sent to each participant’s private AI conversation.',
+          ),
           findsOneWidget,
         );
         expect(find.text('Retry sending requests'), findsNothing);

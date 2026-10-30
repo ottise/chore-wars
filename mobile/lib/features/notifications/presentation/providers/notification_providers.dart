@@ -129,7 +129,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     if (_current(generation)) {
       state = NotificationState(
         notifications: state.notifications
-            .map((n) => n.isChat ? n : n.asRead())
+            .map((n) => (n.isChat || n.isTaskRequest) ? n : n.asRead())
             .toList(),
       );
     }
@@ -144,7 +144,7 @@ final unreadNotificationCountProvider = Provider<int>(
   (ref) => ref
       .watch(notificationNotifierProvider)
       .notifications
-      .where((n) => !n.isChat && !n.isRead)
+      .where((n) => !n.isChat && !n.isTaskRequest && !n.isRead)
       .length,
 );
 final chatUnreadRequestProvider = FutureProvider.autoDispose
@@ -164,6 +164,17 @@ final unreadHouseNotificationCountProvider = Provider.family<int, String>(
   (ref, houseId) => ref
       .watch(notificationNotifierProvider)
       .notifications
-      .where((n) => !n.isChat && n.houseId == houseId && !n.isRead)
+      .where(
+        (n) =>
+            !n.isChat && !n.isTaskRequest && n.houseId == houseId && !n.isRead,
+      )
+      .length,
+);
+
+final unreadAssistantCountProvider = Provider.family<int, String>(
+  (ref, houseId) => ref
+      .watch(notificationNotifierProvider)
+      .notifications
+      .where((n) => n.isTaskRequest && n.houseId == houseId && !n.isRead)
       .length,
 );

@@ -1,3 +1,7 @@
+import 'package:intl/intl.dart';
+
+import '../../../core/utils/vietnam_time.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -30,7 +34,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
       budget = TextEditingController(text: '60');
   List<Map<String, dynamic>> seasons = [];
   Map<String, dynamic>? record;
-  String? season, previous, error;
+  String? season, previous, error, sourceOccurrence;
   final participants = <String>{};
   String request = const Uuid().v4();
   bool busy = false;
@@ -40,6 +44,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
   void initState() {
     super.initState();
     record = widget.initialRecord;
+    sourceOccurrence = widget.sourceOccurrenceId;
     WidgetsBinding.instance.addPostFrameCallback((_) => load());
   }
 
@@ -106,6 +111,24 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
     final result = record?['result'] as Map?;
     final frozen = busy || record != null;
     final isUrgent = widget.kind == 'URGENT';
+    final swapOptions = widget.kind == 'SWAP' && season != null
+        ? ref.watch(
+            aiSwapOccurrencesProvider((house: widget.houseId, season: season!)),
+          )
+        : const AsyncValue<List<Map<String, dynamic>>>.data([]);
+    final eligible = (swapOptions.asData?.value ?? [])
+        .where(
+          (c) =>
+              actor != null &&
+              c['assignedUserId'] == actor &&
+              (c['type'] == 0 || c['type'] == 'NORMAL') &&
+              (c['status'] == 0 || c['status'] == 'ASSIGNED') &&
+              (DateTime.tryParse(c['dueDate'].toString())
+                      ?.isAfter(DateTime.now()) ??
+                  false),
+        )
+        .toList();
+    final validSource = eligible.any((c) => c['id'] == sourceOccurrence);
     final title = switch (widget.kind) {
       'SWAP' => 'Find a Chore Swap',
       'REPLAN' => 'Replan Future Chores',
@@ -158,10 +181,43 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                   ? null
                   : (value) => setState(() => previous = value),
             ),
-          if (widget.kind == 'SWAP')
+          if (widget.kind == 'SWAP') ...[
             const Text(
               'Only eligible swaps are suggested. Both members review before responsibility changes.',
             ),
+            if (swapOptions.isLoading) const LinearProgressIndicator(),
+            if (swapOptions.hasError)
+              TextButton(
+                onPressed: () => ref.invalidate(
+                  aiSwapOccurrencesProvider((
+                    house: widget.houseId,
+                    season: season!,
+                  )),
+                ),
+                child: const Text('Retry eligible chores'),
+              ),
+            DropdownButtonFormField<String>(
+              key: ValueKey((season, validSource ? sourceOccurrence : null)),
+              initialValue: validSource ? sourceOccurrence : null,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Your chore to swap',
+              ),
+              items: [
+                for (final c in eligible)
+                  DropdownMenuItem(
+                    value: c['id'].toString(),
+                    child: Text(
+                      "${c['choreName']} · ${DateFormat('dd/MM HH:mm').format(vietnamTime(c['dueDate']))}",
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: frozen
+                  ? null
+                  : (id) => setState(() => sourceOccurrence = id),
+            ),
+          ],
           if (isUrgent) ...[
             TextField(
               controller: text,
@@ -208,7 +264,10 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
           ],
           if (record == null)
             FilledButton.icon(
-              onPressed: busy || season == null
+              onPressed:
+                  busy ||
+                      season == null ||
+                      (widget.kind == 'SWAP' && !validSource)
                   ? null
                   : () => operation(() async {
                       if (widget.kind == 'EVOLUTION' && previous == null) {
@@ -225,7 +284,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
                           .post(widget.houseId, path, {
                             'clientRequestId': request,
                             'seasonId': season,
-                            'sourceOccurrenceId': widget.sourceOccurrenceId,
+                            'sourceOccurrenceId': sourceOccurrence,
                             'sourceSeasonId': previous,
                             if (isUrgent) ...{
                               'text': text.text,
@@ -308,7 +367,7 @@ class _AiPlanningScreenState extends ConsumerState<AiPlanningScreen> {
               ),
             if (record!['proposal_id'] != null)
               const Text(
-                'An approval card was posted to household chat. Changes apply only after all required approvals.',
+                'Requests were sent to the private AI conversations of affected members. Changes apply only after everyone confirms.',
               ),
             TextButton(
               onPressed: busy

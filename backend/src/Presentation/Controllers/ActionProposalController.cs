@@ -34,6 +34,10 @@ public class ActionProposalController : ControllerBase
         return Ok(proposal);
     }
 
+    [HttpGet("houses/{houseId:guid}/assistant/requests")]
+    public async Task<IActionResult> GetAssistantInbox(Guid houseId, CancellationToken cancellationToken) =>
+        Ok(await _service.GetAssistantInboxAsync(houseId, CurrentUserId, cancellationToken));
+
     [HttpGet("rooms/{roomId:guid}/proposals/active")]
     public async Task<IActionResult> GetActive(Guid roomId, CancellationToken cancellationToken)
     {

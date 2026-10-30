@@ -18,5 +18,6 @@ public enum NotificationType
     CHAT_MENTION = 13,
     SUPPLY_UPDATE = 14,
     MEMBER_JOINED = 15,
-    BOUNTY_CANCELLED = 16
+    BOUNTY_CANCELLED = 16,
+    AI_REQUEST = 17
 }

@@ -57,7 +57,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         .where(
           (n) =>
               (widget.houseId == null || n.houseId == widget.houseId) &&
-              (widget.chatOnly ? n.isChat : !n.isChat),
+              (widget.chatOnly ? n.isChat : (!n.isChat && !n.isTaskRequest)),
         )
         .toList();
     final items = scoped

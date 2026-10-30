@@ -16,6 +16,7 @@ public static class AIConstants
     public const string Evolution = "EVOLUTION";
     public const string Urgent = "URGENT";
     public const string Accepted = "ACCEPTED";
+    public const int UrgentMaxDeadlineMinutes = 48 * 60;
     public const int RecommendationLifetimeMinutes = 15;
     public const int SchemaVersion = 1;
 }

@@ -1,3 +1,5 @@
+import '../../notifications/presentation/providers/notification_providers.dart';
+
 import 'dart:async';
 
 import 'package:chore_wars/core/storage/session_provider.dart';
@@ -133,4 +135,20 @@ final assistantRequestRoomProvider = FutureProvider.autoDispose
       });
       ref.onDispose(timer.cancel);
       return room.id;
+    }, retry: (_, _) => null);
+
+final assistantInboxProvider = FutureProvider.autoDispose
+    .family<List<ActionProposalModel>, String>((ref, houseId) async {
+      ref.watch(sessionEpochProvider);
+      ref.watch(
+        notificationNotifierProvider.select((s) => s.latestArrival?.id),
+      );
+      final proposals = await ref
+          .watch(actionProposalServiceProvider)
+          .getAssistantInbox(houseId);
+      if (ref.mounted) {
+        final timer = Timer(const Duration(seconds: 10), ref.invalidateSelf);
+        ref.onDispose(timer.cancel);
+      }
+      return proposals;
     }, retry: (_, _) => null);

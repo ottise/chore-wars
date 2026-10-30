@@ -6,7 +6,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.schemas import LanguageInput, LanguageResult, VisionInput, VisionResult
+from app.schemas import LanguageInput, LanguageResult, VisionInput, VisionResult, URGENT_MAX_MINUTES
 from app.urgent import Decomposition, UrgentInput
 from app.supplies import validate_supplies
 
@@ -127,9 +127,9 @@ class GeminiClient:
                     result.missing_fields.append("another_participant")
                 if result.urgent.deadline_minutes is None and result.urgent.ready_by is None:
                     result.missing_fields.append("deadline_minutes")
-                if result.urgent.ready_by is not None and not 0 < (result.urgent.ready_by - request.now).total_seconds() <= 86400:
-                    result.missing_fields.append("future_ready_by_within_24_hours")
-                    result.summary = "Please choose a future party time within the next 24 hours."
+                if result.urgent.ready_by is not None and not 0 < (result.urgent.ready_by - request.now).total_seconds() <= URGENT_MAX_MINUTES * 60:
+                    result.missing_fields.append("future_ready_by_within_48_hours")
+                    result.summary = "Please choose a future party time within the next 48 hours."
         for key, allowed in (
             ("chore_id", request.chore_names),
             ("occurrence_id", request.occurrence_names),

@@ -7,6 +7,9 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 from app.supplies import SupplyCatalogItem, SupplyCandidate
 
 
+URGENT_MAX_MINUTES = 48 * 60
+
+
 class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -157,7 +160,7 @@ class AvailabilityCandidate(Contract):
 
 
 class UrgentCandidate(Contract):
-    deadline_minutes: int | None = Field(default=None, ge=1, le=1440)
+    deadline_minutes: int | None = Field(default=None, ge=1, le=URGENT_MAX_MINUTES)
     ready_by: AwareDatetime | None = None
     guest_count: int | None = Field(default=None, ge=1, le=10000)
     participant_ids: list[UUID] = Field(default_factory=list, max_length=50)

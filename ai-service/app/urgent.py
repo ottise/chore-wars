@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import AwareDatetime, Field
 
 from app.allocation import find_start
-from app.schemas import Context, Contract, Task
+from app.schemas import Context, Contract, Task, URGENT_MAX_MINUTES
 
 
 class MicroTask(Contract):
@@ -28,7 +28,7 @@ class Decomposition(Contract):
 class UrgentInput(Contract):
     context: Context
     text: str = Field(min_length=1, max_length=8000)
-    deadline_minutes: int = Field(ge=1, le=1440)
+    deadline_minutes: int = Field(ge=1, le=URGENT_MAX_MINUTES)
     ready_by: AwareDatetime | None = None
     guest_count: int | None = Field(default=None, ge=1, le=10000)
     participant_ids: list[UUID] = Field(min_length=1, max_length=50)
@@ -58,8 +58,8 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
     if any(t.assigned_to is not None and t.assigned_to not in members for t in chores.values()):
         raise ValueError("Explicit assignees must be participants")
     deadline = request.ready_by or context.as_of + timedelta(minutes=request.deadline_minutes)
-    if not context.as_of < deadline <= context.as_of + timedelta(days=1):
-        raise ValueError("Choose a future deadline within 24 hours")
+    if not context.as_of < deadline <= context.as_of + timedelta(minutes=URGENT_MAX_MINUTES):
+        raise ValueError("Choose a future deadline within 48 hours")
     waiting = set(chores)
     scheduled = {}
     tasks = list(context.tasks)

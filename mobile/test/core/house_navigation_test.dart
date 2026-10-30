@@ -1,4 +1,3 @@
-import 'package:chore_wars/features/chore/presentation/screens/chore_list_screen.dart';
 import 'package:chore_wars/core/router/app_router.dart';
 import 'package:chore_wars/features/auth/domain/entities/auth_models.dart';
 import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
@@ -195,17 +194,16 @@ void main() {
     expect(find.text('Create New Season'), findsNothing);
     router.push('/notifications');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Incoming AI task'));
+    expect(find.text('Incoming AI task'), findsNothing);
+    router.go(
+      container
+          .read(notificationNotifierProvider)
+          .notifications
+          .first
+          .destination!,
+    );
     await tester.pumpAndSettle();
-    expect(find.byType(ChoreListScreen), findsOneWidget);
-    expect(
-      tester.widget<ChoreListScreen>(find.byType(ChoreListScreen)).initialTab,
-      'bonus',
-    );
-    expect(
-      router.routeInformationProvider.value.uri.queryParameters['tab'],
-      'bonus',
-    );
+    expect(find.byType(AssistantChatScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
     router.go('/houses/house-B/more');
     await tester.pumpAndSettle();

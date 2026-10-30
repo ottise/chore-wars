@@ -34,6 +34,16 @@ public class ActionProposalRepository : IActionProposalRepository
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<ActionProposal>> GetAssistantInboxAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default) =>
+        await _context.ActionProposals.AsNoTracking()
+            .Include(x => x.Confirmations).Include(x => x.Creator)
+            .Where(x => x.HouseId == houseId &&
+                (x.Type == ProposalType.URGENT_EVENT || x.Type == ProposalType.CHORE_SWAP || x.Type == ProposalType.SCHEDULE_REPLAN) &&
+                (x.CreatorId == userId || x.Confirmations.Any(c => c.TargetUserId == userId)))
+            .OrderByDescending(x => x.Status == ProposalStatus.PENDING)
+            .ThenByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
+            .Take(100).ToListAsync(cancellationToken);
+
     public Task AddAsync(ActionProposal proposal, CancellationToken cancellationToken = default) =>
         _context.ActionProposals.AddAsync(proposal, cancellationToken).AsTask();
 

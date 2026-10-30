@@ -1,3 +1,10 @@
+import 'package:chore_wars/core/widgets/assistant_shortcut.dart';
+import 'package:chore_wars/features/chat/presentation/screens/assistant_chat_screen.dart';
+import 'package:chore_wars/features/house/domain/entities/house_models.dart';
+import 'package:chore_wars/features/house/presentation/providers/house_providers.dart';
+import 'package:chore_wars/features/notifications/domain/entities/notification_models.dart';
+import 'package:chore_wars/features/notifications/presentation/providers/notification_providers.dart';
+import 'package:go_router/go_router.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
 import 'package:chore_wars/features/chat/data/services/action_proposal_service.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
@@ -45,6 +52,7 @@ class _Api implements HttpClientAdapter {
   bool failRequests = false;
   bool expired = false;
   String target = 'recipient';
+  String proposalType = 'URGENT_EVENT';
   String status = 'PENDING';
   int reads = 0;
   final posts = <Map<String, dynamic>>[];
@@ -53,7 +61,8 @@ class _Api implements HttpClientAdapter {
     'houseId': 'house',
     'roomId': 'room',
     'creatorId': 'creator',
-    'type': 'URGENT_EVENT',
+    'type': proposalType,
+    'creatorName': 'Chi',
     'status': rejected
         ? 'REJECTED'
         : approved
@@ -90,7 +99,9 @@ class _Api implements HttpClientAdapter {
   ) async {
     dynamic data = [];
     var code = 200;
-    if (options.path.endsWith('/proposals/active')) {
+    if (options.path.endsWith('/assistant/requests')) {
+      data = [proposal()];
+    } else if (options.path.endsWith('/proposals/active')) {
       reads++;
       if (failRequests) {
         code = 503;
@@ -136,6 +147,38 @@ class _Api implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _Notices extends NotificationNotifier {
+  _Notices({this.count = 1});
+  final int count;
+  final read = <String>[];
+  @override
+  NotificationState build() => NotificationState(
+    notifications: [
+      for (var i = 0; i < count; i++)
+        AppNotification.fromJson({
+          'id': 'notice-$i',
+          'userId': 'recipient',
+          'houseId': 'house',
+          'title': 'Your AI assistant has a request',
+          'message': 'Prepare dinner',
+          'type': 'AI_REQUEST',
+          'targetType': 'AI_REQUEST',
+          'targetId': 'invite',
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+        }),
+    ],
+  );
+  @override
+  Future<void> markAsRead(String id) async {
+    read.add(id);
+    state = NotificationState(
+      notifications: state.notifications
+          .map((n) => n.id == id ? n.asRead() : n)
+          .toList(),
+    );
+  }
 }
 
 class _DelayedProposals extends ActionProposalService {
@@ -282,6 +325,99 @@ void main() {
       expect(find.text('Claim'), findsNothing);
     },
   );
+
+  for (final type in ['URGENT_EVENT', 'CHORE_SWAP', 'SCHEDULE_REPLAN']) {
+    testWidgets(
+      'private AI receives $type, clears its badge and confirms from conversation',
+      (tester) async {
+        final api = _Api()..proposalType = type;
+        final notices = _Notices();
+        final dio = Dio()..httpClientAdapter = api;
+        addTearDown(dio.close);
+        tester.view.physicalSize = const Size(354, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) =>
+                  const Scaffold(body: AssistantShortcut(houseId: 'house')),
+            ),
+            GoRoute(
+              path: '/houses/house/chat/assistant',
+              builder: (_, _) => const AssistantChatScreen(houseId: 'house'),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              dioProvider.overrideWithValue(dio),
+              chatRepositoryProvider.overrideWithValue(_Chat()),
+              notificationNotifierProvider.overrideWith(() => notices),
+              authStateProvider.overrideWith(() => _Auth('recipient')),
+              userProfileProvider.overrideWith(
+                (ref) async => const UserProfile(
+                  id: 'recipient',
+                  displayName: 'Dat',
+                  email: 'dat@example.test',
+                ),
+              ),
+              houseDetailProvider.overrideWith(
+                (ref, id) async => House(
+                  id: id,
+                  name: 'Family',
+                  inviteCode: 'TEST',
+                  createdAt: DateTime.utc(2026),
+                ),
+              ),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('1'), findsOneWidget);
+        await tester.tap(find.byTooltip('AI Assistant, 1 unread requests'));
+        await tester.pumpAndSettle();
+        expect(find.text('Your assistant · Requests'), findsOneWidget);
+        expect(find.text('Confirm'), findsOneWidget);
+        expect(notices.read, ['notice-0']);
+        expect(notices.state.notifications.single.isRead, isTrue);
+        await tester.ensureVisible(find.text('Confirm'));
+        await tester.tap(find.text('Confirm'));
+        await tester.pumpAndSettle();
+        expect(api.posts.single['status'], 'CONFIRMED');
+        expect(find.text('Confirm'), findsNothing);
+        expect(find.text('Confirmed. Changes applied.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  testWidgets('AI unread badge caps at 10+ and does not count in system bell', (
+    tester,
+  ) async {
+    final notices = _Notices(count: 11);
+    final container = ProviderContainer(
+      overrides: [notificationNotifierProvider.overrideWith(() => notices)],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(body: AssistantShortcut(houseId: 'house')),
+        ),
+      ),
+    );
+    expect(find.text('10+'), findsOneWidget);
+    expect(container.read(unreadNotificationCountProvider), 0);
+    expect(container.read(unreadAssistantCountProvider('other-house')), 0);
+  });
 
   testWidgets('creator waits and cannot confirm for recipient', (tester) async {
     await _mount(tester, _Api(), user: 'creator');

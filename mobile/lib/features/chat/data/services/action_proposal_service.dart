@@ -42,6 +42,16 @@ class ActionProposalService {
     return ActionProposalModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  Future<List<ActionProposalModel>> getAssistantInbox(String houseId) async {
+    final response = await _dio.get('/v1/houses/$houseId/assistant/requests');
+    return (response.data as List)
+        .map(
+          (p) =>
+              ActionProposalModel.fromJson(Map<String, dynamic>.from(p as Map)),
+        )
+        .toList();
+  }
+
   Future<List<ActionProposalModel>> getActiveProposals(String roomId) async {
     final response = await _dio.get(ApiEndpoints.activeProposals(roomId));
     final data = response.data;

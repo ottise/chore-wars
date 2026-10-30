@@ -63,7 +63,7 @@ public class NotificationService : INotificationService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            foreach (var notification in System.Linq.Enumerable.Where(notifications, n => n.Type != ChoreWars.Domain.Enums.NotificationType.CHAT_MESSAGE && n.Type != ChoreWars.Domain.Enums.NotificationType.CHAT_MENTION))
+            foreach (var notification in System.Linq.Enumerable.Where(notifications, n => n.Type != ChoreWars.Domain.Enums.NotificationType.CHAT_MESSAGE && n.Type != ChoreWars.Domain.Enums.NotificationType.CHAT_MENTION && n.TargetType != ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest))
             {
                 notification.IsRead = true;
                 _unitOfWork.Notifications.Update(notification);

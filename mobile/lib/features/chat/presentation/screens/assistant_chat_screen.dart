@@ -1,3 +1,4 @@
+import '../../../ai/presentation/ai_planning_screen.dart';
 import '../../../../core/widgets/app_page_frame.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../supplies/presentation/widgets/ai_supply_draft_card.dart';
@@ -11,7 +12,7 @@ import '../../../ai/presentation/ai_availability_review_screen.dart';
 import '../../../ai/presentation/ai_voice_controls.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../widgets/ai_urgent_plan_card.dart';
-import '../widgets/assistant_requests.dart';
+import '../widgets/assistant_inbox.dart';
 
 class AssistantChatScreen extends ConsumerStatefulWidget {
   const AssistantChatScreen({
@@ -41,6 +42,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
           Map<String, dynamic>? availability,
           Map<String, dynamic>? urgent,
           Map<String, dynamic>? supply,
+          String? planningKind,
           DateTime at,
         })
       >[];
@@ -97,6 +99,11 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             at: DateTime.now(),
             text:
                 '$summary${missing.isEmpty ? '' : '\nPlease add the missing details and send again.'}',
+            planningKind: switch (response['intent']) {
+              'swap' => 'SWAP',
+              'replan' => 'REPLAN',
+              _ => null,
+            },
             availability: response['availability'] is Map
                 ? Map<String, dynamic>.from(response['availability'] as Map)
                 : null,
@@ -117,6 +124,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             mine: true,
             text: prompt,
             availability: null,
+            planningKind: null,
             urgent: null,
             supply: null,
             at: DateTime.now(),
@@ -183,7 +191,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
               reverse: !intro,
               child: Column(
                 children: [
-                  AssistantRequests(houseId: widget.houseId),
+                  AssistantInbox(houseId: widget.houseId),
                   if (intro)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -383,6 +391,30 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                         message.urgent!['prompt']
                                                             as String,
                                                     candidate: message.urgent!,
+                                                  ),
+                                                if (message.planningKind !=
+                                                    null)
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          context,
+                                                        ).push(
+                                                          MaterialPageRoute(
+                                                            builder: (_) =>
+                                                                AiPlanningScreen(
+                                                                  houseId: widget
+                                                                      .houseId,
+                                                                  kind: message
+                                                                      .planningKind!,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                    child: Text(
+                                                      message.planningKind ==
+                                                              'SWAP'
+                                                          ? 'Review chore swap'
+                                                          : 'Review schedule changes',
+                                                    ),
                                                   ),
                                                 if (message.supply != null)
                                                   AiSupplyDraftCard(

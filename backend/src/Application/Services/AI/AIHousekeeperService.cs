@@ -108,7 +108,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             context=await contexts.BuildAsync(house,request.SeasonId,ct);
             if (request.Kind==AIConstants.Urgent && request.ReadyBy.HasValue) {
                 var remaining=(request.ReadyBy.Value-context.GetProperty("as_of").GetDateTimeOffset()).TotalMinutes;
-                if (remaining<=0 || remaining>1440) throw new DomainException("Choose a future urgent deadline within 24 hours.");
+                if (remaining<=0 || remaining>AIConstants.UrgentMaxDeadlineMinutes) throw new DomainException("Choose a future urgent deadline within 48 hours.");
                 deadlineMinutes=(int)Math.Ceiling(remaining);
             }
             var originalContextHash=contexts.Fingerprint(context);
@@ -117,7 +117,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                 if(request.Kind!=AIConstants.Replan || request.AvailabilityChanges.Any(c=>c.UserId!=actor))throw new ForbiddenException("Only your own availability may be proposed through AI replan.");
                 context=await scheduleChanges.CandidateContextAsync(house,request.SeasonId,context,request.AvailabilityChanges,ct);
             }
-            if(request.Kind==AIConstants.Urgent && (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length>8000 || deadlineMinutes is <1 or >1440 || request.GuestCount is <1 or >10000 || !request.ParticipantIds.Contains(actor) || request.ParticipantIds.Count<2 || request.ParticipantIds.Distinct().Count()!=request.ParticipantIds.Count || request.Resources.Count>30))throw new DomainException("Urgent planning needs text, a deadline and at least two distinct participants including yourself.");
+            if(request.Kind==AIConstants.Urgent && (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length>8000 || deadlineMinutes is <1 or >AIConstants.UrgentMaxDeadlineMinutes || request.GuestCount is <1 or >10000 || !request.ParticipantIds.Contains(actor) || request.ParticipantIds.Count<2 || request.ParticipantIds.Distinct().Count()!=request.ParticipantIds.Count || request.Resources.Count>30))throw new DomainException("Urgent planning needs text, a deadline and at least two distinct participants including yourself.");
             var expected=request.Kind is AIConstants.Allocation or AIConstants.Evolution?AIConstants.Draft:"ACTIVE";
             if (context.GetProperty("status").GetString()!=expected) throw new ConflictException($"This recommendation requires a {expected} season.");
             if (request.Kind==AIConstants.Swap) {

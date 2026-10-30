@@ -37,7 +37,7 @@ class AppNotification {
       'SUPPLY_SCHEDULE' => '$base/supplies/schedules',
       'INTERNAL_REPAYMENT' when target != null && target.isNotEmpty =>
         '$base/supplies/debts/${Uri.encodeComponent(target)}',
-      'AI_REQUEST' => '$base/chores?tab=bonus',
+      'AI_REQUEST' => '$base/chat/assistant',
       'ActionProposal' => '$base/chat/everyone',
       'BOUNTY' when target != null && target.isNotEmpty =>
         '/bounties/${Uri.encodeComponent(target)}?houseId=${Uri.encodeQueryComponent(house)}',

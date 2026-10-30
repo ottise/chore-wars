@@ -119,4 +119,20 @@ async def test_elapsed_tonight_does_not_silently_move_to_tomorrow(monkeypatch):
     monkeypatch.setattr(client,"generate",generate)
     result=await client.interpret(LanguageInput(house_id=uuid4(),actor_id=actor,text="Tonight at 10 PM",
         now=datetime(2026,10,25,16,tzinfo=timezone.utc),member_names={str(actor):"Me",str(trinh):"Trinh"},consent_version="ON_DEMAND"))
-    assert "future_ready_by_within_24_hours" in result.missing_fields
+    assert "future_ready_by_within_48_hours" in result.missing_fields
+
+
+async def test_tomorrow_eight_am_can_be_more_than_24_hours_away(monkeypatch):
+    actor, dat = uuid4(), uuid4()
+    client = GeminiClient(Settings(environment="test", service_key="x" * 32))
+    async def generate(*args):
+        return {"intent": "urgent", "summary": "Prepare with Dat tomorrow at 8 AM", "urgent": {
+            "ready_by": "2026-11-01T08:00:00+07:00", "participant_ids": [str(actor), str(dat)]}}
+    monkeypatch.setattr(client, "generate", generate)
+    result = await client.interpret(LanguageInput(house_id=uuid4(), actor_id=actor,
+        text="8h tomorrow, Dat and I prepare the house for a party",
+        now=datetime(2026, 10, 30, 17, 30, tzinfo=timezone.utc),
+        member_names={str(actor): "Me", str(dat): "Dat"}, consent_version="ON_DEMAND"))
+    assert result.missing_fields == []
+    assert result.urgent.ready_by.isoformat() == "2026-11-01T08:00:00+07:00"
+    assert set(result.urgent.participant_ids) == {actor, dat}

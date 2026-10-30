@@ -44,6 +44,10 @@ public class BonusTaskInvitationTests
                 })
             }, seed.Users[0]);
             proposalId = created.Id;
+            var inbox = Assert.Single(await service.GetAssistantInboxAsync(seed.HouseId, seed.Users[1]));
+            Assert.Equal(created.Id, inbox.Id);
+            Assert.NotNull(inbox.CreatorName);
+            await Assert.ThrowsAsync<ForbiddenException>(() => service.GetAssistantInboxAsync(seed.HouseId, Guid.NewGuid()));
             Assert.Equal(ProposalStatus.PENDING, created.Status);
             Assert.Contains(await service.GetActiveProposalsAsync(roomId, seed.Users[1]), p => p.Id == proposalId);
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -74,6 +78,7 @@ public class BonusTaskInvitationTests
                 new RespondProposalRequest { Status = ConfirmationStatus.CONFIRMED }, seed.Users[2]));
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var bonus = await db.ChoreOccurrences.Include(o => o.Chore).Where(o => o.Id != seed.OccurrenceId).ToListAsync();
+            Assert.Equal(ProposalStatus.APPROVED, Assert.Single(await service.GetAssistantInboxAsync(seed.HouseId, seed.Users[1])).Status);
             Assert.Equal(3, bonus.Count);
             Assert.All(bonus, o => {
                 Assert.Equal(ChoreType.BONUS, o.Chore.Type);
@@ -122,7 +127,11 @@ public class BonusTaskInvitationTests
                 var rejected = await service.RespondProposalAsync(proposal.Id,
                     new RespondProposalRequest { Status = ConfirmationStatus.REJECTED }, seed.Users[1]);
                 Assert.Equal(ProposalStatus.REJECTED, rejected.Status);
+                Assert.Equal(2, await db.Notifications.CountAsync(n => n.TargetId == proposal.Id &&
+                    n.TargetType == "AI_REQUEST" && n.Title == "AI request declined"));
             }
+            Assert.Empty(await service.GetAssistantInboxAsync(seed.HouseId, seed.Users[2]));
+            Assert.Contains(await service.GetAssistantInboxAsync(seed.HouseId, seed.Users[1]), p => p.Id == proposal.Id);
             Assert.Single(await db.ChoreOccurrences.ToListAsync());
             Assert.Empty(await db.Chores.Where(c => c.Type == ChoreType.BONUS).ToListAsync());
         }

@@ -143,6 +143,7 @@ class ActionProposalModel {
   final String houseId;
   final String roomId;
   final String creatorId;
+  final String? creatorName;
   final ProposalType type;
   final ProposalStatus status;
   final String title;
@@ -157,6 +158,7 @@ class ActionProposalModel {
     required this.houseId,
     required this.roomId,
     required this.creatorId,
+    this.creatorName,
     required this.type,
     required this.status,
     required this.title,
@@ -215,6 +217,7 @@ class ActionProposalModel {
       houseId: json['houseId']?.toString() ?? '',
       roomId: json['roomId']?.toString() ?? '',
       creatorId: json['creatorId']?.toString() ?? '',
+      creatorName: json['creatorName'] as String?,
       type: ProposalType.fromString(json['type']?.toString()),
       status: ProposalStatus.fromString(json['status']?.toString()),
       title: json['title']?.toString() ?? '',

@@ -1,3 +1,4 @@
+using ChoreWars.Domain.Common.Constants;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ChoreWars.Application.DTOs.Proposal;
@@ -103,13 +104,13 @@ public class ActionProposalService : IActionProposalService
                 proposal.Status=ProposalStatus.APPROVED;
             }
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            if (_notificationService != null && proposal.Type == ProposalType.URGENT_EVENT)
+            if (_notificationService != null && proposal.Type is (ProposalType.URGENT_EVENT or ProposalType.CHORE_SWAP or ProposalType.SCHEDULE_REPLAN))
             {
                 foreach (var targetId in targetIds)
                     await _notificationService.CreateNotificationAsync(
-                        targetId, houseId, "A household task needs your approval",
-                        $"{proposal.Title}. Open Chore > Bonus to review and confirm your participation.",
-                        nameof(NotificationType.URGENT_EVENT), ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest, proposal.Id, cancellationToken);
+                        targetId, houseId, "Your AI assistant has a request",
+                        $"{proposal.Title}. Open your private AI conversation to review and confirm.",
+                        nameof(NotificationType.AI_REQUEST), ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest, proposal.Id, cancellationToken);
             }
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
@@ -204,6 +205,30 @@ public class ActionProposalService : IActionProposalService
                 proposal.Status = ProposalStatus.APPROVED;
             }
 
+            if (_notificationService != null &&
+                proposal.Type is (ProposalType.URGENT_EVENT or ProposalType.CHORE_SWAP or ProposalType.SCHEDULE_REPLAN) &&
+                proposal.Status is (ProposalStatus.APPROVED or ProposalStatus.REJECTED))
+            {
+                var participantIds = proposal.Confirmations
+                    .Select(x => x.TargetUserId)
+                    .Append(proposal.CreatorId)
+                    .Distinct();
+                foreach (var participantId in participantIds)
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        participantId,
+                        proposal.HouseId,
+                        proposal.Status == ProposalStatus.APPROVED ? "AI request accepted" : "AI request declined",
+                        proposal.Status == ProposalStatus.APPROVED
+                            ? $"{proposal.Title} was approved by all required members. Open your AI conversation to view the result."
+                            : $"{proposal.Title} was declined. The proposed changes were not applied.",
+                        nameof(NotificationType.AI_REQUEST),
+                        ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest,
+                        proposal.Id,
+                        cancellationToken);
+                }
+            }
+
             _unitOfWork.ActionProposals.Update(proposal);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -218,25 +243,6 @@ public class ActionProposalService : IActionProposalService
         if (_afterCommit != null) _afterCommit.Enqueue(() => _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken));
         else await _realtimePublisher.ProposalUpdatedAsync(response, cancellationToken);
 
-        if (_notificationService != null && proposal.Type == ProposalType.URGENT_EVENT && proposal.Status == ProposalStatus.APPROVED)
-        {
-            var participantIds = proposal.Confirmations
-                .Select(x => x.TargetUserId)
-                .Append(proposal.CreatorId)
-                .Distinct();
-            foreach (var participantId in participantIds)
-            {
-                await _notificationService.CreateNotificationAsync(
-                    participantId,
-                    proposal.HouseId,
-                    "Urgent campaign started!",
-                    $"{proposal.Title} was approved by all required members. The countdown has started.",
-                    nameof(NotificationType.URGENT_EVENT),
-                    ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest,
-                    proposal.Id,
-                    cancellationToken);
-            }
-        }
         return response;
     }
 
@@ -249,6 +255,13 @@ public class ActionProposalService : IActionProposalService
             ?? throw new NotFoundException(nameof(ChatRoom), roomId);
         await EnsureActiveMemberAsync(room.HouseId, userId, cancellationToken);
         var proposals = await _unitOfWork.ActionProposals.GetActiveByRoomIdAsync(roomId, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+        return proposals.Select(Map).ToList();
+    }
+
+    public async Task<IReadOnlyList<ActionProposalResponse>> GetAssistantInboxAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        await EnsureActiveMemberAsync(houseId, userId, cancellationToken);
+        var proposals = await _unitOfWork.ActionProposals.GetAssistantInboxAsync(houseId, userId, cancellationToken);
         return proposals.Select(Map).ToList();
     }
 
@@ -319,8 +332,8 @@ public class ActionProposalService : IActionProposalService
 
             case ProposalType.URGENT_EVENT:
                 var urgent = Deserialize<UrgentEventPayload>(payloadJson);
-                if (urgent.DeadlineMinutes is < 1 or > 1440)
-                    throw new DomainException("Urgent event deadline must be between 1 and 1440 minutes.");
+                if (urgent.DeadlineMinutes is < 1 or > AIConstants.UrgentMaxDeadlineMinutes)
+                    throw new DomainException("Urgent event deadline must be between 1 minute and 48 hours.");
                 if (urgent.Chores == null || urgent.Chores.Count == 0 || urgent.Chores.Count > 20)
                     throw new DomainException("An urgent event must contain at least one chore.");
                 if (urgent.Chores.Any(x => x == null || string.IsNullOrWhiteSpace(x.Name) || x.Name.Trim().Length > 100 || (x.Description?.Trim().Length ?? 0) > 500 || x.KarmaPoints < 0 || !Enum.IsDefined(x.Difficulty)))
@@ -334,8 +347,8 @@ public class ActionProposalService : IActionProposalService
                 if (_clock.GetUtcNow().UtcDateTime >= season.EndDate)
                     throw new ConflictException("This season has reached its cutoff.");
                 var urgentDeadline=urgent.ReadyByUtc ?? _clock.GetUtcNow().UtcDateTime.AddMinutes(urgent.DeadlineMinutes);
-                if (urgent.ReadyByUtc.HasValue && (urgent.ReadyByUtc.Value.Kind!=DateTimeKind.Utc || urgentDeadline<=_clock.GetUtcNow().UtcDateTime || urgentDeadline>_clock.GetUtcNow().UtcDateTime.AddDays(1)))
-                    throw new DomainException("Choose a future urgent deadline within 24 hours.");
+                if (urgent.ReadyByUtc.HasValue && (urgent.ReadyByUtc.Value.Kind!=DateTimeKind.Utc || urgentDeadline<=_clock.GetUtcNow().UtcDateTime || urgentDeadline>_clock.GetUtcNow().UtcDateTime.AddMinutes(AIConstants.UrgentMaxDeadlineMinutes)))
+                    throw new DomainException("Choose a future urgent deadline within 48 hours.");
                 if (urgent.GuestCount is <1 or >10000 || urgent.Title?.Length>150)
                     throw new DomainException("Invalid party size or plan title.");
                 if (urgentDeadline > season.EndDate)
@@ -510,6 +523,7 @@ public class ActionProposalService : IActionProposalService
         HouseId = proposal.HouseId,
         RoomId = proposal.RoomId,
         CreatorId = proposal.CreatorId,
+        CreatorName = proposal.Creator?.DisplayName,
         Type = proposal.Type,
         Status = proposal.Status,
         Title = proposal.Title,

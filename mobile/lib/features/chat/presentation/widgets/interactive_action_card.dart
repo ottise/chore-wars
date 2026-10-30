@@ -92,6 +92,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           );
       if (mounted) {
         refreshChoreState(ref, widget.proposal.houseId);
+        ref.invalidate(assistantInboxProvider(widget.proposal.houseId));
         final message = updated.type != ProposalType.urgentEvent
             ? (updated.status == ProposalStatus.rejected
                   ? 'Request declined.'
@@ -350,7 +351,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                       onPressed: () =>
                           _respond(ProposalConfirmationStatus.confirmed),
                       icon: const Icon(Icons.check_rounded, size: 18),
-                      label: const Text('Approve'),
+                      label: const Text('Confirm'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.green,
                         foregroundColor: Colors.white,
@@ -381,7 +382,9 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           ] else if (isTarget && hasResponded) ...[
             Text(
               proposal.hasUserConfirmed(widget.currentUserId)
-                  ? 'Confirmed. Waiting for the other participants.'
+                  ? (proposal.status == ProposalStatus.approved
+                        ? 'Confirmed. Changes applied.'
+                        : 'Confirmed. Waiting for the other participants.')
                   : 'You declined this request.',
               style: TextStyle(
                 fontSize: 12,
@@ -393,7 +396,11 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
             ),
           ] else if (!isTarget) ...[
             Text(
-              proposal.creatorId == widget.currentUserId
+              proposal.isCompleted
+                  ? (proposal.status == ProposalStatus.approved
+                        ? 'All required members confirmed.'
+                        : 'This request was not applied.')
+                  : proposal.creatorId == widget.currentUserId
                   ? 'Waiting for invited members to confirm.'
                   : 'This request is intended for another member.',
               style: TextStyle(

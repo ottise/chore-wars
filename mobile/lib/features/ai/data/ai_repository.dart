@@ -69,3 +69,17 @@ final aiDataProvider = FutureProvider.autoDispose
       ref.watch(sessionEpochProvider);
       return ref.watch(aiRepositoryProvider).get(query.house, query.path);
     }, retry: (retryCount, error) => null);
+
+final aiSwapOccurrencesProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, ({String house, String season})>((
+      ref,
+      key,
+    ) async {
+      ref.watch(sessionEpochProvider);
+      final response = await ref
+          .watch(dioProvider)
+          .get('/houses/${key.house}/seasons/${key.season}/occurrences');
+      return (response.data as List)
+          .map((c) => Map<String, dynamic>.from(c as Map))
+          .toList();
+    }, retry: (_, _) => null);

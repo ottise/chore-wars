@@ -100,6 +100,7 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
       ref.read(actionProposalProvider(room).notifier).loadProposals();
     }
     ref.invalidate(activeUrgentEventForHouseProvider(widget.houseId));
+    ref.invalidate(assistantInboxProvider(widget.houseId));
   }
 
   @override
@@ -151,7 +152,7 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
               ),
             if (_sent)
               const Text(
-                'Requests sent to Chore → Bonus. Invited members can confirm there. Work starts after everyone confirms.',
+                'Requests sent to each participant’s private AI conversation. They can confirm there or in Chore → Bonus. Work starts after everyone confirms.',
               ),
             if (!_sent && result?['status'] == 'READY') ...[
               const Text(
