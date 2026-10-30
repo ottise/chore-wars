@@ -43,6 +43,8 @@ Log người dùng gửi còn có `my-houses 401` và `refresh-token 403`: đó 
 - Regression tests cho hai bộ tên environment, ưu tiên tên Render, constructor override và không lộ secret trong repr.
 - Regression tests Gemini trả cờ confirmation false ở help/action vẫn cần xác nhận; intent không hợp lệ vẫn bị từ chối.
 - Hai lượt gọi Gemini thật với dữ liệu tổng hợp qua tên biến Render đã thành công: intent `help` và `urgent`, đều có `requires_confirmation=true`, không thiếu trường cho prompt chia việc mẫu. Không gửi nội dung nhà thật và không apply thay đổi.
-- Chưa xác nhận frontend sau deploy mới trên Render; việc này cần kiểm tra lại khi service Python lên đúng phiên bản.
+- Python AI đã Live ở `74d1d87`. Kiểm tra cloud: ready 200, service-auth 200, prompt `help` 200 và prompt chia việc tiếng Việt `urgent` 200, cả hai `requires_confirmation=true`; prompt urgent không thiếu trường. Chưa thử lại bằng phiên frontend của người dùng.
+- Full AI tests: 89 passed, 2 skipped do chưa có core demo export/Kafka riêng trong lượt local. Credential chỉ dùng trong bộ nhớ, không commit.
+- CI phát hiện test swap cũ lấy deadline bằng giờ UTC hiện tại + 1 ngày; sau 17:00 UTC deadline rơi đầu ngày Việt Nam, có thể không đủ 30 phút làm task nên bị từ chối đúng nghiệp vụ. Fixture được đổi sang fixed clock và deadline cuối ngày Việt Nam, kiểm tra 16:59/17:00/17:17/23:59 UTC. Không nới lỏng ràng buộc swap của production.
 
 Tài liệu Google: [Models API](https://ai.google.dev/api/models). Khi kiểm tra model thực tế, dùng model do `models.list` trả về cho tài khoản; không suy ra key hỏng chỉ từ thông báo generic 409 của backend.

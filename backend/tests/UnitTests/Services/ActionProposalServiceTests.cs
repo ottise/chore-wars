@@ -62,10 +62,15 @@ public class ActionProposalServiceTests
         fixture.Realtime.Verify(x => x.ProposalUpdatedAsync(It.IsAny<ActionProposalResponse>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task RespondProposalAsync_WhenAllTargetsConfirm_ShouldSwapChoreAssigneesAtomically()
+    [Theory]
+    [InlineData(16, 59)]
+    [InlineData(17, 0)]
+    [InlineData(17, 17)]
+    [InlineData(23, 59)]
+    public async Task RespondProposalAsync_WhenAllTargetsConfirm_ShouldSwapChoreAssigneesAtomically(int utcHour, int utcMinute)
     {
-        var fixture = new Fixture();
+        var clock = new FixedClock(new DateTimeOffset(2026, 10, 30, utcHour, utcMinute, 0, TimeSpan.Zero));
+        var fixture = new Fixture(clock);
         var targetId = Guid.NewGuid();
         var sourceId = Guid.NewGuid();
         var targetOccurrenceId = Guid.NewGuid();
@@ -79,8 +84,9 @@ public class ActionProposalServiceTests
         var source = fixture.Occurrence(sourceId, fixture.CreatorId);
         var target = fixture.Occurrence(targetOccurrenceId, targetId);
         var seasonId = Guid.NewGuid(); source.SeasonId = target.SeasonId = seasonId;
-        source.DueDate = target.DueDate = DateTime.UtcNow.AddDays(1);
-        fixture.Seasons.Setup(x => x.GetByIdAsync(seasonId, It.IsAny<CancellationToken>())).ReturnsAsync(new ChoreSeason { Id = seasonId, HouseId = fixture.HouseId, Status = SeasonStatus.ACTIVE, EndDate = DateTime.UtcNow.AddDays(2) });
+        var localTomorrow = DateOnly.FromDateTime(ScheduleTime.Local(clock.GetUtcNow().UtcDateTime)).AddDays(1);
+        source.DueDate = target.DueDate = ScheduleTime.Utc(localTomorrow, 1439);
+        fixture.Seasons.Setup(x => x.GetByIdAsync(seasonId, It.IsAny<CancellationToken>())).ReturnsAsync(new ChoreSeason { Id = seasonId, HouseId = fixture.HouseId, Status = SeasonStatus.ACTIVE, EndDate = source.DueDate.AddDays(1) });
         fixture.UnitOfWork.Setup(x => x.PaymentObligations.GetByHouseIdAsync(fixture.HouseId, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<PaymentObligation>());
         fixture.UnitOfWork.Setup(x => x.ChoreBounties.GetByOccurrenceIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((ChoreBounty?)null);
         fixture.UnitOfWork.Setup(x => x.MemberConstraints.GetByUserAndHouseIdAsync(It.IsAny<Guid>(), fixture.HouseId, It.IsAny<CancellationToken>())).ReturnsAsync((MemberConstraint?)null);
@@ -174,6 +180,11 @@ public class ActionProposalServiceTests
         fixture.UnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
     private sealed class Fixture
     {
         public Guid HouseId { get; } = Guid.NewGuid();
@@ -190,7 +201,7 @@ public class ActionProposalServiceTests
         public Mock<INotificationService> Notifications { get; } = new();
         public ActionProposalService Service { get; }
 
-        public Fixture()
+        public Fixture(TimeProvider? clock = null)
         {
             Notifications
                 .Setup(x => x.CreateNotificationAsync(
@@ -218,7 +229,7 @@ public class ActionProposalServiceTests
             Chats.Setup(x => x.GetRoomByHouseIdAsync(HouseId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ChatRoom { Id = RoomId, HouseId = HouseId });
             ActiveMember(CreatorId);
-            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true, notificationService: Notifications.Object);
+            Service = new ActionProposalService(UnitOfWork.Object, Realtime.Object, mutationsEnabled: true, notificationService: Notifications.Object, clock: clock);
         }
 
         public void ActiveMember(Guid userId) => Members
