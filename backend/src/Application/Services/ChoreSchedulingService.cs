@@ -32,7 +32,7 @@ public static class ChoreSchedulingService
         var exceptions = (await uow.MemberAvailabilities.GetExceptionsBySeasonAsync(season.Id, ct)).ToList();
         foreach (var task in added.OrderBy(o => o.DueDate))
         {
-            if (chore.Type == ChoreType.NORMAL)
+            if (chore.Type == ChoreType.NORMAL && season.AllocationMethod == AllocationMethod.AUTOMATIC)
             {
                 var choices = new List<(Guid User, DateTime Start, int Load)>();
                 foreach (var member in members)

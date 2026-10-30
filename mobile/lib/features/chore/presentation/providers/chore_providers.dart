@@ -39,18 +39,15 @@ final choreDetailProvider = FutureProvider.family<ChoreDetail, ChoreDetailKey>((
       'This chore belongs to another household. Open it from that household schedule.',
     );
   }
-  final templates = await ref.watch(choreTemplatesProvider(key.houseId).future);
-  ChoreTemplate? template;
-  for (final item in templates) {
-    if (item.id == occurrence.choreId) {
-      template = item;
-      break;
-    }
-  }
-  return ChoreDetail(occurrence: occurrence, template: template);
+  return ChoreDetail(occurrence: occurrence, template: null);
 });
 
+final choreRefreshProvider = Provider.family<Object, String>(
+  (ref, houseId) => Object(),
+);
+
 void refreshChoreState(WidgetRef ref, String houseId, {String? occurrenceId}) {
+  ref.invalidate(choreRefreshProvider(houseId));
   ref.invalidate(houseCalendarProvider);
   ref.invalidate(choreTemplatesProvider(houseId));
   ref.invalidate(myChoresProvider(houseId));

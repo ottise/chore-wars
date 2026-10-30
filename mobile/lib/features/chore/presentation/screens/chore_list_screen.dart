@@ -356,6 +356,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(choreRefreshProvider(widget.houseId), (_, _) => _fetch());
     if (_loading) return const LoadingView();
     if (_error != null) return ErrorView(error: _error!, onRetry: _fetch);
 

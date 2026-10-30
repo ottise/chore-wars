@@ -7,6 +7,29 @@ namespace UnitTests.Services;
 public class FileMediaStorageTests
 {
     [Fact]
+    public async Task LegacyRootIsReadableWithoutMovingOrOverwritingOriginalFile()
+    {
+        var root=Path.Combine(Path.GetTempPath(),"cw-legacy-root-"+Guid.NewGuid().ToString("N"));
+        var key=Guid.NewGuid().ToString("N");
+        var original=new FileMediaStorage(Options.Create(new MediaStorageOptions{RootPath=root}));
+        try {
+            await original.WriteAsync(key,[1,2,3,4],default);
+            var storage=new FileMediaStorage(Options.Create(new MediaStorageOptions {
+                RootPath=Path.Combine(root,"new"), LegacyRootPaths=[root]
+            }));
+            await using var stream=await storage.ReadAsync(key,default);
+            using var buffer=new MemoryStream();await stream.CopyToAsync(buffer);
+            Assert.Equal(new byte[]{1,2,3,4},buffer.ToArray());
+            Assert.True(File.Exists(Path.Combine(root,key)));
+            Assert.False(Directory.Exists(Path.Combine(root,"new")));
+            await Assert.ThrowsAsync<ArgumentException>(()=>storage.ReadAsync("../bad",default));
+        } finally {
+            await original.DeleteAsync(key,default);
+            if(Directory.Exists(root))Directory.Delete(root);
+        }
+    }
+
+    [Fact]
     public async Task SeparateBuildsReadTheSameConfiguredMediaRoot()
     {
         var root=Path.Combine(Path.GetTempPath(),"cw-media-"+Guid.NewGuid().ToString("N"));

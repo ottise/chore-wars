@@ -13,10 +13,16 @@ public class ChoreProfile : Profile
             .ForMember(d => d.OccurrenceIds, o => o.Ignore())
             .ForMember(d => d.AssignedCount, o => o.Ignore())
             .ForMember(d => d.UnassignedCount, o => o.Ignore())
+            .ForMember(d => d.ScheduleRevision, o => o.Ignore())
+            .ForMember(d => d.AssignmentStatus, o => o.Ignore())
+            .ForMember(d => d.AssignmentReason, o => o.Ignore())
             .ForMember(dest => dest.FrequencyDays, opt => opt.MapFrom(src =>
                 src.FrequencyDays.Select(day => day.DayOfWeek)));
 
         CreateMap<ChoreOccurrence, ChoreOccurrenceResponse>()
+            .ForMember(d => d.SeasonName, o => o.Ignore())
+            .ForMember(d => d.CanComplete, o => o.Ignore())
+            .ForMember(d => d.CanUploadEvidence, o => o.Ignore())
             .ForMember(dest => dest.HouseId, opt => opt.MapFrom(src => src.Chore.HouseId))
             .ForMember(dest => dest.ChoreName, opt => opt.MapFrom(src => src.Chore.Name))
             .ForMember(dest => dest.AssignedUserDisplayName, opt => opt.MapFrom(src =>

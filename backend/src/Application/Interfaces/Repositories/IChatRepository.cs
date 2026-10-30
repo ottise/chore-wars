@@ -10,6 +10,7 @@ public interface IChatRepository
 {
     Task AddAttachmentAsync(MediaAttachment attachment, CancellationToken ct = default);
     Task<MediaAttachment?> GetAttachmentAsync(Guid id, CancellationToken ct = default);
+    Task<bool> IsAttachmentInMessageAsync(Guid roomId, Guid attachmentId, CancellationToken ct = default);
     Task<ChatMessage?> GetMessageByClientIdAsync(Guid roomId, Guid senderId, Guid clientId, CancellationToken ct = default);
     Task<ChatRoom?> GetRoomByHouseIdAsync(Guid houseId, CancellationToken cancellationToken = default);
     Task<ChatRoom?> GetRoomByIdAsync(Guid roomId, CancellationToken cancellationToken = default);

@@ -5,6 +5,9 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class ChoreResponse
 {
+    public int ScheduleRevision { get; set; }
+    public string AssignmentStatus { get; set; } = string.Empty;
+    public string? AssignmentReason { get; set; }
     public List<Guid> OccurrenceIds { get; set; } = new();
     public int AssignedCount { get; set; }
     public int UnassignedCount { get; set; }

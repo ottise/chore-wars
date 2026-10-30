@@ -57,21 +57,43 @@ public partial class ChoreService : IChoreService
         {
             var previous = (await _unitOfWork.Chores.GetByHouseIdAsync(houseId, cancellationToken))
                 .FirstOrDefault(c => c.CreatedByUserId == userId && c.ClientRequestId == request.ClientRequestId);
-            if (previous != null) return await CreationResultAsync(previous, cancellationToken);
+            if (previous != null) {
+                if (previous.Name != request.Name || previous.Description != request.Description || previous.Type != request.Type
+                    || previous.KarmaPoints != request.KarmaPoints || previous.Difficulty != request.Difficulty
+                    || previous.FrequencyType != request.FrequencyType || previous.FrequencyValue != request.FrequencyValue
+                    || previous.DeadlineMinutes != request.DeadlineMinutes || previous.RecurrenceAnchor != request.RecurrenceAnchor
+                    || previous.SourceTemplateId != request.SourceTemplateId || (previous.SeasonId == null) != request.AsRoutine
+                    || !previous.CustomDates.Order().SequenceEqual(request.CustomDates.Order())
+                    || !previous.FrequencyDays.Select(d => d.DayOfWeek).Distinct().Order().SequenceEqual((request.FrequencyDays ?? []).Distinct().Order()))
+                    throw new ConflictException("This create request was already used with different chore details. Reopen the form to create another chore.");
+                return await CreationResultAsync(previous, cancellationToken);
+            }
         }
         var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken)
             ?? await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
         if (!request.AsRoutine && activeSeason == null)
             throw new ConflictException("Create a season before adding chores.");
 
-        if (!request.AsRoutine && activeSeason != null && activeSeason.Status is SeasonStatus.COMPLETED or SeasonStatus.CANCELLED)
+        if (activeSeason != null && activeSeason.Status is SeasonStatus.COMPLETED or SeasonStatus.CANCELLED)
             throw new ConflictException("Choose an open season before adding chores.");
-        var chore = new Chore
+        if (activeSeason != null && request.ExpectedRevision.HasValue && request.ExpectedRevision != activeSeason.ScheduleRevision)
+            throw new ConflictException("The schedule changed. Refresh and try again.");
+        Chore? sourceSnapshot = null;
+        if (!request.AsRoutine && request.SourceTemplateId.HasValue) {
+            var source = await _unitOfWork.Chores.GetByIdAsync(request.SourceTemplateId.Value, cancellationToken);
+            if (source?.HouseId != houseId || source.SeasonId != null) throw new NotFoundException("Routine not found.");
+            sourceSnapshot = (await _unitOfWork.Chores.GetBySeasonIdAsync(activeSeason!.Id, cancellationToken))
+                .FirstOrDefault(c => c.SourceTemplateId == source.Id);
+            if (sourceSnapshot != null && (await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(sourceSnapshot.Id, cancellationToken)).Any())
+                return await CreationResultAsync(sourceSnapshot, cancellationToken);
+        }
+        var chore = sourceSnapshot ?? new Chore
         {
             Id = Guid.NewGuid(),
             HouseId = houseId,
             ClientRequestId = request.ClientRequestId,
             CreatedByUserId = userId,
+            SourceTemplateId = request.SourceTemplateId,
             SeasonId = request.AsRoutine ? null : activeSeason?.Id,
             Name = request.Name,
             Description = request.Description,
@@ -89,9 +111,9 @@ public partial class ChoreService : IChoreService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            await _unitOfWork.Chores.AddAsync(chore, cancellationToken);
+            if (sourceSnapshot == null) await _unitOfWork.Chores.AddAsync(chore, cancellationToken);
 
-            if (request.FrequencyDays != null)
+            if (sourceSnapshot == null && request.FrequencyDays != null)
             {
                 foreach (var day in request.FrequencyDays.Distinct())
                 {
@@ -149,6 +171,12 @@ public partial class ChoreService : IChoreService
     {
         var result = _mapper.Map<ChoreResponse>(chore) ?? new ChoreResponse { Id = chore.Id, SeasonId = chore.SeasonId, Name = chore.Name };
         var occurrences = (await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(chore.Id, ct)).ToList();
+        var season = chore.SeasonId.HasValue ? await _unitOfWork.Seasons.GetByIdAsync(chore.SeasonId.Value, ct) : null;
+        result.ScheduleRevision = season?.ScheduleRevision ?? 0;
+        result.AssignmentStatus = occurrences.Count == 0 ? "needs_assignment" : chore.Type == ChoreType.BONUS ? "available_to_claim" : occurrences.Any(o => !o.AssignedUserId.HasValue) ? "needs_assignment" : "assigned";
+        if (result.AssignmentStatus == "needs_assignment") result.AssignmentReason = season?.AllocationMethod == AllocationMethod.MANUAL
+            ? "This season uses manual assignment. Ask the owner to assign the chore in Team."
+            : "No active member has an available slot within workload capacity. Ask the owner to review availability and capacity in Team.";
         result.OccurrenceIds = occurrences.Select(o => o.Id).ToList();
         result.AssignedCount = occurrences.Count(o => o.AssignedUserId.HasValue);
         result.UnassignedCount = occurrences.Count(o => o.Chore.Type == ChoreType.NORMAL && !o.AssignedUserId.HasValue);
@@ -292,7 +320,18 @@ public partial class ChoreService : IChoreService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException();
 
-        return _mapper.Map<ChoreOccurrenceResponse>(occurrence);
+        var response = _mapper.Map<ChoreOccurrenceResponse>(occurrence);
+        var season = await _unitOfWork.Seasons.GetByIdAsync(occurrence.SeasonId, cancellationToken);
+        var house = await _unitOfWork.Houses.GetByIdAsync(occurrence.Chore.HouseId, cancellationToken);
+        response.SeasonName = season?.Name ?? string.Empty;
+        var editable = house?.IsArchived == false && season != null
+            && season.Status is SeasonStatus.ACTIVE or SeasonStatus.COMPLETED
+            && _clock.GetUtcNow().UtcDateTime >= season.StartDate
+            && occurrence.AssignedUserId == userId;
+        response.CanComplete = editable && occurrence.Status is ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE;
+        response.CanUploadEvidence = editable && occurrence.Status != ChoreOccurrenceStatus.SKIPPED
+            && (occurrence.Status != ChoreOccurrenceStatus.COMPLETED || occurrence.CompletedByUserId == userId);
+        return response;
     }
 
     public async Task<ChoreResponse> UpdateChoreAsync(Guid choreId, UpdateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)

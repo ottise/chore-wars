@@ -1,3 +1,4 @@
+import '../../features/chore/presentation/screens/legacy_chore_redirect_screen.dart';
 import '../../features/house/presentation/screens/unresolved_chores_screen.dart';
 import '../../features/house/presentation/screens/failed_events_screen.dart';
 import '../../features/gamification/presentation/screens/reward_catalog_screen.dart';
@@ -23,8 +24,6 @@ import '../../features/notifications/presentation/screens/notifications_screen.d
 import '../../features/bounty/presentation/screens/bounty_board_screen.dart';
 import '../../features/bounty/presentation/screens/create_bounty_screen.dart';
 import '../../features/bounty/presentation/screens/bounty_detail_screen.dart';
-import '../../features/chores/presentation/screens/chore_detail_screen.dart'
-    as chores;
 import '../../features/gamification/presentation/screens/karma_history_screen.dart'
     as gamification_history;
 import '../widgets/house_shell.dart';
@@ -166,7 +165,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/chores/:occurrenceId',
-        builder: (context, state) => chores.ChoreDetailScreen(
+        builder: (context, state) => LegacyChoreRedirectScreen(
           occurrenceId: state.pathParameters['occurrenceId']!,
         ),
       ),

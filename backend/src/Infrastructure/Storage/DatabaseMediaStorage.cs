@@ -25,7 +25,16 @@ public sealed class DatabaseMediaStorage(AppDbContext db, FileMediaStorage legac
         if (remote != null) return remote;
         var data = await db.PrivateMediaFiles.AsNoTracking().Where(x => x.StorageKey == key)
             .Select(x => x.Data).SingleOrDefaultAsync(ct);
-        return data == null ? await legacy.ReadAsync(key, ct) : new MemoryStream(data, writable: false);
+        if (data != null) return new MemoryStream(data, writable: false);
+        // Promote legacy files while they are still accessible. Merely serving
+        // the disk copy leaves old messages vulnerable to the next redeploy.
+        await using var source = await legacy.ReadAsync(key, ct);
+        using var buffer = new MemoryStream();
+        await source.CopyToAsync(buffer, ct);
+        var recovered = buffer.ToArray();
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO \"PrivateMediaFiles\" (\"StorageKey\", \"Data\") VALUES ({key}, {recovered}) ON CONFLICT (\"StorageKey\") DO NOTHING", ct);
+        return new MemoryStream(recovered, writable: false);
     }
     public async Task DeleteAsync(string key, CancellationToken ct)
     {

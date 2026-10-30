@@ -9,6 +9,8 @@ public class CreateChoreRequestValidator : AbstractValidator<CreateChoreRequest>
 {
     public CreateChoreRequestValidator()
     {
+        RuleFor(x => x.ClientRequestId).Must(id => id != Guid.Empty).When(x => x.ClientRequestId.HasValue);
+        RuleFor(x => x.ExpectedRevision).GreaterThanOrEqualTo(0).When(x => x.ExpectedRevision.HasValue);
         RuleFor(x => x.Difficulty).IsInEnum();
         RuleFor(x => x.DeadlineMinutes).InclusiveBetween(0,1439);
         RuleFor(x => x.CustomDates).NotNull();

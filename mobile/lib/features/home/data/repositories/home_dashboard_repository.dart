@@ -61,7 +61,7 @@ class HomeDashboardRepository {
     return DashboardChore(
       id: json['id'].toString(),
       name: json['choreName'] as String? ?? '',
-      dueDate: DateTime.parse(json['dueDate'] as String).toLocal(),
+      dueDate: DateTime.parse(json['dueDate'] as String).toUtc(),
       status: json['status']?.toString() ?? '',
     );
   }

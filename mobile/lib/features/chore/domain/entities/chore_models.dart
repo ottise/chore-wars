@@ -97,6 +97,9 @@ class ChoreTemplate {
   const ChoreTemplate({
     this.clientRequestId,
     this.unassignedCount = 0,
+    this.assignmentStatus,
+    this.assignmentReason,
+    this.expectedRevision,
     required this.id,
     required this.name,
     required this.description,
@@ -120,6 +123,9 @@ class ChoreTemplate {
   final String? recurrenceAnchor;
   final List<String> customDates;
   final int unassignedCount;
+  final String? assignmentStatus;
+  final String? assignmentReason;
+  final int? expectedRevision;
   final String? clientRequestId;
   final String id;
   final String name;
@@ -134,6 +140,8 @@ class ChoreTemplate {
 
   factory ChoreTemplate.fromJson(Map<String, dynamic> json) => ChoreTemplate(
     unassignedCount: (json['unassignedCount'] as num?)?.toInt() ?? 0,
+    assignmentStatus: json['assignmentStatus'] as String?,
+    assignmentReason: json['assignmentReason'] as String?,
     seasonId: json['seasonId'] as String?,
     deadlineMinutes: (json['deadlineMinutes'] as num?)?.toInt() ?? 1439,
     recurrenceAnchor: json['recurrenceAnchor'] as String?,
@@ -154,6 +162,7 @@ class ChoreTemplate {
 
   Map<String, dynamic> toRequestJson() => {
     'asRoutine': asRoutine,
+    if (expectedRevision != null) 'expectedRevision': expectedRevision,
     if (clientRequestId != null) 'clientRequestId': clientRequestId,
     'deadlineMinutes': deadlineMinutes,
     'recurrenceAnchor': recurrenceAnchor,
@@ -173,6 +182,11 @@ class ChoreTemplate {
 class ChoreOccurrence {
   const ChoreOccurrence({
     this.houseId,
+    this.seasonId,
+    this.seasonName = '',
+    this.plannedStartAt,
+    this.canComplete,
+    this.canUploadEvidence,
     required this.id,
     required this.choreId,
     required this.choreName,
@@ -189,6 +203,11 @@ class ChoreOccurrence {
   });
 
   final String? houseId;
+  final String? seasonId;
+  final String seasonName;
+  final DateTime? plannedStartAt;
+  final bool? canComplete;
+  final bool? canUploadEvidence;
   final String id;
   final String choreId;
   final String choreName;
@@ -205,6 +224,14 @@ class ChoreOccurrence {
 
   factory ChoreOccurrence.fromJson(Map<String, dynamic> json) =>
       ChoreOccurrence(
+        houseId: json['houseId']?.toString(),
+        seasonId: json['seasonId']?.toString(),
+        seasonName: json['seasonName']?.toString() ?? '',
+        plannedStartAt: DateTime.tryParse(
+          json['plannedStartAt']?.toString() ?? '',
+        )?.toUtc(),
+        canComplete: json['canComplete'] as bool?,
+        canUploadEvidence: json['canUploadEvidence'] as bool?,
         id: json['id'].toString(),
         choreId: json['choreId'].toString(),
         choreName: json['choreName']?.toString() ?? '',

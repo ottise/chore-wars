@@ -76,7 +76,8 @@ public static class InfrastructureServiceExtensions
         services.AddHttpClient<ChoreWars.Infrastructure.Storage.CloudinaryClient>(client => client.Timeout = TimeSpan.FromSeconds(45))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
         services.AddScoped<ChoreWars.Infrastructure.Storage.CloudinaryFileStore>();
-        services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.DatabaseMediaStorage>();
+        services.AddScoped<ChoreWars.Infrastructure.Storage.DatabaseMediaStorage>();
+        services.AddScoped<IMediaStorage>(provider => provider.GetRequiredService<ChoreWars.Infrastructure.Storage.DatabaseMediaStorage>());
         services.AddScoped<IAvatarStorage, ChoreWars.Infrastructure.Storage.AvatarStorage>();
         services.AddHttpClient("google-avatar", client => client.Timeout = TimeSpan.FromSeconds(8))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
@@ -112,6 +113,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IFailedEventService, ChoreWars.Infrastructure.Messaging.Recovery.FailedEventService>();
         services.AddHostedService<OutboxDispatcherWorker>();
         services.AddHostedService<MediaCleanupWorker>();
+        services.AddHostedService<LegacyMediaMigrationWorker>();
 
         // Auth
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

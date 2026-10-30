@@ -112,7 +112,11 @@ public class ChoreAllocationService : IChoreAllocationService
         if (occurrence == null)
             throw new NotFoundException(nameof(ChoreOccurrence), occurrenceId);
 
-        if (season.Status != SeasonStatus.DRAFT && (season.Status != SeasonStatus.ACTIVE || occurrence.AssignedUserId.HasValue || occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime)) throw new ConflictException("Only draft assignments or future unassigned active chores can be allocated.");
+        if (season.Status is not (SeasonStatus.DRAFT or SeasonStatus.REVIEWING or SeasonStatus.ACTIVE)
+            || (season.Status != SeasonStatus.DRAFT && (occurrence.AssignedUserId.HasValue || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED || occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime)))
+            throw new ConflictException("Only draft assignments or future unassigned open chores can be allocated.");
+        var house = await _unitOfWork.Houses.GetByIdAsync(season.HouseId, cancellationToken);
+        if (house?.IsArchived == true) throw new ConflictException("Archived households are read-only.");
         // Fetch chore to verify season
         var chore = await _unitOfWork.Chores.GetByIdAsync(occurrence.ChoreId, cancellationToken);
         if (chore == null || occurrence.SeasonId != seasonId || chore.HouseId != season.HouseId)
@@ -140,6 +144,8 @@ public class ChoreAllocationService : IChoreAllocationService
             occurrence.PlannedStartAt = start;
             if (season.Status == SeasonStatus.ACTIVE) await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, _clock.GetUtcNow().UtcDateTime, cancellationToken);
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
+            if (season.Status == SeasonStatus.REVIEWING)
+                await ScheduleReviewRevision.ResetAsync(_unitOfWork, season, _clock.GetUtcNow().UtcDateTime, cancellationToken);
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

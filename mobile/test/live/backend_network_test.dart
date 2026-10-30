@@ -129,7 +129,7 @@ void main() {
         'name': 'QA draft',
         'startDate': start.toIso8601String(),
         'endDate': start.add(const Duration(days: 7)).toIso8601String(),
-        'allocationMethod': 0,
+        'allocationMethod': 1,
       });
       final chore = await chores.createChore(
         house.id,

@@ -1,3 +1,5 @@
+import '../../../house/presentation/providers/house_providers.dart';
+
 import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,7 +88,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late ChoreEffort _difficulty;
   late final TextEditingController _estimatedMinutes;
   final _requestId = const Uuid().v4();
-  bool _asRoutine = false;
   int _deadlineMinutes = 1439;
   DateTime? _anchor;
   final List<String> _customDates = [];
@@ -100,7 +101,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     super.initState();
     final chore = widget.initial;
     final preset = widget.preset;
-    _asRoutine = false;
     _deadlineMinutes =
         chore?.deadlineMinutes ?? preset?.deadlineMinutes ?? 1439;
     _anchor = DateTime.tryParse(chore?.recurrenceAnchor ?? '');
@@ -135,13 +135,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(
-        _editing
-            ? 'Edit chore'
-            : _asRoutine
-            ? 'Create chore'
-            : 'Create chore',
-      ),
+      title: Text(_editing ? 'Edit chore' : 'Create chore'),
       actions: _editing
           ? [
               IconButton(
@@ -421,7 +415,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
 
   ChoreTemplate _buildChore() => ChoreTemplate(
     clientRequestId: _requestId,
-    asRoutine: _asRoutine,
     deadlineMinutes: _deadlineMinutes,
     recurrenceAnchor: _anchor?.toIso8601String().split('T').first,
     customDates: List.of(_customDates),
@@ -452,30 +445,30 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     });
     try {
       final repository = ref.read(choreRepositoryProvider);
-      var unassigned = 0;
+      ChoreTemplate? created;
       if (_editing) {
         await repository.updateChore(_buildChore());
       } else {
-        final created = await repository.createChore(
-          widget.houseId,
-          _buildChore(),
-        );
-        unassigned = created.unassignedCount;
+        created = await repository.createChore(widget.houseId, _buildChore());
       }
       refreshChoreState(ref, widget.houseId);
+      ref.invalidate(activeSeasonProvider(widget.houseId));
       if (mounted) {
         showAppMessage(
           context,
           _editing
               ? 'Chore updated'
-              : unassigned > 0
-              ? 'Chore created. $unassigned tasks need assignment in Team.'
+              : created?.assignmentStatus == 'needs_assignment' ||
+                    (created?.unassignedCount ?? 0) > 0
+              ? 'Chore created. ${created?.assignmentReason ?? 'Tasks need assignment in Team.'}'
               : 'Chore created',
         );
         if (context.canPop()) {
           context.pop();
         } else {
-          context.go('/houses/${widget.houseId}/chores?tab=team');
+          context.go(
+            '/houses/${widget.houseId}/chores?tab=${created?.type == ChoreType.bonus ? 'bonus' : 'team'}',
+          );
         }
       }
     } catch (error) {

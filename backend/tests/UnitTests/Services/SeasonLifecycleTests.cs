@@ -13,6 +13,7 @@ public class SeasonLifecycleTests {
         var members=Enumerable.Range(0,3).Select(_=>new HouseMember{UserId=Guid.NewGuid(),Status=HouseMemberStatus.ACTIVE}).ToList();
         var confirmations=members.Select(m=>new SeasonConfirmation{UserId=m.UserId,SeasonId=season.Id,ScheduleRevision=7,Status=ConfirmationStatus.PENDING}).ToList();
         var uow=new Mock<IUnitOfWork>();
+        uow.Setup(x=>x.ChoreOccurrences.GetBySeasonIdAsync(season.Id,It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<ChoreOccurrence>());
         uow.Setup(x=>x.Seasons.GetByIdAsync(season.Id,It.IsAny<CancellationToken>())).ReturnsAsync(season);
         uow.Setup(x=>x.HouseMembers.GetByHouseIdAsync(season.HouseId,It.IsAny<CancellationToken>())).ReturnsAsync(members);
         uow.Setup(x=>x.SeasonConfirmations.GetBySeasonIdAsync(season.Id,It.IsAny<CancellationToken>())).ReturnsAsync(confirmations);

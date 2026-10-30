@@ -17,6 +17,7 @@ import '../../../chat/providers/action_proposal_providers.dart';
 import '../../../chat/presentation/screens/capture_photo_screen.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
+import '../../../house/domain/entities/house_models.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
@@ -52,6 +53,11 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     final currentUserId =
         profile?.id ??
         (authState is AuthAuthenticated ? authState.user.userId : null);
+    final house = ref.watch(houseDetailProvider(widget.houseId)).asData?.value;
+    final season = ref
+        .watch(activeSeasonProvider(widget.houseId))
+        .asData
+        ?.value;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore detail'),
@@ -83,13 +89,15 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                         occurrenceId: widget.occurrenceId,
                         evidenceId: detail.asData?.value.occurrence.evidenceId,
                         canEdit:
-                            detail.asData?.value.occurrence.assignedUserId ==
-                            currentUserId,
+                            detail.asData?.value.occurrence.canUploadEvidence ??
+                            (detail.asData?.value.occurrence.assignedUserId ==
+                                currentUserId),
                         canComplete:
-                            detail.asData?.value.occurrence.status !=
-                                ChoreStatus.completed &&
-                            detail.asData?.value.occurrence.status !=
-                                ChoreStatus.skipped,
+                            detail.asData?.value.occurrence.canComplete ??
+                            (detail.asData?.value.occurrence.status !=
+                                    ChoreStatus.completed &&
+                                detail.asData?.value.occurrence.status !=
+                                    ChoreStatus.skipped),
                       ),
                     ),
                   )
@@ -142,8 +150,8 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
             detail: item,
             busy: _mutating,
             onComplete:
-                item.occurrence.assignedUserId ==
-                    ref.watch(userProfileProvider).asData?.value.id
+                (item.occurrence.canComplete ??
+                    (item.occurrence.assignedUserId == currentUserId))
                 ? () => _showCompleteDialog(item)
                 : null,
             onSkip: () => _skip(item),
@@ -158,12 +166,14 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(vietnamTime(item.occurrence.dueDate)))}',
                   )
                 : null,
-            onEdit: item.template == null
-                ? null
-                : () => context.push(
-                    '/houses/${widget.houseId}/chores/templates/${item.template!.id}/edit',
-                    extra: item.template,
-                  ),
+            onEdit:
+                house?.myRole == HouseRole.owner &&
+                    season?['status'] == 0 &&
+                    season?['id'] == item.occurrence.seasonId
+                ? () => context.push(
+                    '/houses/${widget.houseId}/chores/templates/${item.occurrence.choreId}/edit',
+                  )
+                : null,
           ),
         ),
       ),

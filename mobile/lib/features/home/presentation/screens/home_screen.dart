@@ -1,3 +1,5 @@
+import '../../../../core/utils/vietnam_time.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -138,7 +140,12 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 )
               else
-                ...data.chores.take(3).map((chore) => _ChoreTile(chore: chore)),
+                ...data.chores
+                    .take(3)
+                    .map(
+                      (chore) =>
+                          _ChoreTile(chore: chore, houseId: data.houseId),
+                    ),
               const SizedBox(height: 24),
               _SectionHeader(
                 title: 'Active bounties',
@@ -262,7 +269,8 @@ class _SectionHeader extends StatelessWidget {
 class _ChoreTile extends StatelessWidget {
   final DashboardChore chore;
 
-  const _ChoreTile({required this.chore});
+  final String houseId;
+  const _ChoreTile({required this.chore, required this.houseId});
 
   @override
   Widget build(BuildContext context) {
@@ -271,11 +279,11 @@ class _ChoreTile extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.cleaning_services_outlined),
         title: Text(chore.name),
-        subtitle: Text('Due ${DateFormat('HH:mm').format(chore.dueDate)}'),
-        trailing: const Icon(Icons.chevron_right_outlined),
-        onTap: () => context.push(
-          '/chores/${chore.id}?name=${Uri.encodeComponent(chore.name)}&due=${Uri.encodeComponent(DateFormat('HH:mm').format(chore.dueDate))}&status=${Uri.encodeComponent(chore.status)}',
+        subtitle: Text(
+          'Due ${DateFormat('dd MMM yyyy HH:mm').format(vietnamTime(chore.dueDate))} Vietnam time (UTC+7)',
         ),
+        trailing: const Icon(Icons.chevron_right_outlined),
+        onTap: () => context.push('/houses/$houseId/chores/${chore.id}'),
       ),
     );
   }

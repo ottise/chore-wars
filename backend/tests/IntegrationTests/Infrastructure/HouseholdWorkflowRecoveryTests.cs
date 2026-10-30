@@ -68,6 +68,11 @@ public class HouseholdWorkflowRecoveryTests
     public async Task MemberAddsActiveChoreWithoutDeletingExistingWorkAndRetryDoesNotDuplicate()
     {
         await using var f = await PostgresFixture.CreateAsync(); var seed = await CoreConcurrencyTests.Seed(f);
+        await using (var setup = f.Services.CreateAsyncScope()) {
+            var setupDb = setup.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await setupDb.Seasons.SingleAsync()).AllocationMethod = AllocationMethod.AUTOMATIC;
+            await setupDb.SaveChangesAsync();
+        }
         var request = new CreateChoreRequest { Name = "New shared chore", KarmaPoints = 10, ClientRequestId = Guid.NewGuid(), FrequencyType = FrequencyType.DAILY, DeadlineMinutes = 1439 };
         Guid created = Guid.Empty;
         for (var retry = 0; retry < 2; retry++) { await using var scope = f.Services.CreateAsyncScope(); var row = await scope.ServiceProvider.GetRequiredService<IChoreService>().CreateChoreAsync(seed.HouseId, request, seed.Users[1]); if (retry == 0) created = row.Id; else Assert.Equal(created, row.Id); }

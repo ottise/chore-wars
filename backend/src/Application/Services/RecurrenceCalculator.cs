@@ -33,7 +33,7 @@ public static class RecurrenceCalculator {
                 FrequencyType.YEARLY => date.Year >= anchor.Year && date.Month == anchor.Month && date.Day == Math.Min(anchor.Day, DateTime.DaysInMonth(date.Year, date.Month)),
                 FrequencyType.CUSTOM => chore.CustomDates.Contains(date), _ => false
             };
-            if (matches) result.Add(date);
+            if (matches && date >= anchor) result.Add(date);
         }
         return result;
     }
