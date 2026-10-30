@@ -481,6 +481,9 @@ public class SeasonService : ISeasonService
         if (activeMembers.Count < 3 || confirmations.Count != activeMembers.Count || activeMembers.Any(m => !confirmations.Any(c => c.UserId == m.UserId && c.ScheduleRevision == season.ScheduleRevision)))
             throw new ConflictException("Membership or schedule changed. Submit the draft for review again.");
         if (confirmation.ScheduleRevision != season.ScheduleRevision) throw new ConflictException("Schedule revision changed.");
+        var mandatory = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL);
+        if (mandatory.Any(o => !o.AssignedUserId.HasValue || !activeMembers.Any(m => m.UserId == o.AssignedUserId)))
+            throw new ConflictException("Ask the owner to assign all mandatory chores before confirming this revision.");
         if (confirmation.Status == ConfirmationStatus.CONFIRMED) return;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);

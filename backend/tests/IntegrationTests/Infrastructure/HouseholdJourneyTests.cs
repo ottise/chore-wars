@@ -41,8 +41,7 @@ public class HouseholdJourneyTests
         var available=new MemberAvailabilityRequest { Slots=Enumerable.Range(0,7).ToDictionary(d=>d,_=>new List<AvailabilitySlotRequest>{new(){StartMinute=0,EndMinute=1440}}) };
         foreach(var user in users.Take(count)) await Act(s=>s.GetRequiredService<ISeasonService>().SetAvailabilityAsync(season.Id,available,user.Id));
         foreach(var effort in new[]{ChoreEffort.EASY,ChoreEffort.MEDIUM,ChoreEffort.HARD}) {
-            var routine=await Run(s=>s.GetRequiredService<IChoreService>().CreateChoreAsync(house.Id,new CreateChoreRequest {Name="Routine "+effort,Description="Runtime fixture",AsRoutine=true,Type=ChoreType.NORMAL,Difficulty=effort,FrequencyType=FrequencyType.DAILY,KarmaPoints=10*(int)effort},owner));
-            await Run(s=>s.GetRequiredService<IChoreService>().ImportRoutineAsync(house.Id,season.Id,routine.Id,owner));
+            await Run(s=>s.GetRequiredService<IChoreService>().CreateChoreAsync(house.Id,new CreateChoreRequest {Name="Routine "+effort,Description="Runtime fixture",Type=ChoreType.NORMAL,Difficulty=effort,FrequencyType=FrequencyType.DAILY,KarmaPoints=10*(int)effort},owner));
         }
         await Run(s=>s.GetRequiredService<IChoreService>().CreateChoreAsync(house.Id,new CreateChoreRequest{Name="Bonus",Type=ChoreType.BONUS,Difficulty=ChoreEffort.EASY,FrequencyType=FrequencyType.DAILY,KarmaPoints=20},owner));
         async Task GenerateAndAssign(Guid id) {

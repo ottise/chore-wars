@@ -1,3 +1,4 @@
+import '../../../../core/utils/vietnam_time.dart';
 import '../../domain/entities/bounty.dart';
 
 class BountyModel extends Bounty {
@@ -25,9 +26,7 @@ class BountyModel extends Bounty {
       assignedUserId: json['assignedUserId']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       status: bountyStatusFromJson(json['status']),
-      expiresAt:
-          DateTime.tryParse(json['expiresAt']?.toString() ?? '')?.toLocal() ??
-          DateTime.now(),
+      expiresAt: vietnamTime(json['expiresAt']),
       newAssigneeDisplayName: json['newAssigneeDisplayName'] as String?,
       forcedCompensationAmount: (json['forcedCompensationAmount'] as num?)
           ?.toDouble(),

@@ -1,3 +1,4 @@
+import '../../../chore/presentation/screens/chore_form_screen.dart';
 import '../widgets/household_summary_sections.dart';
 import '../providers/household_summary_provider.dart';
 
@@ -162,45 +163,6 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
             '$_base/occurrences/${occurrence['id']}/assign',
             data: {'assigneeId': user},
           );
-      await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _importRoutine() async {
-    try {
-      final result = await ref
-          .read(dioProvider)
-          .get('/houses/${widget.houseId}/chores');
-      if (!mounted) return;
-      final routines = (result.data as List)
-          .where((item) => item['seasonId'] == null)
-          .toList();
-      final id = await showDialog<String>(
-        context: context,
-        builder: (context) => SimpleDialog(
-          title: const Text('Import routine snapshot'),
-          children: [
-            if (routines.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Create a reusable routine first.'),
-              ),
-            for (final routine in routines)
-              SimpleDialogOption(
-                onPressed: () =>
-                    Navigator.pop(context, routine['id'].toString()),
-                child: Text(routine['name'].toString()),
-              ),
-          ],
-        ),
-      );
-      if (id == null || !mounted) return;
-      setState(() => _busy = true);
-      await ref.read(dioProvider).post('$_base/routines/$id');
       await _load();
     } catch (error) {
       if (mounted) setState(() => _error = apiErrorMessage(error));
@@ -591,8 +553,19 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           ],
           if (_draft && _owner) ...[
             OutlinedButton(
-              onPressed: _busy ? null : _importRoutine,
-              child: const Text('Import reusable routine'),
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ChoreFormScreen(houseId: widget.houseId),
+                          ),
+                        )
+                        .then((_) {
+                          if (mounted) _load();
+                        }),
+              child: const Text('Add chore'),
             ),
             OutlinedButton(
               onPressed: _busy ? null : () => _act('generate-schedule'),

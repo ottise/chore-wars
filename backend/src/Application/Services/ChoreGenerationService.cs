@@ -94,4 +94,16 @@ public class ChoreGenerationService : IChoreGenerationService
                 SnapshotDifficulty = chore.Difficulty
             });
     }
+
+    public static IEnumerable<ChoreOccurrence> BuildOccurrences(Chore chore, ChoreSeason season) {
+        var start = DateOnly.FromDateTime(ScheduleTime.Local(season.StartDate));
+        var end = DateOnly.FromDateTime(ScheduleTime.Local(season.EndDate));
+        if (chore.RecurrenceAnchor.HasValue && chore.RecurrenceAnchor > start) start = chore.RecurrenceAnchor.Value;
+        return RecurrenceCalculator.Dates(chore, start, end).Select(day => new ChoreOccurrence {
+            Id = new Guid(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"occurrence:{season.Id}:{chore.Id}:{day:yyyy-MM-dd}")).AsSpan(0, 16)),
+            ChoreId = chore.Id, Chore = chore, SeasonId = season.Id,
+            DueDate = ScheduleTime.Utc(day, chore.DeadlineMinutes), Status = ChoreOccurrenceStatus.ASSIGNED,
+            SnapshotKarma = chore.KarmaPoints, SnapshotMinutes = ScheduleTime.Effort(chore.Difficulty), SnapshotDifficulty = chore.Difficulty
+        }).Where(o => o.DueDate >= season.StartDate && o.DueDate <= season.EndDate);
+    }
 }

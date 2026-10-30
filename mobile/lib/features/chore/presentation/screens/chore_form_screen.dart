@@ -1,3 +1,7 @@
+import 'package:uuid/uuid.dart';
+
+import '../../../house/presentation/providers/house_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,7 +88,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   late Set<int> _days;
   late ChoreEffort _difficulty;
   late final TextEditingController _estimatedMinutes;
-  bool _asRoutine = false;
+  final String _requestId = const Uuid().v4();
   int _deadlineMinutes = 1439;
   DateTime? _anchor;
   final List<String> _customDates = [];
@@ -98,7 +102,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     super.initState();
     final chore = widget.initial;
     final preset = widget.preset;
-    _asRoutine = chore?.asRoutine ?? (widget.createRoutine || preset != null);
     _deadlineMinutes =
         chore?.deadlineMinutes ?? preset?.deadlineMinutes ?? 1439;
     _anchor = DateTime.tryParse(chore?.recurrenceAnchor ?? '');
@@ -112,7 +115,11 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
       text: chore?.frequencyValue?.toString() ?? '',
     );
     _type = chore?.type ?? ChoreType.normal;
-    _frequency = chore?.frequency ?? preset?.frequency ?? ChoreFrequency.daily;
+    _frequency = chore?.frequency ?? preset?.frequency ?? ChoreFrequency.custom;
+    if (chore == null && preset == null) {
+      final today = DateTime.now().toUtc().add(const Duration(hours: 7));
+      _customDates.add(today.toIso8601String().split('T').first);
+    }
     _days = {...?(chore?.frequencyDays ?? preset?.days)};
     _difficulty = chore?.difficulty ?? ChoreEffort.medium;
     _estimatedMinutes = TextEditingController(
@@ -133,13 +140,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(
-        _editing
-            ? 'Edit chore'
-            : _asRoutine
-            ? 'Create Routine'
-            : 'Create chore',
-      ),
+      title: Text(_editing ? 'Edit chore' : 'Create chore'),
       actions: _editing
           ? [
               IconButton(
@@ -180,15 +181,6 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               alignLabelWithHint: true,
             ),
           ),
-          if (!_editing)
-            SwitchListTile(
-              title: const Text('Save as reusable routine'),
-              subtitle: const Text(
-                'Import a snapshot into a draft season later.',
-              ),
-              value: _asRoutine,
-              onChanged: (value) => setState(() => _asRoutine = value),
-            ),
           const SizedBox(height: 24),
           Text('Chore type', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -345,14 +337,16 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
             },
           ),
           ListTile(
-            title: const Text('Recurrence anchor'),
+            title: const Text('Start date (Vietnam time)'),
             subtitle: Text(
               _anchor?.toIso8601String().split('T').first ?? 'Season start',
             ),
             onTap: () async {
               final date = await showDatePicker(
                 context: context,
-                initialDate: _anchor ?? DateTime.now(),
+                initialDate:
+                    _anchor ??
+                    DateTime.now().toUtc().add(const Duration(hours: 7)),
                 firstDate: DateTime(2020),
                 lastDate: DateTime(2100),
               );
@@ -366,7 +360,9 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
               onPressed: () async {
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now(),
+                  initialDate: DateTime.now().toUtc().add(
+                    const Duration(hours: 7),
+                  ),
                   firstDate: DateTime(2020),
                   lastDate: DateTime(2100),
                 );
@@ -427,7 +423,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
   );
 
   ChoreTemplate _buildChore() => ChoreTemplate(
-    asRoutine: _asRoutine,
+    clientRequestId: _requestId,
     deadlineMinutes: _deadlineMinutes,
     recurrenceAnchor: _anchor?.toIso8601String().split('T').first,
     customDates: List.of(_customDates),
@@ -457,15 +453,29 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
     });
     try {
       final repository = ref.read(choreRepositoryProvider);
+      ChoreTemplate? created;
       if (_editing) {
         await repository.updateChore(_buildChore());
       } else {
-        await repository.createChore(widget.houseId, _buildChore());
+        created = await repository.createChore(widget.houseId, _buildChore());
       }
       refreshChoreState(ref, widget.houseId);
+      ref.invalidate(activeSeasonProvider(widget.houseId));
       if (mounted) {
-        showAppMessage(context, _editing ? 'Chore updated' : 'Chore created');
-        context.pop();
+        final needsAssignment = created?.assignmentStatus == 'needs_assignment';
+        showAppMessage(
+          context,
+          _editing
+              ? 'Chore updated'
+              : needsAssignment
+              ? 'Chore created. ${created?.assignmentReason ?? 'Ask the owner to assign it in Team.'}'
+              : created?.type == ChoreType.bonus
+              ? 'Chore created in Bonus'
+              : 'Chore created in Team',
+        );
+        context.go(
+          '/houses/${widget.houseId}/chores?tab=${created?.type == ChoreType.bonus ? 'bonus' : 'team'}',
+        );
       }
     } catch (error) {
       if (mounted) setState(() => _apiError = apiErrorMessage(error));
@@ -480,7 +490,7 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete this chore?'),
         content: const Text(
-          'This removes the routine and any generated occurrences tied to it. This cannot be undone.',
+          'This removes the chore and its draft occurrences. This cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -530,7 +540,7 @@ class _ScheduleNote extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Deadline and time window are set when this routine is generated into the active season schedule.',
+              'Dates and deadlines use Vietnam time (UTC+7). New chores appear in Team, or Bonus when available to claim.',
             ),
           ),
         ],

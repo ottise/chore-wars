@@ -5,6 +5,12 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class ChoreOccurrenceResponse
 {
+    public Guid HouseId { get; set; }
+    public Guid SeasonId { get; set; }
+    public string SeasonName { get; set; } = string.Empty;
+    public DateTime? PlannedStartAt { get; set; }
+    public bool CanComplete { get; set; }
+    public bool CanUploadEvidence { get; set; }
     public Guid Id { get; set; }
     public Guid ChoreId { get; set; }
     public string ChoreName { get; set; } = string.Empty;

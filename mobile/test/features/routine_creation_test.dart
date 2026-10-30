@@ -25,7 +25,7 @@ class _Inbox extends NotificationNotifier {
 void main() {
   for (final owner in [true, false]) {
     testWidgets(
-      'active season routines: owner=$owner has correct create permission',
+      'active season chores: owner=$owner can create through the unified form',
       (tester) async {
         tester.view.physicalSize = const Size(354, 720);
         tester.view.devicePixelRatio = 1;
@@ -75,21 +75,15 @@ void main() {
         router.go('/houses/house/chores');
         await tester.pumpAndSettle();
         expect(find.byType(NotificationBell), findsOneWidget);
-        expect(find.text('No Routines Configured Yet'), findsOneWidget);
-        expect(
-          find.text('Create First Routine'),
-          owner ? findsOneWidget : findsNothing,
-        );
+        expect(find.text('Routines'), findsNothing);
+        expect(find.text('Add chore'), findsOneWidget);
         expect(find.text('Popular Templates'), findsNothing);
         expect(find.text('Add'), findsNothing);
-        if (owner) {
-          await tester.tap(find.text('Create First Routine'));
+        {
+          await tester.tap(find.text('Add chore'));
           await tester.pumpAndSettle();
-          expect(find.text('Create Routine'), findsOneWidget);
-          expect(
-            tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-            isTrue,
-          );
+          expect(find.text('Create chore'), findsWidgets);
+          expect(find.byType(SwitchListTile), findsNothing);
           router.pop();
           await tester.pumpAndSettle();
           expect(find.text('Weekly Deep Clean'), findsNothing);

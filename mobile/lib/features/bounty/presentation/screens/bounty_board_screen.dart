@@ -1,3 +1,5 @@
+import '../../../../core/utils/vietnam_time.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -119,9 +121,9 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final occurrence = occurrences[index];
-                    final dueDate = DateTime.tryParse(
-                      occurrence['dueDate']?.toString() ?? '',
-                    );
+                    final dueDate = occurrence['dueDate'] == null
+                        ? null
+                        : vietnamTime(occurrence['dueDate']);
                     return ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: AppTheme.lavender,
@@ -137,7 +139,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                       subtitle: Text(
                         dueDate == null
                             ? 'No deadline'
-                            : 'Due: ${DateFormat('dd/MM HH:mm').format(dueDate.toLocal())}',
+                            : 'Due: ${DateFormat('dd/MM HH:mm').format(dueDate)}',
                       ),
                       trailing: const Icon(
                         Icons.arrow_forward_ios_outlined,
@@ -156,12 +158,14 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       if (selected == null || !context.mounted) return;
       final occurrenceId = selected['id']?.toString();
       if (occurrenceId == null || occurrenceId.isEmpty) return;
-      final dueDate = DateTime.tryParse(selected['dueDate']?.toString() ?? '');
+      final dueDate = selected['dueDate'] == null
+          ? null
+          : vietnamTime(selected['dueDate']);
       context.push(
         '/bounties/create?houseId=${Uri.encodeComponent(houseId)}'
         '&occurrenceId=${Uri.encodeComponent(occurrenceId)}'
         '&choreName=${Uri.encodeComponent(selected['choreName']?.toString() ?? 'Chore')}'
-        '&deadline=${Uri.encodeComponent(dueDate?.toLocal().toIso8601String() ?? '')}',
+        '&deadline=${Uri.encodeComponent(dueDate == null ? '' : '${DateFormat('dd MMM yyyy HH:mm').format(dueDate)} Vietnam time (UTC+7)')}',
       );
     } catch (error) {
       if (context.mounted) {
@@ -239,6 +243,19 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bounties'),
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(
+                widget.houseId == null
+                    ? '/houses'
+                    : '/houses/${widget.houseId}',
+              );
+            }
+          },
+        ),
         actions: [
           if (widget.houseId != null)
             IconButton(
@@ -900,7 +917,7 @@ class _MyAcceptedBountyCard extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton.tonalIcon(
                     onPressed: () => context.push(
-                      '/chores/${bounty.choreOccurrenceId}?houseId=${Uri.encodeComponent(houseId)}',
+                      '/houses/$houseId/chores/${bounty.choreOccurrenceId}',
                     ),
                     icon: const Icon(Icons.camera_alt_outlined, size: 16),
                     label: const Text('Open Chore & Add Photo Evidence'),

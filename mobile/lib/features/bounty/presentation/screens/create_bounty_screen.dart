@@ -56,7 +56,11 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
       if (!mounted) return;
       ref.invalidate(bountyBoardProvider(widget.houseId!));
       ref.invalidate(homeDashboardProvider(widget.houseId!));
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/bounties?houseId=${Uri.encodeComponent(widget.houseId!)}');
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -70,7 +74,22 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
   Widget build(BuildContext context) {
     final canSubmit = widget.houseId != null && widget.occurrenceId != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Bounty')),
+      appBar: AppBar(
+        title: const Text('Create Bounty'),
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(
+                widget.houseId == null
+                    ? '/houses'
+                    : '/bounties?houseId=${Uri.encodeComponent(widget.houseId!)}',
+              );
+            }
+          },
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(

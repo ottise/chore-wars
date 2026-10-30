@@ -1,3 +1,5 @@
+import '../../../../core/utils/vietnam_time.dart';
+
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_endpoints.dart';
@@ -61,7 +63,7 @@ class HomeDashboardRepository {
     return DashboardChore(
       id: json['id'].toString(),
       name: json['choreName'] as String? ?? '',
-      dueDate: DateTime.parse(json['dueDate'] as String).toLocal(),
+      dueDate: vietnamTime(json['dueDate']),
       status: json['status']?.toString() ?? '',
     );
   }

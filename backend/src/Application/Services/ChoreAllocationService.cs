@@ -107,7 +107,12 @@ public class ChoreAllocationService : IChoreAllocationService
         if (occurrence == null)
             throw new NotFoundException(nameof(ChoreOccurrence), occurrenceId);
 
-        if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Assignments are locked outside draft.");
+        if (season.Status is not (SeasonStatus.DRAFT or SeasonStatus.REVIEWING or SeasonStatus.ACTIVE))
+            throw new ConflictException("This season cannot accept assignments.");
+        var house = await _unitOfWork.Houses.GetByIdAsync(season.HouseId, cancellationToken);
+        if (house?.IsArchived == true) throw new ConflictException("Archived households are read-only.");
+        if (season.Status != SeasonStatus.DRAFT && (occurrence.AssignedUserId.HasValue || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED || occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime))
+            throw new ConflictException("Only unassigned future chores can be assigned after draft.");
         // Fetch chore to verify season
         var chore = await _unitOfWork.Chores.GetByIdAsync(occurrence.ChoreId, cancellationToken);
         if (chore == null || occurrence.SeasonId != seasonId || chore.HouseId != season.HouseId)
@@ -122,9 +127,26 @@ public class ChoreAllocationService : IChoreAllocationService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            DateTime? plannedStart = null;
+            if (season.Status == SeasonStatus.ACTIVE) {
+                var assigned = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.AssignedUserId == assigneeId).ToList();
+                var date = ScheduleTime.Local(occurrence.DueDate);
+                var limit = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(assigneeId, season.HouseId, cancellationToken)
+                    ?? new MemberConstraint { MaxChoresPerWeek = AIAllocationConstants.DefaultMaxChoresPerWeek, MaxEffortMinutesPerDay = AIAllocationConstants.DefaultMaxEffortMinutesPerDay };
+                if (assigned.Count(o => System.Globalization.ISOWeek.GetYear(ScheduleTime.Local(o.DueDate)) == System.Globalization.ISOWeek.GetYear(date) && System.Globalization.ISOWeek.GetWeekOfYear(ScheduleTime.Local(o.DueDate)) == System.Globalization.ISOWeek.GetWeekOfYear(date)) >= limit.MaxChoresPerWeek
+                    || assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == date.Date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(occurrence) > limit.MaxEffortMinutesPerDay)
+                    throw new ConflictException("This member has reached their workload capacity. Adjust capacity or choose another member.");
+                var availability = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken)).FirstOrDefault(a => a.UserId == assigneeId && a.DayOfWeek == date.DayOfWeek);
+                var exceptions = await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(seasonId, cancellationToken) ?? [];
+                plannedStart = AllocationEligibilityService.FindStart(occurrence, AllocationEligibilityService.Effective(availability, assigneeId, DateOnly.FromDateTime(date), exceptions), assigned, _clock.GetUtcNow().UtcDateTime);
+                if (!plannedStart.HasValue) throw new ConflictException("This member has no available slot before the deadline. Adjust availability or choose another member.");
+            }
             occurrence.AssignedUserId = assigneeId;
-            occurrence.PlannedStartAt = null;
+            occurrence.PlannedStartAt = plannedStart;
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
+            if (season.Status == SeasonStatus.REVIEWING) {
+                await ScheduleReviewRevision.ResetAsync(_unitOfWork, season, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+            }
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

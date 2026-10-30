@@ -25,10 +25,8 @@ class ChoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isToday = DateUtils.isSameDay(chore.dueDate, DateTime.now());
-    final due = isToday
-        ? 'Today, ${DateFormat.jm().format(chore.dueDate)}'
-        : DateFormat('EEE, MMM d · h:mm a').format(chore.dueDate);
+    final due =
+        '${DateFormat('dd MMM yyyy HH:mm').format(chore.dueDate)} Vietnam time (UTC+7)';
     return Semantics(
       button: true,
       label: '${chore.choreName}, due $due, ${chore.status.label}',

@@ -14,6 +14,7 @@ public class ChoreProfile : Profile
                 src.FrequencyDays.Select(day => day.DayOfWeek)));
         
         CreateMap<ChoreOccurrence, ChoreOccurrenceResponse>()
+            .ForMember(dest => dest.HouseId, opt => opt.MapFrom(src => src.Chore.HouseId))
             .ForMember(dest => dest.ChoreName, opt => opt.MapFrom(src => src.Chore.Name))
             .ForMember(dest => dest.AssignedUserDisplayName, opt => opt.MapFrom(src =>
                 src.AssignedUser == null ? "Unassigned" : src.AssignedUser.DisplayName))

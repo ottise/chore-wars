@@ -1,3 +1,7 @@
+import 'package:go_router/go_router.dart';
+
+import '../../../chore/presentation/providers/chore_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -82,6 +86,10 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      choreRefreshProvider(widget.houseId),
+      (_, _) => _fetchBonusChores(),
+    );
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -106,6 +114,9 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
               final c = _chores[i];
               return Card(
                 child: ListTile(
+                  onTap: () => context.push(
+                    '/houses/${widget.houseId}/chores/${c['id']}',
+                  ),
                   title: Text(c['choreName']),
                   subtitle: Text("Reward: ${c['karmaPoints']} Karma"),
                   trailing: ElevatedButton(

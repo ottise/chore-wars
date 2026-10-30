@@ -64,7 +64,13 @@ class BountyDetailScreen extends ConsumerWidget {
       ref.invalidate(purchaseDebtsProvider(houseId!));
       ref.invalidate(paymentHistoryProvider);
       ref.invalidate(householdSummaryProvider);
-      if (context.mounted) context.pop();
+      if (context.mounted) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/bounties?houseId=${Uri.encodeComponent(houseId!)}');
+        }
+      }
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -84,7 +90,18 @@ class BountyDetailScreen extends ConsumerWidget {
       bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Bounty Detail')),
+      appBar: AppBar(
+        title: const Text('Bounty Detail'),
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/bounties?houseId=${Uri.encodeComponent(houseId!)}');
+            }
+          },
+        ),
+      ),
       body: state.when(
         loading: () => const LoadingWidget(),
         error: (error, stackTrace) => ErrorState(
@@ -110,6 +127,13 @@ class BountyDetailScreen extends ConsumerWidget {
                 Text(
                   bounty.choreName,
                   style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                TextButton.icon(
+                  onPressed: () => context.push(
+                    '/houses/$houseId/chores/${bounty.choreOccurrenceId}',
+                  ),
+                  icon: const Icon(Icons.open_in_new_outlined),
+                  label: const Text('Open chore'),
                 ),
                 const SizedBox(height: 24),
                 _DetailRow(

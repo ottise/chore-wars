@@ -1,21 +1,19 @@
 import '../../../../core/network/api_client.dart';
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../chat/data/models/action_proposal_model.dart';
 import '../../../chat/providers/action_proposal_providers.dart';
-import '../../../chat/presentation/screens/capture_photo_screen.dart';
 import '../../../gamification/presentation/providers/gamification_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
+import '../../../house/domain/entities/house_models.dart';
 import '../../domain/entities/chore_models.dart';
 import '../providers/chore_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
@@ -48,12 +46,28 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
     final detail = ref.watch(choreDetailProvider(key));
     final authState = ref.watch(authStateProvider);
     final profile = ref.watch(userProfileProvider).asData?.value;
+    final season = ref
+        .watch(activeSeasonProvider(widget.houseId))
+        .asData
+        ?.value;
+    final owner =
+        ref.watch(houseDetailProvider(widget.houseId)).asData?.value.myRole ==
+        HouseRole.owner;
     final currentUserId =
         profile?.id ??
         (authState is AuthAuthenticated ? authState.user.userId : null);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore detail'),
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/houses/${widget.houseId}/chores');
+            }
+          },
+        ),
         actions: [
           if (detail.asData?.value.occurrence.assignedUserId == currentUserId &&
               detail.asData?.value.occurrence.status == ChoreStatus.assigned)
@@ -71,7 +85,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
               ),
             ),
           if (detail.asData?.value.occurrence.evidenceId != null ||
-              detail.asData?.value.occurrence.assignedUserId == currentUserId)
+              detail.asData?.value.occurrence.canUploadEvidence == true)
             IconButton(
               tooltip: 'Photo evidence & AI feedback',
               icon: const Icon(Icons.add_a_photo_outlined),
@@ -82,13 +96,10 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                         occurrenceId: widget.occurrenceId,
                         evidenceId: detail.asData?.value.occurrence.evidenceId,
                         canEdit:
-                            detail.asData?.value.occurrence.assignedUserId ==
-                            currentUserId,
+                            detail.asData?.value.occurrence.canUploadEvidence ==
+                            true,
                         canComplete:
-                            detail.asData?.value.occurrence.status !=
-                                ChoreStatus.completed &&
-                            detail.asData?.value.occurrence.status !=
-                                ChoreStatus.skipped,
+                            detail.asData?.value.occurrence.canComplete == true,
                       ),
                     ),
                   )
@@ -140,9 +151,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
           child: _DetailBody(
             detail: item,
             busy: _mutating,
-            onComplete:
-                item.occurrence.assignedUserId ==
-                    ref.watch(userProfileProvider).asData?.value.id
+            onComplete: item.occurrence.canComplete
                 ? () => _showCompleteDialog(item)
                 : null,
             onSkip: () => _skip(item),
@@ -154,15 +163,17 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
                     '&occurrenceId=${Uri.encodeComponent(item.occurrence.id)}'
                     '&choreName=${Uri.encodeComponent(item.occurrence.choreName)}'
-                    '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(item.occurrence.dueDate))}',
+                    '&deadline=${Uri.encodeComponent('${DateFormat('dd MMM yyyy HH:mm').format(item.occurrence.dueDate)} Vietnam time (UTC+7)')}',
                   )
                 : null,
-            onEdit: item.template == null
-                ? null
-                : () => context.push(
-                    '/houses/${widget.houseId}/chores/templates/${item.template!.id}/edit',
-                    extra: item.template,
-                  ),
+            onEdit:
+                owner &&
+                    season?['status'] == 0 &&
+                    season?['id'] == item.occurrence.seasonId
+                ? () => context.push(
+                    '/houses/${widget.houseId}/chores/templates/${item.occurrence.choreId}/edit',
+                  )
+                : null,
           ),
         ),
       ),
@@ -396,272 +407,52 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
   }
 
   Future<void> _showCompleteDialog(ChoreDetail detail) async {
-    Uint8List? selectedImageBytes;
-    final picker = ImagePicker();
-
-    final result = await showModalBottomSheet<String?>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (dialog) => AlertDialog(
+        title: const Text('Complete chore?'),
+        content: const Text(
+          'You can save photo evidence before completing this chore.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Add photo'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Complete chore'),
+          ),
+        ],
       ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Future<void> pick(ImageSource source) async {
-              try {
-                final photo = source == ImageSource.camera
-                    ? await Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push<XFile>(
-                        MaterialPageRoute(
-                          builder: (_) => const CapturePhotoScreen(
-                            title: 'Capture Photo Evidence',
-                            captureLabel: 'Use This Photo',
-                          ),
-                        ),
-                      )
-                    : await picker.pickImage(
-                        source: ImageSource.gallery,
-                        maxWidth: 1024,
-                        maxHeight: 1024,
-                        imageQuality: 85,
-                      );
-                if (photo != null) {
-                  final bytes = await photo.readAsBytes();
-                  if (!context.mounted) return;
-                  setModalState(() {
-                    selectedImageBytes = bytes;
-                  });
-                }
-              } catch (_) {
-                if (context.mounted) {
-                  showAppMessage(
-                    context,
-                    'Could not select the photo. Check photo access and try again.',
-                    error: true,
-                  );
-                }
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.green.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.task_alt_outlined,
-                          color: AppTheme.green,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Complete Chore',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '+${detail.karmaPoints} Karma Points',
-                              style: const TextStyle(
-                                color: AppTheme.onAmber,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Photo evidence (optional)',
-                    style: Theme.of(context).textTheme.labelLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  if (selectedImageBytes != null) ...[
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            selectedImageBytes!,
-                            height: 190,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.black54,
-                            radius: 18,
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.close_outlined,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              onPressed: () => setModalState(
-                                () => selectedImageBytes = null,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => pick(ImageSource.camera),
-                          icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                          label: const Text('Retake'),
-                        ),
-                        const SizedBox(width: 12),
-                        TextButton.icon(
-                          onPressed: () => pick(ImageSource.gallery),
-                          icon: const Icon(
-                            Icons.photo_library_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('Choose Another Photo'),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor
-                              .withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.add_a_photo_outlined,
-                            size: 38,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Take a photo of the result to share with your household',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.muted,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => pick(ImageSource.camera),
-                                  icon: const Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Take Photo'),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => pick(ImageSource.gallery),
-                                  icon: const Icon(
-                                    Icons.photo_library_outlined,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Gallery'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      String? proofUrl;
-                      if (selectedImageBytes != null) {
-                        proofUrl =
-                            'data:image/jpeg;base64,${base64Encode(selectedImageBytes!)}';
-                      }
-                      Navigator.pop(context, proofUrl ?? '');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.purple,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.check_circle_outlined),
-                    label: const Text(
-                      'Confirm Completion',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
-
-    if (result != null) {
-      final proof = result.isEmpty ? null : result;
-      await _complete(detail, proofImageUrl: proof);
+    if (!mounted || confirmed == null) return;
+    if (confirmed) {
+      await _complete(detail);
+      return;
     }
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AiEvidenceScreen(
+          occurrenceId: widget.occurrenceId,
+          evidenceId: detail.occurrence.evidenceId,
+          canEdit: detail.occurrence.canUploadEvidence,
+          canComplete: detail.occurrence.canComplete,
+        ),
+      ),
+    );
+    if (mounted) _refreshAffectedState();
   }
 
-  Future<void> _complete(ChoreDetail detail, {String? proofImageUrl}) async {
+  Future<void> _complete(ChoreDetail detail) async {
     setState(() => _mutating = true);
     try {
       await ref
-          .read(choreRepositoryProvider)
-          .completeChore(widget.occurrenceId, proofImageUrl: proofImageUrl);
+          .read(dioProvider)
+          .post(
+            '/occurrences/${widget.occurrenceId}/complete',
+            data: {'evidenceId': detail.occurrence.evidenceId},
+          );
       _refreshAffectedState();
       if (mounted) {
         showAppMessage(
@@ -854,7 +645,7 @@ class _DetailBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  detail.template?.type == ChoreType.bonus
+                  chore.type == ChoreType.bonus
                       ? Icons.auto_awesome_outlined
                       : Icons.cleaning_services_outlined,
                   size: 34,
@@ -887,6 +678,19 @@ class _DetailBody extends StatelessWidget {
             child: Column(
               children: [
                 _InfoRow(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Season',
+                  value: chore.seasonName ?? chore.seasonId ?? 'Unavailable',
+                ),
+                if (chore.plannedStartAt != null)
+                  _InfoRow(
+                    icon: Icons.schedule_outlined,
+                    label: 'Start (Vietnam time, UTC+7)',
+                    value: DateFormat('dd MMM yyyy · HH:mm')
+                        .format(chore.plannedStartAt!),
+                  ),
+                const Divider(height: 28),
+                _InfoRow(
                   icon: Icons.person_outline_rounded,
                   label: 'Assigned to',
                   value: chore.assignedUserDisplayName,
@@ -894,8 +698,8 @@ class _DetailBody extends StatelessWidget {
                 const Divider(height: 28),
                 _InfoRow(
                   icon: Icons.schedule_outlined,
-                  label: 'Due',
-                  value: DateFormat('EEE, MMM d · h:mm a')
+                  label: 'Due (Vietnam time, UTC+7)',
+                  value: DateFormat('EEE, dd MMM yyyy · HH:mm')
                       .format(chore.dueDate),
                 ),
                 const Divider(height: 28),

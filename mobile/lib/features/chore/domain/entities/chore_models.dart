@@ -1,3 +1,5 @@
+import '../../../../core/utils/vietnam_time.dart';
+
 enum ChoreType {
   normal(0, 'Normal'),
   bonus(1, 'Bonus');
@@ -101,6 +103,9 @@ class ChoreTemplate {
     required this.karmaPoints,
     required this.type,
     required this.frequency,
+    this.clientRequestId,
+    this.assignmentStatus,
+    this.assignmentReason,
     this.seasonId,
     this.asRoutine = false,
     this.deadlineMinutes = 1439,
@@ -112,6 +117,9 @@ class ChoreTemplate {
     this.estimatedMinutes = 30,
   });
 
+  final String? clientRequestId;
+  final String? assignmentStatus;
+  final String? assignmentReason;
   final String? seasonId;
   final bool asRoutine;
   final int deadlineMinutes;
@@ -130,6 +138,8 @@ class ChoreTemplate {
 
   factory ChoreTemplate.fromJson(Map<String, dynamic> json) => ChoreTemplate(
     seasonId: json['seasonId'] as String?,
+    assignmentStatus: json['assignmentStatus'] as String?,
+    assignmentReason: json['assignmentReason'] as String?,
     deadlineMinutes: (json['deadlineMinutes'] as num?)?.toInt() ?? 1439,
     recurrenceAnchor: json['recurrenceAnchor'] as String?,
     customDates: List<String>.from(json['customDates'] as List? ?? const []),
@@ -148,7 +158,8 @@ class ChoreTemplate {
   );
 
   Map<String, dynamic> toRequestJson() => {
-    'asRoutine': asRoutine,
+    'asRoutine': false,
+    if (clientRequestId != null) 'clientRequestId': clientRequestId,
     'deadlineMinutes': deadlineMinutes,
     'recurrenceAnchor': recurrenceAnchor,
     'customDates': customDates,
@@ -172,6 +183,12 @@ class ChoreOccurrence {
     required this.assignedUserDisplayName,
     required this.dueDate,
     required this.status,
+    this.houseId,
+    this.seasonId,
+    this.seasonName,
+    this.plannedStartAt,
+    this.canComplete = false,
+    this.canUploadEvidence = false,
     this.assignedUserId,
     this.description = '',
     this.karmaPoints = 0,
@@ -184,6 +201,9 @@ class ChoreOccurrence {
   final String id;
   final String choreId;
   final String choreName;
+  final String? houseId, seasonId, seasonName;
+  final DateTime? plannedStartAt;
+  final bool canComplete, canUploadEvidence;
   final String? assignedUserId;
   final String assignedUserDisplayName;
   final DateTime dueDate;
@@ -197,13 +217,21 @@ class ChoreOccurrence {
 
   factory ChoreOccurrence.fromJson(Map<String, dynamic> json) =>
       ChoreOccurrence(
+        houseId: json['houseId'] as String?,
+        seasonId: json['seasonId'] as String?,
+        seasonName: json['seasonName'] as String?,
+        plannedStartAt: json['plannedStartAt'] == null
+            ? null
+            : vietnamTime(json['plannedStartAt']),
+        canComplete: json['canComplete'] == true,
+        canUploadEvidence: json['canUploadEvidence'] == true,
         id: json['id'].toString(),
         choreId: json['choreId'].toString(),
         choreName: json['choreName']?.toString() ?? '',
         assignedUserId: json['assignedUserId']?.toString(),
         assignedUserDisplayName:
             json['assignedUserDisplayName']?.toString() ?? 'Unassigned',
-        dueDate: DateTime.parse(json['dueDate'].toString()).toLocal(),
+        dueDate: vietnamTime(json['dueDate']),
         status: ChoreStatus.fromJson(json['status']),
         description: json['description']?.toString() ?? '',
         karmaPoints:

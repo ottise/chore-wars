@@ -19,7 +19,7 @@ public class CurrentSeasonWorkflowTests
     {
         var houseId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var season = new ChoreSeason { Id = Guid.NewGuid(), HouseId = houseId, Status = SeasonStatus.DRAFT };
+        var season = new ChoreSeason { Id = Guid.NewGuid(), HouseId = houseId, Status = SeasonStatus.DRAFT, StartDate = DateTime.UtcNow.Date, EndDate = DateTime.UtcNow.Date.AddDays(7) };
         var unitOfWork = CreateUnitOfWork();
         var mapper = new Mock<IMapper>();
 
@@ -50,7 +50,7 @@ public class CurrentSeasonWorkflowTests
     }
 
     [Fact]
-    public async Task CreateChoreAsync_WhenCurrentSeasonIsActive_ThrowsClearConflict()
+    public async Task CreateChoreAsync_WhenActiveSeasonHasNoFutureDates_ThrowsClearConflict()
     {
         var houseId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -71,7 +71,7 @@ public class CurrentSeasonWorkflowTests
         var exception = await Assert.ThrowsAsync<ConflictException>(() =>
             service.CreateChoreAsync(houseId, new CreateChoreRequest(), userId));
 
-        Assert.Contains("DRAFT", exception.Message);
+        Assert.Contains("No future chore dates", exception.Message);
     }
 
     [Fact]
