@@ -15,10 +15,12 @@ namespace ChoreWars.Presentation.Controllers;
 public class ChoreController : ControllerBase
 {
     private readonly IChoreService _choreService;
+    private readonly IHouseAccessService _access;
 
-    public ChoreController(IChoreService choreService)
+    public ChoreController(IChoreService choreService, IHouseAccessService access)
     {
         _choreService = choreService;
+        _access = access;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -75,6 +77,7 @@ public class ChoreController : ControllerBase
     [HttpGet("houses/{houseId}/chores")]
     public async Task<IActionResult> GetChoresByHouse(Guid houseId, CancellationToken cancellationToken)
     {
+        await _access.EnsureActiveAsync(houseId, CurrentUserId, cancellationToken);
         var chores = await _choreService.GetChoresByHouseAsync(houseId, cancellationToken);
         return Ok(chores);
     }

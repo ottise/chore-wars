@@ -19,7 +19,7 @@ public class CurrentSeasonWorkflowTests
     {
         var houseId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var season = new ChoreSeason { Id = Guid.NewGuid(), HouseId = houseId, Status = SeasonStatus.DRAFT };
+        var season = new ChoreSeason { Id = Guid.NewGuid(), HouseId = houseId, Status = SeasonStatus.DRAFT, StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddDays(3) };
         var unitOfWork = CreateUnitOfWork();
         var mapper = new Mock<IMapper>();
 
@@ -50,7 +50,7 @@ public class CurrentSeasonWorkflowTests
     }
 
     [Fact]
-    public async Task CreateChoreAsync_WhenCurrentSeasonIsActive_ThrowsClearConflict()
+    public async Task CreateChoreAsync_WhenCurrentSeasonIsActive_AppendsWithoutDeleting()
     {
         var houseId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -60,7 +60,7 @@ public class CurrentSeasonWorkflowTests
         unitOfWork.Setup(item => item.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new HouseMember { HouseId = houseId, UserId = userId, Role = HouseRole.OWNER, Status = HouseMemberStatus.ACTIVE });
         unitOfWork.Setup(item => item.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ChoreSeason { HouseId = houseId, Status = SeasonStatus.ACTIVE });
+            .ReturnsAsync(new ChoreSeason { HouseId = houseId, Status = SeasonStatus.ACTIVE, StartDate = DateTime.UtcNow, EndDate = DateTime.UtcNow.AddDays(3) });
 
         var service = new ChoreService(
             unitOfWork.Object,
@@ -68,10 +68,10 @@ public class CurrentSeasonWorkflowTests
             Mock.Of<IEventPublisher>(),
             Mock.Of<IKarmaService>());
 
-        var exception = await Assert.ThrowsAsync<ConflictException>(() =>
-            service.CreateChoreAsync(houseId, new CreateChoreRequest(), userId));
-
-        Assert.Contains("DRAFT", exception.Message);
+        unitOfWork.SetupGet(x => x.Chores).Returns(Mock.Of<IChoreRepository>());
+        unitOfWork.SetupGet(x => x.ChoreFrequencyDays).Returns(Mock.Of<IChoreFrequencyDayRepository>());
+        await service.CreateChoreAsync(houseId, new CreateChoreRequest(), userId);
+        unitOfWork.Verify(x => x.ChoreOccurrences.DeleteBySeasonIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -163,6 +163,10 @@ public class CurrentSeasonWorkflowTests
         unitOfWork.Setup(item => item.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         unitOfWork.Setup(x => x.Houses.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((Guid id, CancellationToken _) => new House { Id = id });
         unitOfWork.Setup(x => x.ChoreOccurrences.HasOccurrencesForSeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        unitOfWork.Setup(x => x.ChoreOccurrences.GetBySeasonIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<ChoreOccurrence>());
+        unitOfWork.Setup(x => x.HouseMembers.GetByHouseIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<HouseMember>());
+        unitOfWork.Setup(x => x.MemberAvailabilities.GetBySeasonIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<MemberAvailability>());
+        unitOfWork.Setup(x => x.MemberAvailabilities.GetExceptionsBySeasonAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<MemberAvailabilityException>());
         return unitOfWork;
     }
 }

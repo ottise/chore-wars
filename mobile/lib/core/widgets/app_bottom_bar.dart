@@ -4,9 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'app_page_frame.dart';
 
 class AppBottomBar extends StatelessWidget {
-  const AppBottomBar({required this.paths, required this.selected, super.key});
+  const AppBottomBar({
+    required this.paths,
+    required this.selected,
+    this.chatUnread = 0,
+    super.key,
+  });
   final List<String> paths;
   final int? selected;
+  final int chatUnread;
 
   @override
   Widget build(BuildContext context) {
@@ -62,12 +68,18 @@ class AppBottomBar extends StatelessWidget {
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Icon(
-                                  icons[i],
-                                  size: 21,
-                                  color: selected == i
-                                      ? AppPageFrame.accent
-                                      : colors.onSurfaceVariant,
+                                child: Badge(
+                                  isLabelVisible: i == 2 && chatUnread > 0,
+                                  label: Text(
+                                    chatUnread > 10 ? '10+' : '$chatUnread',
+                                  ),
+                                  child: Icon(
+                                    icons[i],
+                                    size: 21,
+                                    color: selected == i
+                                        ? AppPageFrame.accent
+                                        : colors.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 2),

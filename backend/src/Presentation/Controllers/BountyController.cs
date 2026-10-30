@@ -23,6 +23,9 @@ public class BountyController : ControllerBase
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+    [HttpGet("eligible-chores")]
+    public async Task<IActionResult> Eligible(Guid houseId, CancellationToken ct) => Ok(await _bountyService.EligibleAsync(houseId, CurrentUserId, ct));
+
     [HttpPost]
     public async Task<IActionResult> CreateBounty(Guid houseId, [FromBody] CreateBountyRequest request, CancellationToken cancellationToken)
     {
@@ -33,7 +36,15 @@ public class BountyController : ControllerBase
     [HttpPost("{bountyId}/accept")]
     public async Task<IActionResult> AcceptBounty(Guid houseId, Guid bountyId, CancellationToken cancellationToken)
     {
+        await _bountyService.GetBountyAsync(houseId, bountyId, CurrentUserId, cancellationToken);
         await _bountyService.AcceptBountyAsync(bountyId, CurrentUserId, cancellationToken);
+        return Ok();
+    }
+
+    [HttpPost("{bountyId}/cancel")]
+    public async Task<IActionResult> CancelBounty(Guid houseId, Guid bountyId, CancellationToken cancellationToken)
+    {
+        await _bountyService.CancelBountyAsync(houseId, bountyId, CurrentUserId, cancellationToken);
         return Ok();
     }
 
@@ -68,6 +79,7 @@ public class BountyController : ControllerBase
     [HttpPost("payments/{paymentId}/settle")]
     public async Task<IActionResult> SettlePayment(Guid houseId, Guid paymentId, CancellationToken cancellationToken)
     {
+        await _bountyService.GetPaymentAsync(houseId, paymentId, CurrentUserId, cancellationToken);
         await _bountyService.SettlePaymentAsync(paymentId, CurrentUserId, cancellationToken);
         return Ok();
     }

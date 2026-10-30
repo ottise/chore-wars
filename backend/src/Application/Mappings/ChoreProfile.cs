@@ -10,10 +10,14 @@ public class ChoreProfile : Profile
     public ChoreProfile()
     {
         CreateMap<Chore, ChoreResponse>()
+            .ForMember(d => d.OccurrenceIds, o => o.Ignore())
+            .ForMember(d => d.AssignedCount, o => o.Ignore())
+            .ForMember(d => d.UnassignedCount, o => o.Ignore())
             .ForMember(dest => dest.FrequencyDays, opt => opt.MapFrom(src =>
                 src.FrequencyDays.Select(day => day.DayOfWeek)));
-        
+
         CreateMap<ChoreOccurrence, ChoreOccurrenceResponse>()
+            .ForMember(dest => dest.HouseId, opt => opt.MapFrom(src => src.Chore.HouseId))
             .ForMember(dest => dest.ChoreName, opt => opt.MapFrom(src => src.Chore.Name))
             .ForMember(dest => dest.AssignedUserDisplayName, opt => opt.MapFrom(src =>
                 src.AssignedUser == null ? "Unassigned" : src.AssignedUser.DisplayName))

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/session_provider.dart';
 import '../../../../core/utils/api_error_message.dart';
-import '../../../notifications/presentation/providers/notification_providers.dart';
 
 final chatNotificationsEnabledProvider = FutureProvider.autoDispose
     .family<bool, String>((ref, houseId) async {
@@ -57,7 +56,6 @@ class _ChatNotificationButtonState
       chatNotificationsEnabledProvider(widget.houseId),
     );
     final enabled = settings.asData?.value;
-    final unread = ref.watch(unreadChatCountProvider(widget.houseId));
     return Semantics(
       toggled: enabled,
       child: IconButton(
@@ -71,14 +69,10 @@ class _ChatNotificationButtonState
                 dimension: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Badge(
-                isLabelVisible: enabled == true && unread > 0,
-                label: Text(unread > 99 ? '99+' : '$unread'),
-                child: Icon(
-                  enabled == false
-                      ? Icons.notifications_off_outlined
-                      : Icons.notifications_none_outlined,
-                ),
+            : Icon(
+                enabled == false
+                    ? Icons.notifications_off_outlined
+                    : Icons.notifications_none_outlined,
               ),
         onPressed: _saving || settings.isLoading
             ? null

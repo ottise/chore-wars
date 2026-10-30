@@ -82,7 +82,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
     }
   }
 
-  Future<void> _stop() async {
+  Future<void> _stop({bool send = false}) async {
     if (_stopping || !_recording) return;
     _stopping = true;
     _timer?.cancel();
@@ -93,6 +93,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
           _path = path;
           _recording = false;
         });
+        if (send && path != null) await _send();
       } else if (path != null) {
         await _deleteFile(path);
       }
@@ -123,7 +124,7 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
 
   Future<void> _send() async {
     final path = _path;
-    if (path == null) return;
+    if (path == null || _busy) return;
     setState(() => _busy = true);
     try {
       final playback = ref.read(audioPlaybackProvider);
@@ -133,25 +134,15 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
       }
       await playback.stop();
       await widget.onSend(bytes, kIsWeb ? 'voice-note.wav' : 'voice-note.m4a');
-      await _deleteFile(path);
       if (mounted) setState(() => _path = null);
+      // Delivery is confirmed; a cleanup failure must not offer Send again.
+      try {
+        await _deleteFile(path);
+      } catch (_) {}
     } catch (error) {
       _error(error);
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _preview() async {
-    final path = _path;
-    if (path == null) return;
-    final playback = ref.read(audioPlaybackProvider);
-    try {
-      final bytes = await readRecording(path);
-      if (!mounted) return;
-      await playback.playBytes('preview', bytes);
-    } catch (error) {
-      _error(error);
     }
   }
 
@@ -171,30 +162,37 @@ class _VoiceNoteRecorderState extends ConsumerState<VoiceNoteRecorder>
     children: [
       if (_path == null)
         IconButton(
-          tooltip: _recording ? 'Stop recording' : 'Record voice note',
+          tooltip: _recording ? 'Stop & send' : 'Record voice note',
           onPressed: _busy
               ? null
               : _recording
-              ? _stop
+              ? () => _stop(send: true)
               : _start,
           icon: Icon(
             _recording ? Icons.stop_circle_outlined : Icons.mic_outlined,
           ),
         ),
       if (_recording) Text('${_seconds}s / 60s'),
-      if (_path != null) ...[
+      if (_recording)
         IconButton(
-          tooltip: 'Preview recording',
-          onPressed: _busy ? null : _preview,
-          icon: const Icon(Icons.play_arrow_outlined),
+          tooltip: 'Cancel recording',
+          onPressed: _stopping
+              ? null
+              : () async {
+                  _timer?.cancel();
+                  await _recorder.cancel();
+                  if (mounted) setState(() => _recording = false);
+                },
+          icon: const Icon(Icons.close),
         ),
+      if (_path != null) ...[
         IconButton(
           tooltip: 'Discard recording',
           onPressed: _busy ? null : _discard,
           icon: const Icon(Icons.delete_outline),
         ),
         IconButton(
-          tooltip: 'Send voice note',
+          tooltip: 'Send saved voice note',
           onPressed: _busy ? null : _send,
           icon: _busy
               ? const CircularProgressIndicator()

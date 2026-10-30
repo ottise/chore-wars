@@ -1,40 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class ChoreDetailScreen extends StatelessWidget {
-  final String choreName;
-  final String dueDate;
-  final String status;
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/api_error_message.dart';
 
-  const ChoreDetailScreen({
-    super.key,
-    required this.choreName,
-    required this.dueDate,
-    required this.status,
-  });
+class ChoreDetailScreen extends ConsumerStatefulWidget {
+  const ChoreDetailScreen({required this.occurrenceId, super.key});
+  final String occurrenceId;
+  @override
+  ConsumerState<ChoreDetailScreen> createState() => _State();
+}
+
+class _State extends ConsumerState<ChoreDetailScreen> {
+  String? error;
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  Future<void> _resolve() async {
+    try {
+      final response = await ref
+          .read(dioProvider)
+          .get('/occurrences/${widget.occurrenceId}');
+      final house = response.data['houseId']?.toString();
+      if (house == null || house.isEmpty) {
+        throw StateError(
+          'This chore link has no household. Open the chore from your household schedule.',
+        );
+      }
+      if (mounted) context.go('/houses/$house/chores/${widget.occurrenceId}');
+    } catch (e) {
+      if (mounted) setState(() => error = apiErrorMessage(e));
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Chore Detail')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(choreName, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 24),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.schedule_outlined),
-            title: const Text('Due'),
-            subtitle: Text(dueDate),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.flag_outlined),
-            title: const Text('Status'),
-            subtitle: Text(status),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Chore detail'),
+      leading: BackButton(onPressed: () => context.go('/houses')),
+    ),
+    body: Center(
+      child: error == null
+          ? const CircularProgressIndicator()
+          : Padding(padding: const EdgeInsets.all(24), child: Text(error!)),
+    ),
+  );
 }

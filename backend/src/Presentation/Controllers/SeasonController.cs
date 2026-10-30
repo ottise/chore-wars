@@ -14,16 +14,26 @@ namespace ChoreWars.Presentation.Controllers;
 [Authorize]
 public class SeasonController : ControllerBase
 {
+    private readonly IMembershipChoreRedistributor _redistributor;
     private readonly ISeasonService _seasonService;
     private readonly IChoreAllocationService _choreAllocationService;
 
-    public SeasonController(ISeasonService seasonService, IChoreAllocationService choreAllocationService)
+    public SeasonController(ISeasonService seasonService, IChoreAllocationService choreAllocationService, IMembershipChoreRedistributor redistributor)
     {
+        _redistributor = redistributor;
         _seasonService = seasonService;
         _choreAllocationService = choreAllocationService;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+    [HttpGet("{seasonId}/redistribution-preview")]
+    public async Task<IActionResult> PreviewRedistribution(Guid houseId, Guid seasonId, [FromQuery] Guid targetUserId, CancellationToken ct) =>
+        Ok(await _redistributor.PreviewAsync(houseId, seasonId, targetUserId, CurrentUserId, ct));
+
+    [HttpPost("{seasonId}/redistribute")]
+    public async Task<IActionResult> Redistribute(Guid houseId, Guid seasonId, ConfirmRedistributionRequest request, CancellationToken ct) =>
+        Ok(await _redistributor.ConfirmAsync(houseId, seasonId, request, CurrentUserId, ct));
 
     [HttpGet("current")]
     public async Task<IActionResult> GetCurrentSeason(Guid houseId, CancellationToken cancellationToken)

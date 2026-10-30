@@ -57,7 +57,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         .where(
           (n) =>
               (widget.houseId == null || n.houseId == widget.houseId) &&
-              (!widget.chatOnly || n.isChat),
+              (widget.chatOnly ? n.isChat : !n.isChat),
         )
         .toList();
     final items = scoped
@@ -117,7 +117,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     _NotificationFilter.all: 'All ${scoped.length}',
                     _NotificationFilter.bounty: 'Bounty',
                     _NotificationFilter.chores: 'Chores',
-                    _NotificationFilter.chat: 'Chat',
                     _NotificationFilter.supplies: 'Supplies',
                     _NotificationFilter.other: 'Other',
                   }.entries)

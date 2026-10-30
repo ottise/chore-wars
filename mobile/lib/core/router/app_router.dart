@@ -167,9 +167,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/chores/:occurrenceId',
         builder: (context, state) => chores.ChoreDetailScreen(
-          choreName: state.uri.queryParameters['name'] ?? 'Chore',
-          dueDate: state.uri.queryParameters['due'] ?? '',
-          status: state.uri.queryParameters['status'] ?? 'Unknown',
+          occurrenceId: state.pathParameters['occurrenceId']!,
         ),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

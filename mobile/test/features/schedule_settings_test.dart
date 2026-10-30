@@ -226,6 +226,24 @@ void main() {
                 createdAt: DateTime.utc(2026),
               ),
             ),
+            houseMembersProvider.overrideWith(
+              (ref, id) async => const [
+                HouseMember(
+                  id: 'me-row',
+                  userId: 'me',
+                  displayName: 'An',
+                  role: HouseRole.member,
+                  status: HouseMemberStatus.active,
+                ),
+                HouseMember(
+                  id: 'other-row',
+                  userId: 'other',
+                  displayName: 'Bình',
+                  role: HouseRole.member,
+                  status: HouseMemberStatus.active,
+                ),
+              ],
+            ),
             userProfileProvider.overrideWith(
               (ref) async => const UserProfile(
                 id: 'me',

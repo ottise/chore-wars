@@ -5,6 +5,9 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class ChoreResponse
 {
+    public List<Guid> OccurrenceIds { get; set; } = new();
+    public int AssignedCount { get; set; }
+    public int UnassignedCount { get; set; }
     public Guid? SeasonId { get; set; }
     public Guid Id { get; set; }
     public Guid? SourceTemplateId { get; set; }

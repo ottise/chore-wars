@@ -1,3 +1,6 @@
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/api_error_message.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -214,6 +217,47 @@ class HouseMoreScreen extends ConsumerWidget {
                 ),
               ],
             ]),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Past seasons & rankings'),
+              subtitle: const Text('View completed season results'),
+              onTap: () async {
+                try {
+                  final response = await ref
+                      .read(dioProvider)
+                      .get('/houses/$houseId/seasons');
+                  if (!context.mounted) return;
+                  final selected = await showDialog<String>(
+                    context: context,
+                    builder: (context) => SimpleDialog(
+                      title: const Text('Season results'),
+                      children: [
+                        if ((response.data as List).isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text('No seasons yet.'),
+                          ),
+                        for (final row in response.data as List)
+                          SimpleDialogOption(
+                            onPressed: () =>
+                                Navigator.pop(context, row['id'].toString()),
+                            child: Text(row['name'].toString()),
+                          ),
+                      ],
+                    ),
+                  );
+                  if (selected != null && context.mounted) {
+                    context.push('$base/seasons/$selected/leaderboard');
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+                  }
+                }
+              },
+            ),
             section('REWARDS & RECOGNITION', colors.tertiary, [
               link(
                 'House Rewards',

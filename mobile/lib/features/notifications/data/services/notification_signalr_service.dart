@@ -5,7 +5,12 @@ import '../../../../core/network/api_endpoints.dart';
 import '../../domain/entities/notification_models.dart';
 
 class NotificationSignalRService {
-  NotificationSignalRService(this._getToken, this._onNotificationReceived);
+  NotificationSignalRService(
+    this._getToken,
+    this._onNotificationReceived, {
+    this.onChatUnreadChanged,
+  });
+  final void Function(String)? onChatUnreadChanged;
   final Future<String?> Function() _getToken;
   final void Function(AppNotification) _onNotificationReceived;
   HubConnection? _connection;
@@ -27,6 +32,14 @@ class NotificationSignalRService {
           .withAutomaticReconnect(retryDelays: [2000, 5000, 10000, 20000])
           .build();
       _connection = connection;
+      connection.on('ChatUnreadChanged', (args) {
+        if (!_disposed && args?.isNotEmpty == true) {
+          onChatUnreadChanged?.call(args!.first.toString());
+        }
+      });
+      connection.onreconnected(({connectionId}) {
+        onChatUnreadChanged?.call('');
+      });
       connection.on('NotificationReceived', (arguments) {
         if (_disposed || arguments == null || arguments.isEmpty) return;
         final raw = arguments.first;

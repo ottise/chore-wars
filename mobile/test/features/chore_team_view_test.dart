@@ -125,13 +125,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Earlier task'), findsNothing);
       expect(find.text('Later task'), findsOneWidget);
-      await tester.tap(find.text('Routines'));
+      await tester.tap(find.text('Mine'));
       await tester.pumpAndSettle();
       expect(
         Theme.of(tester.element(find.byType(Scaffold))).scaffoldBackgroundColor,
         AppPageFrame.background,
       );
-      expect(find.text('Create First Routine'), findsOneWidget);
+      expect(find.byTooltip('Add chore'), findsOneWidget);
+      expect(find.text('Routines'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

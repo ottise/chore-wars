@@ -61,6 +61,15 @@ class NotificationNotifier extends Notifier<NotificationState> {
             ],
           );
         },
+        onChatUnreadChanged: (house) {
+          if (_current(generation)) {
+            if (house.isEmpty) {
+              ref.invalidate(chatUnreadRequestProvider);
+            } else {
+              ref.invalidate(chatUnreadRequestProvider(house));
+            }
+          }
+        },
       );
       _realtime = service;
       loadNotifications();
@@ -119,7 +128,9 @@ class NotificationNotifier extends Notifier<NotificationState> {
     await ref.read(notificationRepositoryProvider).markAllAsRead();
     if (_current(generation)) {
       state = NotificationState(
-        notifications: state.notifications.map((n) => n.asRead()).toList(),
+        notifications: state.notifications
+            .map((n) => n.isChat ? n : n.asRead())
+            .toList(),
       );
     }
   }
@@ -133,20 +144,26 @@ final unreadNotificationCountProvider = Provider<int>(
   (ref) => ref
       .watch(notificationNotifierProvider)
       .notifications
-      .where((n) => !n.isRead)
+      .where((n) => !n.isChat && !n.isRead)
       .length,
 );
+final chatUnreadRequestProvider = FutureProvider.autoDispose
+    .family<int, String>((ref, houseId) async {
+      ref.watch(sessionEpochProvider);
+      ref.watch(notificationNotifierProvider.select((s) => s.latestArrival));
+      final response = await ref
+          .watch(dioProvider)
+          .get('/houses/$houseId/chat/unread');
+      return (response.data['count'] as num).toInt();
+    }, retry: (_, _) => null);
 final unreadChatCountProvider = Provider.family<int, String>(
-  (ref, houseId) => ref
-      .watch(notificationNotifierProvider)
-      .notifications
-      .where((n) => n.isChat && n.houseId == houseId && !n.isRead)
-      .length,
+  (ref, houseId) =>
+      ref.watch(chatUnreadRequestProvider(houseId)).asData?.value ?? 0,
 );
 final unreadHouseNotificationCountProvider = Provider.family<int, String>(
   (ref, houseId) => ref
       .watch(notificationNotifierProvider)
       .notifications
-      .where((n) => n.houseId == houseId && !n.isRead)
+      .where((n) => !n.isChat && n.houseId == houseId && !n.isRead)
       .length,
 );

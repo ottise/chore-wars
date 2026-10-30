@@ -94,9 +94,70 @@ void main() {
         await tester.pumpAndSettle();
         expect(adapter.calls, hasLength(2));
         expect(
-          find.textContaining('Wait one minute before requesting another code.'),
+          find.textContaining(
+            'Wait one minute before requesting another code.',
+          ),
           findsOneWidget,
         );
+        dio.close();
+      },
+    );
+  }
+  for (final width in [320.0, 354.0, 390.0, 480.0]) {
+    testWidgets(
+      'OTP fits $width pixels with larger text and supports full-code paste',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final adapter = _Api();
+        final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'))
+          ..httpClientAdapter = adapter;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [dioProvider.overrideWithValue(dio)],
+            child: MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: const TextScaler.linear(1.3)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showEmailCodeDialog(
+                      context,
+                      email: 'test@example.test',
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Send code'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Verification code'),
+          '052224',
+        );
+        await tester.pump();
+        expect(find.text('6 / 6'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('Change'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Change'));
+        await tester.pumpAndSettle();
+        expect(
+          find.widgetWithText(TextField, 'Verification code'),
+          findsNothing,
+        );
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
         dio.close();
       },
     );

@@ -9,6 +9,8 @@ public class ChoreConfiguration : IEntityTypeConfiguration<Chore>
     public void Configure(EntityTypeBuilder<Chore> builder)
     {
         builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.HouseId);
+        builder.HasIndex(x => new { x.HouseId, x.CreatedByUserId, x.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         builder.HasOne<Chore>().WithMany().HasForeignKey(x => x.SourceTemplateId).OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(x => x.Name)

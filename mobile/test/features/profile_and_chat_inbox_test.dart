@@ -163,8 +163,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('All 5'), findsOneWidget);
-    expect(find.text('chat-A'), findsOneWidget);
+    expect(find.text('All 3'), findsOneWidget);
+    expect(find.text('chat-A'), findsNothing);
     await tester.tap(find.text('Bounty'));
     await tester.pumpAndSettle();
     expect(find.text('system-bounty'), findsOneWidget);

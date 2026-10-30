@@ -33,8 +33,7 @@ public class HouseController : ControllerBase
     [HttpPost("join")]
     public async Task<IActionResult> JoinHouse([FromBody] JoinHouseRequest request, CancellationToken cancellationToken)
     {
-        await _houseService.JoinHouseAsync(request, CurrentUserId, cancellationToken);
-        return Ok();
+        return Ok(await _houseService.JoinHouseAsync(request, CurrentUserId, cancellationToken));
     }
 
     [HttpDelete("{houseId}/leave")]

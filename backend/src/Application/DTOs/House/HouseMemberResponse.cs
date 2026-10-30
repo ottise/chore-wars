@@ -5,6 +5,7 @@ namespace ChoreWars.Application.DTOs.House;
 
 public class HouseMemberResponse
 {
+    public string? AvatarUrl { get; set; }
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public string DisplayName { get; set; } = string.Empty;

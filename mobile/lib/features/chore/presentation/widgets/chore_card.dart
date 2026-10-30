@@ -1,3 +1,5 @@
+import '../../../../core/utils/vietnam_time.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -25,10 +27,13 @@ class ChoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isToday = DateUtils.isSameDay(chore.dueDate, DateTime.now());
+    final isToday = DateUtils.isSameDay(
+      vietnamTime(chore.dueDate),
+      vietnamTime(DateTime.now()),
+    );
     final due = isToday
-        ? 'Today, ${DateFormat.jm().format(chore.dueDate)}'
-        : DateFormat('EEE, MMM d · h:mm a').format(chore.dueDate);
+        ? 'Today, ${DateFormat.jm().format(vietnamTime(chore.dueDate))}'
+        : DateFormat('EEE, MMM d · h:mm a').format(vietnamTime(chore.dueDate));
     return Semantics(
       button: true,
       label: '${chore.choreName}, due $due, ${chore.status.label}',

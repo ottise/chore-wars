@@ -47,27 +47,31 @@ public partial class ChoreService : IChoreService
 
     private async Task<ChoreResponse> CreateChoreCoreAsync(Guid houseId, CreateChoreRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
-        var houseContext = await _unitOfWork.Houses.GetByIdAsync(houseId,cancellationToken) ?? throw new NotFoundException("Household not found.");
+        var houseContext = await _unitOfWork.Houses.GetByIdAsync(houseId, cancellationToken) ?? throw new NotFoundException("Household not found.");
         if (houseContext.IsArchived) throw new ConflictException("Archived households are read-only.");
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
-        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
-            throw new ForbiddenException("Only active house owners can create chores.");
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE)
+            throw new ForbiddenException("Only active house members can create chores.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        if (request.ClientRequestId.HasValue)
+        {
+            var previous = (await _unitOfWork.Chores.GetByHouseIdAsync(houseId, cancellationToken))
+                .FirstOrDefault(c => c.CreatedByUserId == userId && c.ClientRequestId == request.ClientRequestId);
+            if (previous != null) return await CreationResultAsync(previous, cancellationToken);
+        }
+        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken)
+            ?? await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
         if (!request.AsRoutine && activeSeason == null)
             throw new ConflictException("Create a season before adding chores.");
 
-        if (!request.AsRoutine && activeSeason != null && activeSeason.Status != SeasonStatus.DRAFT)
-            throw new ConflictException("Chore definitions are locked outside DRAFT.");
-        if (!request.AsRoutine && activeSeason != null) {
-            if (await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(activeSeason.Id,cancellationToken))
-                await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(activeSeason.Id,cancellationToken);
-            activeSeason.ScheduleRevision++; _unitOfWork.Seasons.Update(activeSeason);
-        }
+        if (!request.AsRoutine && activeSeason != null && activeSeason.Status is SeasonStatus.COMPLETED or SeasonStatus.CANCELLED)
+            throw new ConflictException("Choose an open season before adding chores.");
         var chore = new Chore
         {
             Id = Guid.NewGuid(),
             HouseId = houseId,
+            ClientRequestId = request.ClientRequestId,
+            CreatedByUserId = userId,
             SeasonId = request.AsRoutine ? null : activeSeason?.Id,
             Name = request.Name,
             Description = request.Description,
@@ -77,7 +81,9 @@ public partial class ChoreService : IChoreService
             FrequencyValue = request.FrequencyValue,
             Difficulty = request.Difficulty,
             EstimatedMinutes = ScheduleTime.Effort(request.Difficulty),
-            DeadlineMinutes = request.DeadlineMinutes, RecurrenceAnchor = request.RecurrenceAnchor, CustomDates = request.CustomDates.ToList()
+            DeadlineMinutes = request.DeadlineMinutes,
+            RecurrenceAnchor = request.RecurrenceAnchor,
+            CustomDates = request.CustomDates.ToList()
         };
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -100,6 +106,35 @@ public partial class ChoreService : IChoreService
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (!request.AsRoutine && activeSeason != null)
+            {
+                var savedChore = await _unitOfWork.Chores.GetByIdAsync(chore.Id, cancellationToken) ?? chore;
+                await ChoreSchedulingService.AppendAsync(_unitOfWork, savedChore, activeSeason, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+                activeSeason.ScheduleRevision++;
+                _unitOfWork.Seasons.Update(activeSeason);
+                if (activeSeason.Status == SeasonStatus.REVIEWING)
+                {
+                    await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(activeSeason.Id, cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    var mandatory = await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(activeSeason.Id, cancellationToken);
+                    if (mandatory.Any(o => o.Chore.Type == ChoreType.NORMAL && !o.AssignedUserId.HasValue)) {
+                        activeSeason.Status = SeasonStatus.DRAFT;
+                        _unitOfWork.Seasons.Update(activeSeason);
+                    }
+                    var roster = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE && activeSeason.Status == SeasonStatus.REVIEWING);
+                    foreach (var voter in roster) await _unitOfWork.SeasonConfirmations.AddAsync(new SeasonConfirmation
+                    {
+                        Id = Guid.NewGuid(),
+                        SeasonId = activeSeason.Id,
+                        UserId = voter.UserId,
+                        ScheduleRevision = activeSeason.ScheduleRevision,
+                        Status = ConfirmationStatus.PENDING,
+                        CreatedAt = _clock.GetUtcNow().UtcDateTime,
+                        UpdatedAt = _clock.GetUtcNow().UtcDateTime
+                    }, cancellationToken);
+                }
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
         catch
@@ -108,7 +143,16 @@ public partial class ChoreService : IChoreService
             throw;
         }
 
-        return _mapper.Map<ChoreResponse>(chore);
+        return await CreationResultAsync(chore, cancellationToken);
+    }
+    private async Task<ChoreResponse> CreationResultAsync(Chore chore, CancellationToken ct)
+    {
+        var result = _mapper.Map<ChoreResponse>(chore) ?? new ChoreResponse { Id = chore.Id, SeasonId = chore.SeasonId, Name = chore.Name };
+        var occurrences = (await _unitOfWork.ChoreOccurrences.GetByChoreIdAsync(chore.Id, ct)).ToList();
+        result.OccurrenceIds = occurrences.Select(o => o.Id).ToList();
+        result.AssignedCount = occurrences.Count(o => o.AssignedUserId.HasValue);
+        result.UnassignedCount = occurrences.Count(o => o.Chore.Type == ChoreType.NORMAL && !o.AssignedUserId.HasValue);
+        return result;
     }
 
     public async Task CompleteChoreAsync(Guid occurrenceId, CompleteChoreRequest? request, Guid userId, CancellationToken cancellationToken = default)
@@ -129,14 +173,14 @@ public partial class ChoreService : IChoreService
 
         await EnsureEditableOccurrenceAsync(occurrence, userId, cancellationToken);
         if (occurrence.Status == ChoreOccurrenceStatus.COMPLETED && occurrence.CompletedByUserId == userId) return;
-        if (request?.EvidenceId.HasValue==true && !string.IsNullOrWhiteSpace(request.ProofImageUrl)) throw new DomainException("Send EvidenceId or legacy proof, not both.");
+        if (request?.EvidenceId.HasValue == true && !string.IsNullOrWhiteSpace(request.ProofImageUrl)) throw new DomainException("Send EvidenceId or legacy proof, not both.");
         if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED &&
             occurrence.Status != ChoreOccurrenceStatus.OVERDUE &&
             occurrence.Status != ChoreOccurrenceStatus.CRITICAL_OVERDUE)
             throw new ConflictException("Chore is not in a completable state.");
 
         if (_penalties != null && occurrence.DueDate < _clock.GetUtcNow().UtcDateTime)
-            await _penalties.ApplyUntilAsync(occurrence.Id,_clock.GetUtcNow().UtcDateTime,cancellationToken);
+            await _penalties.ApplyUntilAsync(occurrence.Id, _clock.GetUtcNow().UtcDateTime, cancellationToken);
         occurrence.CompletedByUserId = userId;
         occurrence.Status = ChoreOccurrenceStatus.COMPLETED;
         occurrence.CompletedAt = _clock.GetUtcNow().UtcDateTime;
@@ -157,7 +201,10 @@ public partial class ChoreService : IChoreService
         if (bounty != null && bounty.Status == BountyStatus.CLAIMED)
         {
             bounty.Status = BountyStatus.COMPLETED;
-            payment = new PaymentObligation
+            payment = (await _unitOfWork.PaymentObligations.GetByHouseIdAsync(chore.HouseId, cancellationToken))
+                .FirstOrDefault(p => p.OccurrenceId == occurrenceId && p.Reason == PaymentObligationReason.BOUNTY_PAYMENT && p.Status != PaymentObligationStatus.CANCELLED);
+            if (payment != null) { payment.Status = PaymentObligationStatus.PENDING; _unitOfWork.PaymentObligations.Update(payment); }
+            else payment = new PaymentObligation
             {
                 Id = Guid.NewGuid(),
                 HouseId = chore.HouseId,
@@ -176,9 +223,10 @@ public partial class ChoreService : IChoreService
         try
         {
             var responsibility = await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, _clock.GetUtcNow().UtcDateTime, cancellationToken);
-            if (request?.EvidenceId.HasValue==true) {
-                if (_evidence==null) throw new ConflictException("Evidence storage is not configured.");
-                await _evidence.AttachAsync(occurrenceId,request.EvidenceId.Value,userId,cancellationToken);
+            if (request?.EvidenceId.HasValue == true)
+            {
+                if (_evidence == null) throw new ConflictException("Evidence storage is not configured.");
+                await _evidence.AttachAsync(occurrenceId, request.EvidenceId.Value, userId, cancellationToken);
             }
             responsibility.EndedAt = _clock.GetUtcNow().UtcDateTime;
             responsibility.CompletedByUserId = userId;
@@ -200,7 +248,8 @@ public partial class ChoreService : IChoreService
             if (bounty != null && payment != null)
             {
                 _unitOfWork.ChoreBounties.Update(bounty);
-                await _unitOfWork.PaymentObligations.AddAsync(payment, cancellationToken);
+                var existingPayments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(chore.HouseId, cancellationToken);
+                if (!existingPayments.Any(p => p.Id == payment.Id)) await _unitOfWork.PaymentObligations.AddAsync(payment, cancellationToken);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -405,7 +454,8 @@ public partial class ChoreService : IChoreService
     }
     private async Task EnsureDraftChoreAsync(Chore chore, CancellationToken ct)
     {
-        if (chore.SeasonId.HasValue) {
+        if (chore.SeasonId.HasValue)
+        {
             var season = await _unitOfWork.Seasons.GetByIdAsync(chore.SeasonId.Value, ct);
             if (season?.Status != SeasonStatus.DRAFT) throw new ConflictException("Chore definitions are locked outside draft.");
             if (await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(chore.SeasonId.Value, ct))

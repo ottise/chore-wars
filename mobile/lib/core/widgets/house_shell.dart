@@ -1,3 +1,8 @@
+import '../../features/chore/presentation/providers/chore_providers.dart';
+import '../../features/bounty/presentation/providers/bounty_providers.dart';
+import '../../features/supplies/presentation/providers/supplies_providers.dart';
+import '../../features/house/presentation/providers/household_summary_provider.dart';
+import '../../features/notifications/presentation/providers/notification_providers.dart';
 import 'app_page_frame.dart';
 import 'app_bottom_bar.dart';
 import 'assistant_shortcut.dart';
@@ -23,6 +28,18 @@ class HouseShell extends ConsumerWidget {
   final Widget child;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(
+      notificationNotifierProvider.select((state) => state.latestArrival),
+      (previous, next) {
+        if (next != null && next.houseId == houseId && !next.isChat) {
+          refreshHouseState(ref, houseId: houseId);
+          refreshChoreState(ref, houseId);
+          ref.invalidate(bountyBoardProvider(houseId));
+          ref.invalidate(purchaseDebtsProvider(houseId));
+          ref.invalidate(householdSummaryProvider);
+        }
+      },
+    );
     final base = '/houses/$houseId';
     final redesigned =
         [
@@ -256,7 +273,11 @@ class HouseShell extends ConsumerWidget {
       ),
       bottomNavigationBar: keyboard
           ? null
-          : AppBottomBar(paths: paths, selected: selected),
+          : AppBottomBar(
+              chatUnread: ref.watch(unreadChatCountProvider(houseId)),
+              paths: paths,
+              selected: selected,
+            ),
     );
   }
 }

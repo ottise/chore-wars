@@ -95,15 +95,20 @@ class _JoinHouseScreenState extends ConsumerState<JoinHouseScreen> {
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_isLoading || !(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     try {
-      await ref
+      final result = await ref
           .read(houseRepositoryProvider)
           .joinHouse(inviteCode: _codeCtrl.text.trim().toUpperCase());
       refreshHouseState(ref);
       if (mounted) {
-        showAppMessage(context, 'Joined house successfully!');
+        showAppMessage(
+          context,
+          result.any((row) => (row['assignedCount'] as num? ?? 0) > 0)
+              ? 'Joined house. Your shared chores are ready.'
+              : 'Joined house. ${result.expand((row) => row['reasons'] as List? ?? []).join(' ')}',
+        );
         context.go('/houses');
       }
     } catch (error) {

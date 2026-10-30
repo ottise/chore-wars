@@ -9,8 +9,9 @@ public class HouseProfile : Profile
     public HouseProfile()
     {
         CreateMap<House, HouseResponse>();
-        
+
         CreateMap<HouseMember, HouseMemberResponse>()
+            .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.User.AvatarUrl))
             .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src => src.User.DisplayName));
     }
 }

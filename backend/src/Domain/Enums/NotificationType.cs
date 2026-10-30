@@ -16,5 +16,7 @@ public enum NotificationType
     URGENT_EVENT = 11,
     CHAT_MESSAGE = 12,
     CHAT_MENTION = 13,
-    SUPPLY_UPDATE = 14
+    SUPPLY_UPDATE = 14,
+    MEMBER_JOINED = 15,
+    BOUNTY_CANCELLED = 16
 }

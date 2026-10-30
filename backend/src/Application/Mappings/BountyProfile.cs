@@ -9,6 +9,7 @@ public class BountyProfile : Profile
     public BountyProfile()
     {
         CreateMap<ChoreBounty, BountyResponse>()
+            .ForMember(dest => dest.OccurrenceDueAt, opt => opt.MapFrom(src => src.ChoreOccurrence.DueDate))
             .ForMember(dest => dest.ChoreName, opt => opt.MapFrom(src => src.ChoreOccurrence.Chore.Name))
             .ForMember(dest => dest.PostedByDisplayName, opt => opt.MapFrom(src => src.PostedByUser.DisplayName))
             .ForMember(dest => dest.AssignedUserId, opt => opt.MapFrom(src => src.ChoreOccurrence.AssignedUserId))

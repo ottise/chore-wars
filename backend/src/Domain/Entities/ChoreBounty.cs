@@ -5,6 +5,8 @@ namespace ChoreWars.Domain.Entities;
 
 public class ChoreBounty
 {
+    public Guid? ClaimedByUserId { get; set; }
+    public Guid? CancellationRequestedByUserId { get; set; }
     public Guid Id { get; set; }
     public Guid ChoreOccurrenceId { get; set; }
     public Guid PostedByUserId { get; set; }

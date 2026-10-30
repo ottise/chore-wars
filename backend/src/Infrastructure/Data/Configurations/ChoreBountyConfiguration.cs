@@ -15,9 +15,6 @@ public class ChoreBountyConfiguration : IEntityTypeConfiguration<ChoreBounty>
             .IsRequired()
             .HasConversion<string>();
 
-        builder.HasIndex(x => x.ChoreOccurrenceId)
-            .IsUnique(); // One active bounty per occurrence usually
-
         builder.HasOne(x => x.ChoreOccurrence)
             .WithMany()
             .HasForeignKey(x => x.ChoreOccurrenceId)

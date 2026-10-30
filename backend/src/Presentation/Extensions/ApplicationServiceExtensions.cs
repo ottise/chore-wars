@@ -11,6 +11,7 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddSingleton(TimeProvider.System);
+        services.AddHostedService<ChoreWars.Infrastructure.Repositories.LegacyBountyRecovery>();
         services.AddScoped<IPersonalFinanceService, PersonalFinanceService>();
         services.AddScoped<IHouseholdSummaryService, HouseholdSummaryService>();
         services.AddScoped<IHouseCalendarService, ChoreWars.Application.Services.HouseCalendarService>();
@@ -43,6 +44,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         services.AddScoped<IHouseService, HouseService>();
         services.AddScoped<IMembershipChoreRedistributor, MembershipChoreRedistributor>();
+        services.AddScoped<ChoreWars.Application.Interfaces.Repositories.IScheduleRedistributionStore, ChoreWars.Infrastructure.Repositories.ScheduleRedistributionStore>();
         services.AddScoped<ISeasonService, SeasonService>();
         services.AddScoped<IChoreService, ChoreService>();
         services.AddScoped<IGamificationService, GamificationService>();
@@ -56,6 +58,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAchievementCheckService, AchievementCheckService>();
         services.AddScoped<IChoreGenerationService, ChoreGenerationService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IChatReadService, ChoreWars.Infrastructure.Repositories.ChatReadService>();
         services.AddScoped<IActionProposalService, ActionProposalService>();
 
         return services;

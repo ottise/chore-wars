@@ -38,11 +38,16 @@ class HouseRemoteDataSource {
     return House.fromJson(response.data!);
   }
 
-  Future<void> joinHouse({required String inviteCode}) async {
-    await _dio.post<void>(
+  Future<List<Map<String, dynamic>>> joinHouse({
+    required String inviteCode,
+  }) async {
+    final response = await _dio.post<dynamic>(
       ApiEndpoints.joinHouse,
       data: {'inviteCode': inviteCode},
     );
+    return (response.data is List ? response.data as List : <dynamic>[])
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
   }
 
   Future<void> leaveHouse(String houseId) async {

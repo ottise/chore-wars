@@ -1,3 +1,4 @@
+import '../../../../core/widgets/member_avatar.dart';
 import '../../../../core/widgets/app_page_bar.dart';
 import '../../../../core/widgets/app_page_frame.dart';
 
@@ -123,16 +124,10 @@ class LeaderboardScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: colors.primaryFixed,
-                                    foregroundColor: colors.primary,
-                                    child: Text(
-                                      member.displayName.isEmpty
-                                          ? '?'
-                                          : member.displayName.characters.first
-                                                .toUpperCase(),
-                                    ),
+                                  MemberAvatar(
+                                    houseId: houseId,
+                                    userId: member.userId,
+                                    name: member.displayName,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(

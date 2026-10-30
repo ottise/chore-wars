@@ -1,50 +1,61 @@
-import '../widgets/household_summary_sections.dart';
-import '../providers/household_summary_provider.dart';
+import '../../../notifications/presentation/providers/notification_providers.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
+import '../../../../core/widgets/member_avatar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/api_error_message.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../providers/house_providers.dart';
+import '../widgets/household_summary_sections.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/house_models.dart';
 
 class ReviewScheduleScreen extends ConsumerStatefulWidget {
-  final String houseId, seasonId;
   const ReviewScheduleScreen({
-    super.key,
     required this.houseId,
     required this.seasonId,
+    super.key,
   });
+  final String houseId, seasonId;
   @override
   ConsumerState<ReviewScheduleScreen> createState() =>
       _ReviewScheduleScreenState();
 }
 
 class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
-  bool _busy = true;
-  String? _error;
   Map<String, dynamic>? _season;
-  Map<String, dynamic> _summary = {};
   List<dynamic> _occurrences = [];
+  bool _busy = false;
+  bool _reloadPending = false;
+  String? _error;
   String get _base => '/houses/${widget.houseId}/seasons/${widget.seasonId}';
   bool get _draft => _season?['status'] == 0 || _season?['status'] == 'DRAFT';
+  bool get _reviewing =>
+      _season?['status'] == 1 || _season?['status'] == 'REVIEWING';
+  bool get _active => _season?['status'] == 2 || _season?['status'] == 'ACTIVE';
   bool get _owner =>
       ref.watch(houseDetailProvider(widget.houseId)).asData?.value.myRole ==
       HouseRole.owner;
-  bool get _confirmed {
-    final user = ref.watch(userProfileProvider).asData?.value.id;
-    return (_season?['confirmations'] as List? ?? []).any(
-      (c) =>
-          c['userId'] == user &&
-          (c['status'] == 1 || c['status'] == 'CONFIRMED'),
-    );
-  }
-
-  bool get _reviewing =>
-      _season?['status'] == 1 || _season?['status'] == 'REVIEWING';
+  List<dynamic> get _confirmations => (_season?['confirmations'] as List? ?? [])
+      .where(
+        (c) =>
+            c['scheduleRevision'] == null ||
+            c['scheduleRevision'] == _season?['scheduleRevision'],
+      )
+      .toList();
+  bool _rejected(String user) => _confirmations.any(
+    (c) =>
+        c['userId'] == user && (c['status'] == 2 || c['status'] == 'REJECTED'),
+  );
+  bool _signed(String user) => _confirmations.any(
+    (c) =>
+        c['userId'] == user && (c['status'] == 1 || c['status'] == 'CONFIRMED'),
+  );
   @override
   void initState() {
     super.initState();
@@ -58,65 +69,68 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     });
     try {
       final dio = ref.read(dioProvider);
-      final results = await Future.wait([
-        dio.get('/houses/${widget.houseId}/seasons'),
-        dio.get('$_base/occurrences'),
-        dio.get('$_base/workload-summary'),
-      ]);
+      // Approval remains usable even when an unrelated summary request fails.
+      final response = await dio.get('/houses/${widget.houseId}/seasons');
       if (!mounted) return;
-      setState(() {
-        _season = Map<String, dynamic>.from(
-          (results[0].data as List).firstWhere(
-            (s) => s['id'] == widget.seasonId,
-          ),
-        );
-        _occurrences = List.from(results[1].data as List);
-        _summary = Map<String, dynamic>.from(results[2].data);
-        _error = null;
-      });
-    } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
+      setState(
+        () => _season = Map<String, dynamic>.from(
+          (response.data as List).firstWhere((s) => s['id'] == widget.seasonId),
+        ),
+      );
+      final occurrences = await dio.get('$_base/occurrences');
+      if (mounted) setState(() => _occurrences = List.from(occurrences.data));
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        if (_reloadPending) {
+          _reloadPending = false;
+          Future.microtask(() {
+            if (mounted) _load();
+          });
+        }
+      }
     }
   }
 
   Future<void> _act(String action) async {
+    if (_busy) return;
+    String? reason;
+    if (action == 'reject') {
+      final input = TextEditingController();
+      try {
+        reason = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Request schedule changes'),
+            content: TextField(
+              controller: input,
+              maxLength: 1000,
+              decoration: const InputDecoration(labelText: 'Reason'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, input.text.trim()),
+                child: const Text('Request changes'),
+              ),
+            ],
+          ),
+        );
+      } finally {
+        input.dispose();
+      }
+      if (reason == null || reason.isEmpty) return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      String? reason;
-      if (action == 'reject') {
-        final input = TextEditingController();
-        try {
-          reason = await showDialog<String>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Why reject this schedule?'),
-              content: TextField(
-                controller: input,
-                maxLength: 1000,
-                decoration: const InputDecoration(labelText: 'Reason'),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, input.text.trim()),
-                  child: const Text('Reject'),
-                ),
-              ],
-            ),
-          );
-        } finally {
-          input.dispose();
-        }
-        if (reason == null || reason.isEmpty) return;
-      }
       await ref
           .read(dioProvider)
           .post(
@@ -129,9 +143,10 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           );
       if (!mounted) return;
       refreshHouseState(ref, houseId: widget.houseId);
+      refreshChoreState(ref, widget.houseId);
       await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -143,7 +158,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     final user = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Assign to'),
+        title: const Text('Assign chore'),
         children: [
           for (final member in members.where((m) => m.isActive))
             SimpleDialogOption(
@@ -162,485 +177,303 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
             '$_base/occurrences/${occurrence['id']}/assign',
             data: {'assigneeId': user},
           );
-      await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
+      if (mounted) {
+        refreshHouseState(ref, houseId: widget.houseId);
+        await _load();
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _importRoutine() async {
+  Future<void> _redistribute(String target) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final result = await ref
-          .read(dioProvider)
-          .get('/houses/${widget.houseId}/chores');
+      final dio = ref.read(dioProvider);
+      final response = await dio.get(
+        '$_base/redistribution-preview',
+        queryParameters: {'targetUserId': target},
+      );
+      final plan = Map<String, dynamic>.from(response.data);
+      final changes = plan['changes'] as List? ?? [];
+      final requestId = const Uuid().v4();
       if (!mounted) return;
-      final routines = (result.data as List)
-          .where((item) => item['seasonId'] == null)
-          .toList();
-      final id = await showDialog<String>(
+      final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => SimpleDialog(
-          title: const Text('Import routine snapshot'),
-          children: [
-            if (routines.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Create a reusable routine first.'),
+        builder: (context) => AlertDialog(
+          title: const Text('Review redistribution'),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${changes.length} chores will move. Existing deadlines and time slots stay unchanged.',
+                  ),
+                  for (final change in changes)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(change['choreName']),
+                      subtitle: Text(
+                        'Due ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(change['dueAt']).toUtc().add(const Duration(hours: 7)))} (Vietnam)',
+                      ),
+                    ),
+                  for (final reason in plan['reasons'] as List? ?? [])
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(reason.toString()),
+                    ),
+                ],
               ),
-            for (final routine in routines)
-              SimpleDialogOption(
-                onPressed: () =>
-                    Navigator.pop(context, routine['id'].toString()),
-                child: Text(routine['name'].toString()),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            if (changes.isNotEmpty)
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirm redistribution'),
               ),
           ],
         ),
       );
-      if (id == null || !mounted) return;
-      setState(() => _busy = true);
-      await ref.read(dioProvider).post('$_base/routines/$id');
-      await _load();
-    } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
+      if (confirmed != true) return;
+      await dio.post(
+        '$_base/redistribute',
+        data: {
+          'targetUserId': target,
+          'expectedRevision': plan['baseRevision'],
+          'contextHash': plan['contextHash'],
+          'clientRequestId': requestId,
+        },
+      );
+      if (mounted) {
+        refreshHouseState(ref, houseId: widget.houseId);
+        refreshChoreState(ref, widget.houseId);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Schedule updated.')));
+        await _load();
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  bool _signed(String id) => (_season?['confirmations'] as List? ?? []).any(
-    (row) =>
-        row['userId'] == id &&
-        (row['status'] == 1 || row['status'] == 'CONFIRMED'),
-  );
-
-  bool _rejected(String id) => (_season?['confirmations'] as List? ?? []).any(
-    (row) =>
-        row['userId'] == id &&
-        (row['status'] == 2 || row['status'] == 'REJECTED'),
-  );
-
-  Widget _panel(Widget child) => Card(
-    margin: EdgeInsets.zero,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(
-        color: Theme.of(context).colorScheme.outlineVariant
-            .withValues(alpha: .35),
-      ),
-    ),
-    child: Padding(padding: const EdgeInsets.all(16), child: child),
-  );
-
-  Widget _status(String label, bool signed) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: label == 'Rejected'
-          ? Theme.of(context).colorScheme.errorContainer
-          : signed
-          ? AppTheme.successContainer
-          : Theme.of(context).colorScheme.tertiaryFixed,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: label == 'Rejected'
-            ? Theme.of(context).colorScheme.onErrorContainer
-            : signed
-            ? AppTheme.green
-            : Theme.of(context).colorScheme.onTertiaryFixedVariant,
-      ),
-    ),
-  );
-
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-    length: 4,
-    child: Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Household Summary',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh schedule',
-            onPressed: _busy
-                ? null
-                : () {
-                    ref.invalidate(householdSummaryProvider);
-                    _load();
-                  },
-            icon: const Icon(Icons.refresh_outlined),
-          ),
-        ],
-        bottom: const TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: [
-            Tab(text: 'Schedule'),
-            Tab(text: 'Spending & Payments'),
-            Tab(text: 'Chore Completion'),
-            Tab(text: 'Member Contributions'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        children: [
-          _schedule(context),
-          for (var section = 1; section <= 3; section++)
-            HouseholdSummarySection(
-              houseId: widget.houseId,
-              seasonId: widget.seasonId,
-              section: section,
-            ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _schedule(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+  Widget build(BuildContext context) {
+    ref.listen(notificationNotifierProvider.select((s) => s.latestArrival), (
+      previous,
+      next,
+    ) {
+      if (next != null && next.houseId == widget.houseId && !next.isChat) {
+        if (_busy) {
+          _reloadPending = true;
+        } else {
+          _load();
+        }
+      }
+    });
+    final members =
+        ref
+            .watch(houseMembersProvider(widget.houseId))
+            .asData
+            ?.value
+            .where((m) => m.isActive)
+            .toList() ??
+        <HouseMember>[];
     final me = ref.watch(userProfileProvider).asData?.value.id;
-    final members = _summary['members'] as List? ?? [];
-    final totalKarma = members.fold<num>(
-      0,
-      (total, row) => total + ((row['totalAssignedKarma'] as num?) ?? 0),
-    );
-    final signedCount = members
-        .where((row) => _signed(row['userId'].toString()))
-        .length;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      children: [
-        if (_busy) const LinearProgressIndicator(),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(_error!, style: TextStyle(color: colors.error)),
+    final waiting = members.where((m) => !_signed(m.userId)).toList();
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(
+            onPressed: () => context.go('/houses/${widget.houseId}'),
           ),
-        if (_error != null && !_busy)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _load,
+          title: const Text(
+            'Household Summary',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh schedule',
+              onPressed: _busy ? null : _load,
               icon: const Icon(Icons.refresh),
-              label: const Text('Try again'),
             ),
-          ),
-        if (_season != null) ...[
-          _panel(
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    Chip(
-                      label: Text(
-                        '${_season!['name'] ?? 'Season'} · Revision ${_season!['scheduleRevision'] ?? 0}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colors.onPrimaryFixedVariant,
-                        ),
-                      ),
-                      backgroundColor: colors.primaryFixed,
-                    ),
-                    _status(
-                      '$signedCount/${members.length} approvals',
-                      signedCount == members.length && members.isNotEmpty,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'All active members must approve the same schedule revision before the season starts.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                if (_season!['lastRejectionReason'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Revision requested: ${_season!['lastRejectionReason']}',
-                      style: TextStyle(color: colors.error, fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'MEMBER WORKLOAD & KARMA',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                '${members.length} members',
-                style: TextStyle(fontSize: 12, color: colors.primary),
-              ),
+          ],
+          bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: 'Schedule'),
+              Tab(text: 'Spending & Payments'),
+              Tab(text: 'Chore Completion'),
+              Tab(text: 'Member Contributions'),
             ],
           ),
-          const SizedBox(height: 12),
-          for (final member in members)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _panel(
-                Builder(
-                  builder: (context) {
-                    final id = member['userId'].toString();
-                    final name = member['displayName']?.toString() ?? 'Member';
-                    final karma = (member['totalAssignedKarma'] as num?) ?? 0;
-                    final share = totalKarma > 0 ? karma / totalKarma : 0.0;
-                    final signed = _signed(id);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: id == me
-                                    ? colors.primaryContainer
-                                    : colors.tertiaryFixed,
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              child: Text(
-                                name.isEmpty
-                                    ? '?'
-                                    : name.characters.first.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: id == me
-                                      ? colors.onPrimaryContainer
-                                      : colors.onTertiaryFixedVariant,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$name${id == me ? ' · You' : ''}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    '$karma Karma · ${member['totalEstimatedMinutes'] ?? 0} min',
-                                    style: TextStyle(
-                                      color: colors.onSurfaceVariant,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            _status(
-                              signed
-                                  ? 'Approved'
-                                  : _rejected(id)
-                                  ? 'Rejected'
-                                  : 'Pending',
-                              signed,
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 26),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Chore Share ${(share * 100).toStringAsFixed(1)}%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${member['totalChores'] ?? 0} tasks',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: share.clamp(0.0, 1.0).toDouble(),
-                            minHeight: 6,
-                            color: id == me
-                                ? colors.primaryContainer
-                                : colors.tertiary,
-                            backgroundColor: colors.surfaceContainerHigh,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          for (final warning in _summary['warnings'] as List? ?? [])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(warning.toString()),
-            ),
-          _panel(
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        body: TabBarView(
+          children: [
+            ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
               children: [
-                Row(
-                  children: [
-                    const Expanded(
+                if (_busy) const LinearProgressIndicator(),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Semantics(
+                      liveRegion: true,
                       child: Text(
-                        'MEMBER CONFIRMATIONS',
+                        _error!,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
                     ),
-                    Text(
-                      '$signedCount/${members.length}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
+                  ),
+                if (_season != null) ...[
+                  Text(
+                    '${_season!['name']} · Revision ${_season!['scheduleRevision']}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _reviewing
+                        ? '${members.length - waiting.length}/${members.length} approvals. Waiting for ${waiting.map((m) => m.displayName).join(', ')}.'
+                        : _active
+                        ? 'The season is active. New members receive eligible future chores automatically.'
+                        : 'Prepare the schedule, then submit it for everyone to review.',
+                  ),
+                  const SizedBox(height: 16),
+                  if (_reviewing)
+                    FilledButton.icon(
+                      onPressed: _busy || me == null || _signed(me)
+                          ? null
+                          : () => _act('confirm'),
+                      icon: const Icon(Icons.done_all),
+                      label: Text(
+                        me != null && _signed(me)
+                            ? 'Confirmed · Waiting for other members'
+                            : 'Confirm & Approve Schedule',
                       ),
+                    ),
+                  if (_reviewing)
+                    TextButton(
+                      onPressed: _busy ? null : () => _act('reject'),
+                      child: const Text('Request changes'),
+                    ),
+                  for (final member in members)
+                    Card(
+                      child: ListTile(
+                        leading: MemberAvatar(
+                          houseId: widget.houseId,
+                          userId: member.userId,
+                          name: member.displayName,
+                          version: member.avatarUrl ?? '',
+                        ),
+                        title: Text(member.displayName),
+                        subtitle: Text(
+                          _reviewing
+                              ? _signed(member.userId)
+                                    ? 'Confirmed'
+                                    : _rejected(member.userId)
+                                    ? 'Rejected'
+                                    : 'Awaiting confirmation'
+                              : member.isOwner
+                              ? 'Owner'
+                              : 'Member',
+                        ),
+                        trailing: _owner && (_draft || _reviewing || _active)
+                            ? IconButton(
+                                tooltip:
+                                    'Review redistribution for ${member.displayName}',
+                                onPressed: _busy
+                                    ? null
+                                    : () => _redistribute(member.userId),
+                                icon: const Icon(Icons.swap_horiz),
+                              )
+                            : null,
+                      ),
+                    ),
+                  if (_draft && _owner) ...[
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _act('generate-schedule'),
+                      child: const Text('Generate / regenerate draft'),
+                    ),
+                    FilledButton(
+                      onPressed:
+                          _busy ||
+                              _occurrences.isEmpty ||
+                              _occurrences.any(
+                                (o) =>
+                                    (o['type'] == 0 || o['type'] == 'NORMAL') &&
+                                    o['assignedUserId'] == null,
+                              )
+                          ? null
+                          : () => _act('submit-review'),
+                      child: const Text('Submit for everyone to review'),
                     ),
                   ],
-                ),
-                const SizedBox(height: 14),
-                for (final member in members)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(14),
+                  const SizedBox(height: 16),
+                  if (_owner && (_draft || _active)) ...[
+                    for (final occurrence in _occurrences.where(
+                      (o) =>
+                          (o['type'] == 0 || o['type'] == 'NORMAL') &&
+                          o['assignedUserId'] == null,
+                    ))
+                      ListTile(
+                        title: Text(occurrence['choreName']),
+                        subtitle: const Text(
+                          'Needs assignment · Review member availability',
+                        ),
+                        trailing: TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () => _assign(
+                                  Map<String, dynamic>.from(occurrence),
+                                ),
+                          child: const Text('Assign'),
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              member['displayName']?.toString() ?? 'Member',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          _status(
-                            _signed(member['userId'].toString())
-                                ? 'Confirmed'
-                                : _rejected(member['userId'].toString())
-                                ? 'Rejected'
-                                : 'Awaiting',
-                            _signed(member['userId'].toString()),
-                          ),
-                        ],
-                      ),
-                    ),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.go('/houses/${widget.houseId}/chores?tab=team'),
+                    icon: const Icon(Icons.calendar_month),
+                    label: const Text('View team schedule'),
                   ),
+                  TextButton(
+                    onPressed: () => context.push(
+                      '/houses/${widget.houseId}/seasons/${widget.seasonId}/leaderboard',
+                    ),
+                    child: const Text('Season ranking'),
+                  ),
+                ],
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_reviewing) ...[
-            FilledButton.icon(
-              onPressed: _busy || _confirmed || _error != null
-                  ? null
-                  : () => _act('confirm'),
-              icon: const Icon(Icons.done_all_outlined, size: 18),
-              label: Text(
-                _confirmed
-                    ? 'Confirmed · Waiting for Everyone'
-                    : 'Confirm & Approve Schedule',
+            for (var section = 1; section <= 3; section++)
+              HouseholdSummarySection(
+                houseId: widget.houseId,
+                seasonId: widget.seasonId,
+                section: section,
               ),
-            ),
-            TextButton(
-              onPressed: _busy ? null : () => _act('reject'),
-              child: const Text('Request Changes & Return to Draft'),
-            ),
           ],
-          if (_draft && _owner) ...[
-            OutlinedButton(
-              onPressed: _busy ? null : _importRoutine,
-              child: const Text('Import reusable routine'),
-            ),
-            OutlinedButton(
-              onPressed: _busy ? null : () => _act('generate-schedule'),
-              child: const Text('Generate / regenerate draft'),
-            ),
-            FilledButton(
-              onPressed: _busy || (_summary['unassignedCount'] ?? 1) > 0
-                  ? null
-                  : () => _act('submit-review'),
-              child: const Text('Submit for everyone to review'),
-            ),
-          ],
-          const SizedBox(height: 12),
-          _panel(
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              initiallyExpanded: _draft,
-              title: Text(
-                'Assignment Details (${_occurrences.length})',
-                style: const TextStyle(fontSize: 13),
-              ),
-              children: [
-                for (final item in _occurrences)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      item['choreName'] ?? '',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    subtitle: Text(
-                      '${item['assignedUserDisplayName'] ?? 'Unassigned'} · ${item['dueDate']}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: _draft && _owner
-                        ? TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () =>
-                                      _assign(Map<String, dynamic>.from(item)),
-                            child: const Text('Assign'),
-                          )
-                        : null,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 }

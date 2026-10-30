@@ -192,11 +192,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(SnackBar), findsNothing);
-      expect(container.read(unreadNotificationCountProvider), 1);
+      expect(container.read(unreadNotificationCountProvider), 0);
       inbox.receive(_notice('New household message', 'CHAT_MESSAGE'));
       await tester.pumpAndSettle();
       expect(find.text('New household message'), findsOneWidget);
-      expect(container.read(unreadNotificationCountProvider), 2);
+      expect(container.read(unreadNotificationCountProvider), 0);
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       expect(find.text('Conversation'), findsOneWidget);

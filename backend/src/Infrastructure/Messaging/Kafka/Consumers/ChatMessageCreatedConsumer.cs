@@ -19,12 +19,15 @@ public sealed class ChatMessageCreatedConsumer(IOptions<KafkaOptions> options, I
     {
         var db = services.GetRequiredService<AppDbContext>();
         var message = await db.ChatMessages.AsNoTracking().Where(m => m.Id == value.MessageId && m.Room.HouseId == value.HouseId)
-            .Select(m => new {m.SenderId, m.RoomId, m.CreatedAt}).SingleAsync(ct);
+            .Select(m => new { m.SenderId, m.RoomId, m.CreatedAt }).SingleAsync(ct);
         var members = (await services.GetRequiredService<IUnitOfWork>().HouseMembers.GetByHouseIdAsync(value.HouseId, ct))
-            .Where(m => m.Status == HouseMemberStatus.ACTIVE && !m.ChatNotificationsMuted && m.UserId != message.SenderId && m.JoinedAt <= message.CreatedAt)
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != message.SenderId && m.JoinedAt <= message.CreatedAt)
             .Select(m => m.UserId).ToHashSet();
+        var realtime = services.GetRequiredService<INotificationRealtimePublisher>();
+        foreach (var user in members) await realtime.ChatUnreadChangedAsync(user, value.HouseId, ct);
+        var muted = (await services.GetRequiredService<IUnitOfWork>().HouseMembers.GetByHouseIdAsync(value.HouseId, ct)).Where(m => m.ChatNotificationsMuted).Select(m => m.UserId).ToHashSet();
         var notifications = services.GetRequiredService<INotificationService>();
-        foreach (var recipient in value.RecipientIds.Distinct().Where(members.Contains))
+        foreach (var recipient in value.RecipientIds.Distinct().Where(id => members.Contains(id) && !muted.Contains(id)))
         {
             var mentioned = value.MentionedIds.Contains(recipient);
             await notifications.CreateNotificationAsync(recipient, value.HouseId,

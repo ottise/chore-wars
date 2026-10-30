@@ -26,10 +26,10 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
     }
 
     public async Task<IEnumerable<ChoreOccurrence>> GetUnresolvedByHouseIdAsync(Guid houseId, CancellationToken ct = default)
-        => await _context.ChoreOccurrences.Include(o=>o.Chore).Include(o=>o.AssignedUser)
-            .Where(o=>o.Chore.HouseId==houseId && o.Chore.Type==ChoreWars.Domain.Enums.ChoreType.NORMAL
-                && o.Status!=ChoreWars.Domain.Enums.ChoreOccurrenceStatus.COMPLETED && o.Status!=ChoreWars.Domain.Enums.ChoreOccurrenceStatus.SKIPPED
-                && (o.Status==ChoreWars.Domain.Enums.ChoreOccurrenceStatus.CRITICAL_OVERDUE || _context.ChoreBounties.Any(b=>b.ChoreOccurrenceId==o.Id && b.Status==ChoreWars.Domain.Enums.BountyStatus.EXPIRED)))
+        => await _context.ChoreOccurrences.Include(o => o.Chore).Include(o => o.AssignedUser)
+            .Where(o => o.Chore.HouseId == houseId && o.Chore.Type == ChoreWars.Domain.Enums.ChoreType.NORMAL
+                && o.Status != ChoreWars.Domain.Enums.ChoreOccurrenceStatus.COMPLETED && o.Status != ChoreWars.Domain.Enums.ChoreOccurrenceStatus.SKIPPED
+                && (o.Status == ChoreWars.Domain.Enums.ChoreOccurrenceStatus.CRITICAL_OVERDUE || _context.ChoreBounties.Any(b => b.ChoreOccurrenceId == o.Id && b.Status == ChoreWars.Domain.Enums.BountyStatus.EXPIRED)))
             .ToListAsync(ct);
 
     public async Task AddResponsibilityAsync(ChoreResponsibility responsibility, CancellationToken cancellationToken = default)
@@ -108,9 +108,16 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
 
     public async Task DeleteBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default)
     {
-        await _context.ChoreOccurrences.Include(o => o.Responsibilities)
-            .Where(o => o.SeasonId == seasonId)
-            .ExecuteDeleteAsync(cancellationToken);
+        var season = await _context.Seasons.FindAsync(new object[] { seasonId }, cancellationToken);
+        if (season?.Status != SeasonStatus.DRAFT) throw new ChoreWars.Domain.Exceptions.ConflictException("Only an unpublished draft can be regenerated.");
+        var draft = _context.ChoreOccurrences.Where(o => o.SeasonId == seasonId);
+        if (await draft.AnyAsync(o => o.Status != ChoreOccurrenceStatus.ASSIGNED || o.CompletedAt != null || o.EvidenceId != null || o.ProofImageUrl != null || o.PenaltyCount > 0 ||
+            _context.PaymentObligations.Any(p => p.OccurrenceId == o.Id) || _context.ChoreBounties.Any(b => b.ChoreOccurrenceId == o.Id), cancellationToken))
+            throw new ChoreWars.Domain.Exceptions.ConflictException("This draft contains recorded work or financial history and cannot be regenerated.");
+        // These are unpublished draft assignments. Keep the redistribution audit and all published work.
+        var ids = draft.Select(o => o.Id);
+        await _context.Set<ChoreResponsibility>().Where(r => ids.Contains(r.OccurrenceId)).ExecuteDeleteAsync(cancellationToken);
+        await draft.ExecuteDeleteAsync(cancellationToken);
     }
 
     public void Update(ChoreOccurrence occurrence)

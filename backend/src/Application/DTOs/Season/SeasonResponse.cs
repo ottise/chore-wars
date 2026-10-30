@@ -21,6 +21,7 @@ public class SeasonResponse
 
 public class SeasonConfirmationResponse
 {
+    public int ScheduleRevision { get; set; }
     public Guid UserId { get; set; }
     public ConfirmationStatus Status { get; set; }
     public string? Reason { get; set; }

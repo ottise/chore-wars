@@ -1,3 +1,9 @@
+import '../../../bounty/presentation/providers/bounty_providers.dart';
+
+import 'package:go_router/go_router.dart';
+
+import '../../../auth/presentation/providers/auth_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +28,7 @@ class BonusChoresScreen extends ConsumerStatefulWidget {
 class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   List<dynamic> _chores = [];
   bool _loading = true;
+  bool _fetching = false;
   Object? _error;
 
   @override
@@ -31,21 +38,39 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
   }
 
   Future<void> _fetchBonusChores() async {
+    if (_fetching) return;
+    _fetching = true;
     try {
       final dio = ref.read(dioProvider);
       final res = await dio.get(
         '/houses/${widget.houseId}/seasons/${widget.seasonId}/occurrences',
       );
+      final bounties = await dio.get('/houses/${widget.houseId}/bounties');
+      final me = ref.read(userProfileProvider).asData?.value.id;
+      final accepted = {
+        for (final b in bounties.data as List)
+          if ((b['status'] == 1 || b['status'] == 'CLAIMED') &&
+              b['assignedUserId'] == me)
+            b['choreOccurrenceId'].toString(): b,
+      };
       if (mounted) {
         setState(() {
           // Filter for unassigned BONUS chores (Type == 1 means BONUS in our enum)
           _chores = (res.data as List<dynamic>)
               .where(
                 (c) =>
-                    (c['type'] == 1 || c['type'] == 'BONUS') &&
-                    c['assignedUserId'] == null &&
-                    DateTime.parse(c['dueDate'].toString())
-                        .isAfter(DateTime.now()),
+                    accepted.containsKey(c['id'].toString()) ||
+                    ((c['type'] == 1 || c['type'] == 'BONUS') &&
+                        c['assignedUserId'] == null &&
+                        DateTime.parse(c['dueDate'].toString())
+                            .isAfter(DateTime.now())),
+              )
+              .map(
+                (c) => {
+                  ...c as Map,
+                  if (accepted.containsKey(c['id'].toString()))
+                    'bounty': accepted[c['id'].toString()],
+                },
               )
               .toList();
           _loading = false;
@@ -59,6 +84,8 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
           _error = e;
         });
       }
+    } finally {
+      _fetching = false;
     }
   }
 
@@ -82,6 +109,9 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(bountyBoardProvider(widget.houseId), (previous, next) {
+      if (next.hasValue) _fetchBonusChores();
+    });
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
@@ -107,11 +137,20 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
               return Card(
                 child: ListTile(
                   title: Text(c['choreName']),
-                  subtitle: Text("Reward: ${c['karmaPoints']} Karma"),
-                  trailing: ElevatedButton(
-                    onPressed: () => _claimChore(c['id']),
-                    child: const Text('Claim'),
+                  subtitle: Text(
+                    c['bounty'] != null
+                        ? "Bounty: ${c['bounty']['amount']} VND · Due ${c['dueDate']}"
+                        : "Reward: ${c['karmaPoints']} Karma",
                   ),
+                  onTap: () => context.push(
+                    '/houses/${widget.houseId}/chores/${c['id']}',
+                  ),
+                  trailing: c['bounty'] != null
+                      ? const Chip(label: Text('Bounty'))
+                      : ElevatedButton(
+                          onPressed: () => _claimChore(c['id']),
+                          child: const Text('Claim'),
+                        ),
                 ),
               );
             },

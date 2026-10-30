@@ -95,6 +95,8 @@ enum ChoreEffort {
 
 class ChoreTemplate {
   const ChoreTemplate({
+    this.clientRequestId,
+    this.unassignedCount = 0,
     required this.id,
     required this.name,
     required this.description,
@@ -117,6 +119,8 @@ class ChoreTemplate {
   final int deadlineMinutes;
   final String? recurrenceAnchor;
   final List<String> customDates;
+  final int unassignedCount;
+  final String? clientRequestId;
   final String id;
   final String name;
   final String description;
@@ -129,6 +133,7 @@ class ChoreTemplate {
   final int estimatedMinutes;
 
   factory ChoreTemplate.fromJson(Map<String, dynamic> json) => ChoreTemplate(
+    unassignedCount: (json['unassignedCount'] as num?)?.toInt() ?? 0,
     seasonId: json['seasonId'] as String?,
     deadlineMinutes: (json['deadlineMinutes'] as num?)?.toInt() ?? 1439,
     recurrenceAnchor: json['recurrenceAnchor'] as String?,
@@ -149,6 +154,7 @@ class ChoreTemplate {
 
   Map<String, dynamic> toRequestJson() => {
     'asRoutine': asRoutine,
+    if (clientRequestId != null) 'clientRequestId': clientRequestId,
     'deadlineMinutes': deadlineMinutes,
     'recurrenceAnchor': recurrenceAnchor,
     'customDates': customDates,
@@ -166,6 +172,7 @@ class ChoreTemplate {
 
 class ChoreOccurrence {
   const ChoreOccurrence({
+    this.houseId,
     required this.id,
     required this.choreId,
     required this.choreName,
@@ -181,6 +188,7 @@ class ChoreOccurrence {
     this.evidenceId,
   });
 
+  final String? houseId;
   final String id;
   final String choreId;
   final String choreName;
@@ -203,7 +211,7 @@ class ChoreOccurrence {
         assignedUserId: json['assignedUserId']?.toString(),
         assignedUserDisplayName:
             json['assignedUserDisplayName']?.toString() ?? 'Unassigned',
-        dueDate: DateTime.parse(json['dueDate'].toString()).toLocal(),
+        dueDate: DateTime.parse(json['dueDate'].toString()).toUtc(),
         status: ChoreStatus.fromJson(json['status']),
         description: json['description']?.toString() ?? '',
         karmaPoints:

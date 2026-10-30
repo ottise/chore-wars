@@ -17,11 +17,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-AppNotification notice(String id, String house) => AppNotification.fromJson({
+AppNotification notice(
+  String id,
+  String house, {
+  String type = 'CHAT_MESSAGE',
+}) => AppNotification.fromJson({
   'id': id,
   'userId': 'me',
   'houseId': house,
-  'type': 'CHAT_MESSAGE',
+  'type': type,
   'title': id,
   'message': 'Message',
   'createdAt': '2026-10-25T10:00:00Z',
@@ -32,9 +36,9 @@ class _Inbox extends NotificationNotifier {
   @override
   NotificationState build() => NotificationState(
     notifications: [
-      notice('A only', 'A'),
-      notice('B first', 'B'),
-      notice('B second', 'B'),
+      notice('A only', 'A', type: 'BOUNTY_CREATED'),
+      notice('B first', 'B', type: 'BOUNTY_CREATED'),
+      notice('B second', 'B', type: 'BOUNTY_CREATED'),
     ],
   );
   @override

@@ -1,3 +1,8 @@
+import '../../../../core/utils/vietnam_time.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
+import '../../../supplies/presentation/providers/supplies_providers.dart';
+import '../../../house/presentation/providers/house_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +32,7 @@ class BountyBoardScreen extends ConsumerStatefulWidget {
 class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _accepting = <String>{};
 
   @override
   void initState() {
@@ -45,46 +51,12 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
     if (houseId == null || houseId.isEmpty) return;
 
     try {
-      final profile = await ref.read(userProfileProvider.future);
-      final dio = ref.read(dioProvider);
-      final seasonResponse = await dio.get('/houses/$houseId/seasons/current');
-      final season = seasonResponse.data is Map
-          ? Map<String, dynamic>.from(seasonResponse.data as Map)
-          : <String, dynamic>{};
-      final seasonId = season['id']?.toString();
-      if (seasonId == null || seasonId.isEmpty) {
-        if (context.mounted) {
-          showAppMessage(
-            context,
-            'Create a season before posting a bounty.',
-            error: true,
-          );
-        }
-        return;
-      }
-
-      final occurrencesResponse = await dio.get(
-        '/houses/$houseId/seasons/$seasonId/occurrences',
-      );
-      final occurrences = occurrencesResponse.data is List
-          ? (occurrencesResponse.data as List)
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .where(
-                  (item) =>
-                      item['assignedUserId']?.toString().toLowerCase() ==
-                          profile.id.toLowerCase() &&
-                      [
-                        'ASSIGNED',
-                        'OVERDUE',
-                        'CRITICAL_OVERDUE',
-                        '0',
-                        '2',
-                        '3',
-                      ].contains(item['status']?.toString().toUpperCase()),
-                )
-                .toList()
-          : <Map<String, dynamic>>[];
+      final response = await ref
+          .read(dioProvider)
+          .get('/houses/$houseId/bounties/eligible-chores');
+      final occurrences = (response.data as List)
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
 
       if (!context.mounted) return;
       if (occurrences.isEmpty) {
@@ -137,7 +109,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
                       subtitle: Text(
                         dueDate == null
                             ? 'No deadline'
-                            : 'Due: ${DateFormat('dd/MM HH:mm').format(dueDate.toLocal())}',
+                            : 'Due: ${DateFormat('dd/MM HH:mm').format(vietnamTime(dueDate))}',
                       ),
                       trailing: const Icon(
                         Icons.arrow_forward_ios_outlined,
@@ -187,7 +159,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
           content: Text(
             'Do you agree to complete "${bounty.choreName}" on behalf of ${bounty.postedByDisplayName}?\n\n'
             'Reward: ${currency.format(bounty.amount)}\n'
-            'Deadline: ${DateFormat('dd/MM HH:mm').format(bounty.expiresAt)}',
+            'Deadline: ${DateFormat('dd/MM HH:mm').format(vietnamTime(bounty.expiresAt))}',
           ),
           actions: [
             TextButton(
@@ -203,12 +175,16 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       },
     );
 
-    if (confirm != true || !mounted) return;
+    if (confirm != true || !mounted || !_accepting.add(bounty.id)) return;
+    setState(() {});
 
     try {
       await ref
           .read(bountyRepositoryProvider)
           .acceptBounty(houseId: houseId, bountyId: bounty.id);
+      refreshHouseState(ref, houseId: houseId);
+      refreshChoreState(ref, houseId, occurrenceId: bounty.choreOccurrenceId);
+      ref.invalidate(purchaseDebtsProvider(houseId));
       ref.invalidate(bountyBoardProvider(houseId));
       if (mounted) {
         showAppMessage(
@@ -220,6 +196,9 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
       if (mounted) {
         showAppMessage(context, apiErrorMessage(e), error: true);
       }
+    } finally {
+      _accepting.remove(bounty.id);
+      if (mounted) setState(() {});
     }
   }
 
@@ -238,6 +217,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
 
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: () => context.go('/houses/$houseId')),
         title: const Text('Bounties'),
         actions: [
           if (widget.houseId != null)
@@ -359,7 +339,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen>
               return _AvailableBountyCard(
                 bounty: bounty,
                 isMine: isMine,
-                onAccept: () => _handleAcceptBounty(bounty),
+                onAccept: () {
+                  if (!_accepting.contains(bounty.id)) {
+                    _handleAcceptBounty(bounty);
+                  }
+                },
                 onTap: () => context.push(
                   '/bounties/${bounty.id}?houseId=${Uri.encodeComponent(houseId)}',
                 ),
@@ -526,7 +510,8 @@ class _AvailableBountyCard extends StatelessWidget {
       symbol: '₫',
       decimalDigits: 0,
     );
-    final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
+    final date = DateFormat('dd/MM HH:mm')
+        .format(vietnamTime(bounty.expiresAt));
 
     return Card(
       elevation: 0,
@@ -659,7 +644,8 @@ class _MyPostedBountyCard extends StatelessWidget {
       symbol: '₫',
       decimalDigits: 0,
     );
-    final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
+    final date = DateFormat('dd/MM HH:mm')
+        .format(vietnamTime(bounty.expiresAt));
 
     Color statusColor;
     String statusText;
@@ -798,7 +784,8 @@ class _MyAcceptedBountyCard extends StatelessWidget {
       symbol: '₫',
       decimalDigits: 0,
     );
-    final date = DateFormat('dd/MM HH:mm').format(bounty.expiresAt);
+    final date = DateFormat('dd/MM HH:mm')
+        .format(vietnamTime(bounty.expiresAt));
 
     Color statusColor;
     String statusText;

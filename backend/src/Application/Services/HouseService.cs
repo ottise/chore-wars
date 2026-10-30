@@ -22,14 +22,16 @@ public partial class HouseService : IHouseService
     private readonly IHouseRealtimeAccess? _realtimeAccess;
     private readonly IMapper _mapper;
     private readonly IMembershipChoreRedistributor? _redistributor;
+    private readonly INotificationService? _notifications;
 
-    public HouseService(IUnitOfWork unitOfWork, IMapper mapper, IHouseMutationCoordinator? mutationCoordinator = null, IHouseRealtimeAccess? realtimeAccess = null, TimeProvider? clock = null, IMembershipChoreRedistributor? redistributor = null)
+    public HouseService(IUnitOfWork unitOfWork, IMapper mapper, IHouseMutationCoordinator? mutationCoordinator = null, IHouseRealtimeAccess? realtimeAccess = null, TimeProvider? clock = null, IMembershipChoreRedistributor? redistributor = null, INotificationService? notifications = null)
     {
         _clock = clock ?? TimeProvider.System;
         _mutations = mutationCoordinator; _realtimeAccess = realtimeAccess;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _redistributor = redistributor;
+        _notifications = notifications;
     }
 
     public async Task<HouseResponse> CreateHouseAsync(CreateHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -71,7 +73,7 @@ public partial class HouseService : IHouseService
             await _unitOfWork.HouseMembers.AddAsync(member, cancellationToken);
             await _unitOfWork.Chats.AddRoomAsync(room, cancellationToken);
             foreach (var achievement in AchievementDefaults.ForHouse(house.Id))
-                await _unitOfWork.Achievements.AddAsync(achievement,cancellationToken);
+                await _unitOfWork.Achievements.AddAsync(achievement, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
@@ -84,14 +86,14 @@ public partial class HouseService : IHouseService
         return _mapper.Map<HouseResponse>(house);
     }
 
-    public async Task JoinHouseAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<List<ChoreWars.Application.DTOs.Season.RedistributionResult>> JoinHouseAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
-        if (_mutations == null) { await JoinHouseCoreAsync(request, userId, cancellationToken); return; }
+        if (_mutations == null) return await JoinHouseCoreAsync(request, userId, cancellationToken);
         var context = await _unitOfWork.Houses.GetByInviteCodeAsync(request.InviteCode, cancellationToken) ?? throw new NotFoundException("Invitation not found.");
-        await _mutations.RunAsync(context.Id, () => JoinHouseCoreAsync(request, userId, cancellationToken), cancellationToken);
+        return await _mutations.RunAsync(context.Id, () => JoinHouseCoreAsync(request, userId, cancellationToken), cancellationToken);
     }
 
-    private async Task JoinHouseCoreAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
+    private async Task<List<ChoreWars.Application.DTOs.Season.RedistributionResult>> JoinHouseCoreAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
         var house = await _unitOfWork.Houses.GetByInviteCodeAsync(request.InviteCode, cancellationToken);
         if (house == null)
@@ -117,15 +119,20 @@ public partial class HouseService : IHouseService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            await InvalidateReviewAsync(house.Id,cancellationToken);
             member.Status = HouseMemberStatus.ACTIVE;
             member.JoinedAt = _clock.GetUtcNow().UtcDateTime;
             if (existingMember == null) await _unitOfWork.HouseMembers.AddAsync(member, cancellationToken);
             else _unitOfWork.HouseMembers.Update(member);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            if (_redistributor != null) await _redistributor.RedistributeAsync(house.Id, userId, cancellationToken);
+            var result = _redistributor != null ? await _redistributor.RedistributeAsync(house.Id, userId, cancellationToken) : new List<ChoreWars.Application.DTOs.Season.RedistributionResult>();
+            if (_notifications != null)
+            {
+                var recipients = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(house.Id, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != userId);
+                foreach (var recipient in recipients) await _notifications.CreateNotificationAsync(recipient.UserId, house.Id, "New household member", "A member joined. Review your household schedule for updated assignments.", "MEMBER_JOINED", "HOUSE", house.Id, cancellationToken);
+            }
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return result;
         }
         catch
         {
@@ -165,7 +172,7 @@ public partial class HouseService : IHouseService
         await EnsureNoOpenObligationsAsync(houseId, userId, cancellationToken);
         await InvalidateReviewAsync(houseId, cancellationToken);
         member.Status = HouseMemberStatus.LEFT;
-        await RevokeRoomAsync(houseId,userId,cancellationToken);
+        await RevokeRoomAsync(houseId, userId, cancellationToken);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -207,7 +214,7 @@ public partial class HouseService : IHouseService
             throw new ConflictException("Resolve outstanding chores before removing a member.");
         await InvalidateReviewAsync(houseId, cancellationToken);
         memberToKick.Status = HouseMemberStatus.BANNED;
-        await RevokeRoomAsync(houseId,memberId,cancellationToken);
+        await RevokeRoomAsync(houseId, memberId, cancellationToken);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -298,8 +305,8 @@ public partial class HouseService : IHouseService
 
     public async Task TransferOwnershipAsync(Guid houseId, Guid newOwnerId, Guid currentUserId, CancellationToken cancellationToken = default)
     {
-        if (_mutations != null) await _mutations.RunAsync(houseId, () => TransferOwnershipCoreAsync(houseId,newOwnerId,currentUserId,cancellationToken),cancellationToken);
-        else await TransferOwnershipCoreAsync(houseId,newOwnerId,currentUserId,cancellationToken);
+        if (_mutations != null) await _mutations.RunAsync(houseId, () => TransferOwnershipCoreAsync(houseId, newOwnerId, currentUserId, cancellationToken), cancellationToken);
+        else await TransferOwnershipCoreAsync(houseId, newOwnerId, currentUserId, cancellationToken);
     }
     private async Task TransferOwnershipCoreAsync(Guid houseId, Guid newOwnerId, Guid currentUserId, CancellationToken cancellationToken)
     {
@@ -481,7 +488,8 @@ public partial class HouseService : IHouseService
             MaxEffortMinutesPerDay = constraint.MaxEffortMinutesPerDay
         };
     }
-    private async Task EnsureNoOpenObligationsAsync(Guid houseId, Guid userId, CancellationToken ct) {
+    private async Task EnsureNoOpenObligationsAsync(Guid houseId, Guid userId, CancellationToken ct)
+    {
         var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, ct);
         if (payments.Any(p => (p.DebtorUserId == userId || p.CreditorUserId == userId) && p.Status is PaymentObligationStatus.PENDING or PaymentObligationStatus.DISPUTED))
             throw new ConflictException("Resolve outstanding payment obligations first.");

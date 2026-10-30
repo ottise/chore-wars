@@ -12,6 +12,8 @@ public class HouseMember
     public HouseMemberStatus Status { get; set; }
     public DateTime JoinedAt { get; set; }
     public int KarmaBalance { get; set; }
+    public DateTime? ChatReadAt { get; set; }
+    public Guid? ChatReadMessageId { get; set; }
     public bool ChatNotificationsMuted { get; set; }
 
     public House House { get; set; } = null!;

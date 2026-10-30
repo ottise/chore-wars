@@ -5,5 +5,6 @@ public enum PaymentObligationStatus
     PENDING = 0,
     PAID = 1,
     DISPUTED = 2,
-    CANCELLED = 3
+    CANCELLED = 3,
+    AWAITING_COMPLETION = 4
 }

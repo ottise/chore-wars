@@ -10,13 +10,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('bounty picker shows only own unresolved assigned chores', (
+  testWidgets('bounty picker uses the server eligible-chores contract', (
     tester,
   ) async {
     final dio = Dio()
       ..interceptors.add(
         InterceptorsWrapper(
           onRequest: (request, handler) {
+            expect(request.path, '/houses/house/bounties/eligible-chores');
             handler.resolve(
               Response(
                 requestOptions: request,
@@ -29,29 +30,6 @@ void main() {
                           'choreName': 'My chore',
                           'assignedUserId': 'ME',
                           'status': 0,
-                        },
-                        {
-                          'id': 'other',
-                          'choreName': 'Someone else',
-                          'assignedUserId': 'B',
-                          'status': 'ASSIGNED',
-                        },
-                        {
-                          'id': 'done',
-                          'choreName': 'Already completed',
-                          'assignedUserId': 'me',
-                          'status': 1,
-                        },
-                        {
-                          'id': 'overdue',
-                          'choreName': 'My overdue chore',
-                          'assignedUserId': 'me',
-                          'status': 3,
-                        },
-                        {
-                          'id': 'free',
-                          'choreName': 'Unassigned',
-                          'status': 'ASSIGNED',
                         },
                       ],
               ),
@@ -80,7 +58,7 @@ void main() {
     await tester.tap(find.text('Post Bounty'));
     await tester.pumpAndSettle();
     expect(find.text('My chore'), findsOneWidget);
-    expect(find.text('My overdue chore'), findsOneWidget);
+    expect(find.text('My overdue chore'), findsNothing);
     expect(find.text('Someone else'), findsNothing);
     expect(find.text('Already completed'), findsNothing);
     expect(find.text('Unassigned'), findsNothing);

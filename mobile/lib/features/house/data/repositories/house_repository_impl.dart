@@ -17,7 +17,7 @@ class HouseRepositoryImpl implements HouseRepository {
   Future<House> createHouse({required String name}) =>
       _remote.createHouse(name: name);
   @override
-  Future<void> joinHouse({required String inviteCode}) =>
+  Future<List<Map<String, dynamic>>> joinHouse({required String inviteCode}) =>
       _remote.joinHouse(inviteCode: inviteCode);
   @override
   Future<void> leaveHouse(String houseId) => _remote.leaveHouse(houseId);

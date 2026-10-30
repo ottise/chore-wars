@@ -34,6 +34,11 @@ final choreDetailProvider = FutureProvider.family<ChoreDetail, ChoreDetailKey>((
 ) async {
   final repository = ref.watch(choreRepositoryProvider);
   final occurrence = await repository.getOccurrence(key.occurrenceId);
+  if (occurrence.houseId != null && occurrence.houseId != key.houseId) {
+    throw StateError(
+      'This chore belongs to another household. Open it from that household schedule.',
+    );
+  }
   final templates = await ref.watch(choreTemplatesProvider(key.houseId).future);
   ChoreTemplate? template;
   for (final item in templates) {

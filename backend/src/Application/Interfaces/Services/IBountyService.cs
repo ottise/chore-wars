@@ -9,6 +9,8 @@ namespace ChoreWars.Application.Interfaces.Services;
 public interface IBountyService
 {
     Task<BountyResponse> CreateBountyAsync(Guid houseId, CreateBountyRequest request, Guid userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>> EligibleAsync(Guid houseId, Guid actor, CancellationToken ct);
+    Task CancelBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default);
     Task AcceptBountyAsync(Guid bountyId, Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<BountyResponse>> GetBountiesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);
     Task<BountyResponse> GetBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default);

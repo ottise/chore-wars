@@ -1,3 +1,4 @@
+import '../../../../core/widgets/member_avatar.dart';
 import '../widgets/household_calendar.dart';
 import '../providers/house_calendar_providers.dart';
 
@@ -152,6 +153,7 @@ class HouseDetailScreen extends ConsumerWidget {
                                         child: Divider(height: 1),
                                       ),
                                     _MemberTile(
+                                      houseId: houseId,
                                       member: active[i],
                                       onTap: active[i].userId == me
                                           ? () => context.push('$base/account')
@@ -330,7 +332,8 @@ class _Surface extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member, this.onTap});
+  const _MemberTile({required this.houseId, required this.member, this.onTap});
+  final String houseId;
   final HouseMember member;
   final VoidCallback? onTap;
   @override
@@ -339,27 +342,11 @@ class _MemberTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       onTap: onTap,
-      leading: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: member.isOwner
-              ? colors.primaryFixed
-              : colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          member.displayName.isEmpty
-              ? '?'
-              : member.displayName.characters.first.toUpperCase(),
-          style: TextStyle(
-            color: member.isOwner
-                ? colors.onPrimaryFixedVariant
-                : colors.onSurface,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+      leading: MemberAvatar(
+        houseId: houseId,
+        userId: member.userId,
+        name: member.displayName,
+        version: member.avatarUrl ?? '',
       ),
       title: Text(
         member.displayName,

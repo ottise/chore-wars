@@ -4,6 +4,7 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class CreateChoreRequest
 {
+    public Guid? ClientRequestId { get; set; }
     public bool AsRoutine { get; set; }
     public Guid? SourceTemplateId { get; set; }
     public int DeadlineMinutes { get; set; } = 1439;

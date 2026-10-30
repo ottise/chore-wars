@@ -5,7 +5,7 @@ abstract interface class HouseRepository {
   Future<House> getHouse(String houseId);
   Future<List<HouseMember>> getMembers(String houseId);
   Future<House> createHouse({required String name});
-  Future<void> joinHouse({required String inviteCode});
+  Future<List<Map<String, dynamic>>> joinHouse({required String inviteCode});
   Future<void> leaveHouse(String houseId);
   Future<void> kickMember({required String houseId, required String memberId});
   Future<void> transferOwnership({

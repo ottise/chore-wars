@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import '../../../../core/network/api_client.dart';
+import '../../../notifications/presentation/providers/notification_providers.dart';
 import '../../../../core/widgets/app_page_frame.dart';
 import '../widgets/voice_note_recorder.dart';
 import 'assistant_chat_screen.dart';
@@ -29,7 +33,65 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
 
-class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
+class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen>
+    with WidgetsBindingObserver {
+  final _latestMessageKey = GlobalKey();
+  String? _lastRead;
+  bool _reading = false;
+  Timer? _unreadTimer;
+  void _markVisible(String id) {
+    if (_reading ||
+        id == _lastRead ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        (_scrollController.hasClients && _scrollController.offset > 40)) {
+      return;
+    }
+    _reading = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted ||
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        _reading = false;
+        return;
+      }
+      final box = _latestMessageKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) {
+        _reading = false;
+        return;
+      }
+      final position = box.localToGlobal(Offset.zero);
+      final screen = MediaQuery.sizeOf(context);
+      if (position.dy + box.size.height <= 0 ||
+          position.dy >= screen.height ||
+          (_scrollController.hasClients && _scrollController.offset > 40)) {
+        _reading = false;
+        return;
+      }
+      try {
+        await ref
+            .read(dioProvider)
+            .put(
+              '/houses/${widget.houseId}/chat/read',
+              data: {'messageId': id},
+            );
+        if (mounted) {
+          _lastRead = id;
+          ref.invalidate(chatUnreadRequestProvider(widget.houseId));
+        }
+      } catch (_) {
+        // A failed cursor update is retried on the next visible refresh, never in a tight loop.
+      } finally {
+        _reading = false;
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
+
   Future<void> _openAssistant([String? prompt]) async {
     if (!mounted) return;
     FocusScope.of(context).unfocus();
@@ -57,6 +119,13 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _unreadTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        setState(() {});
+      }
+    });
     _initChat();
 
     _scrollController.addListener(() {
@@ -94,6 +163,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   void didUpdateWidget(covariant ChatRoomScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.houseId != widget.houseId) {
+      _lastRead = null;
       _roomId = null;
       _isLoadingRoom = true;
       _initChat();
@@ -102,6 +172,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _unreadTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -159,8 +231,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Household Chat',
+            Text(
+              'Household Chat${ref.watch(unreadChatCountProvider(widget.houseId)) > 0 ? ' (${ref.watch(unreadChatCountProvider(widget.houseId)) > 10 ? '10+' : ref.watch(unreadChatCountProvider(widget.houseId))})' : ''}',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -208,6 +280,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   return const Center(child: Text('Error loading messages'));
                 }
 
+                if (chatNotifier.messages.isNotEmpty) {
+                  _markVisible(chatNotifier.messages.first.id);
+                }
                 // Combine active proposals and messages
                 final activeProposals = proposalsAsync.when(
                   loading: () => const <ActionProposalModel>[],
@@ -260,6 +335,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       }
 
                       return Column(
+                        key: msgIndex == 0 ? _latestMessageKey : null,
                         children: [
                           if (showDateSeparator)
                             ChatDateSeparator(date: message.createdAt),

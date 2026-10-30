@@ -1,3 +1,4 @@
+import '../../../../core/utils/vietnam_time.dart';
 import '../../../../core/network/api_client.dart';
 
 import 'dart:convert';
@@ -154,7 +155,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                     '/bounties/create?houseId=${Uri.encodeComponent(widget.houseId)}'
                     '&occurrenceId=${Uri.encodeComponent(item.occurrence.id)}'
                     '&choreName=${Uri.encodeComponent(item.occurrence.choreName)}'
-                    '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(item.occurrence.dueDate))}',
+                    '&deadline=${Uri.encodeComponent(DateFormat('dd/MM HH:mm').format(vietnamTime(item.occurrence.dueDate)))}',
                   )
                 : null,
             onEdit: item.template == null
@@ -339,7 +340,7 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
                             (item) => DropdownMenuItem(
                               value: item.id,
                               child: Text(
-                                '${item.choreName} · ${DateFormat('dd/MM HH:mm').format(item.dueDate)}',
+                                '${item.choreName} · ${DateFormat('dd/MM HH:mm').format(vietnamTime(item.dueDate))}',
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -894,9 +895,9 @@ class _DetailBody extends StatelessWidget {
                 const Divider(height: 28),
                 _InfoRow(
                   icon: Icons.schedule_outlined,
-                  label: 'Due',
+                  label: 'Due (Vietnam time)',
                   value: DateFormat('EEE, MMM d · h:mm a')
-                      .format(chore.dueDate),
+                      .format(vietnamTime(chore.dueDate)),
                 ),
                 const Divider(height: 28),
                 _InfoRow(

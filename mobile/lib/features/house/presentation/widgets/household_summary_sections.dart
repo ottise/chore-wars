@@ -1,3 +1,6 @@
+import '../screens/member_schedule_detail_screen.dart';
+import '../../../../core/widgets/member_avatar.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -142,6 +145,30 @@ class _HouseholdSummarySectionState
                           ),
                       ],
                       if (widget.section == 2) ...[
+                        for (final entry in [
+                          ('Completed', data['completed'] ?? 0),
+                          ('Overdue', data['overdue'] ?? 0),
+                          ('Upcoming', data['upcoming'] ?? 0),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${entry.$1}: ${entry.$2}'),
+                                const SizedBox(height: 6),
+                                LinearProgressIndicator(
+                                  value: (data['assigned'] as num? ?? 0) > 0
+                                      ? ((entry.$2 as num) /
+                                                (data['assigned'] as num))
+                                            .clamp(0.0, 1.0)
+                                            .toDouble()
+                                      : 0,
+                                  minHeight: 8,
+                                ),
+                              ],
+                            ),
+                          ),
                         if ((data['assigned'] as num? ?? 0) == 0)
                           const Text('No chores yet for this period.'),
                         metric(
@@ -190,11 +217,23 @@ class _HouseholdSummarySectionState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Text(
-                                    member['name'],
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
+                                  Row(
+                                    children: [
+                                      MemberAvatar(
+                                        houseId: widget.houseId,
+                                        userId: member['userId'],
+                                        name: member['name'],
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          member['name'],
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
@@ -207,10 +246,22 @@ class _HouseholdSummarySectionState
                                     'Remaining: ${member['remaining']} · Overdue: ${member['overdue']}',
                                   ),
                                   TextButton(
-                                    onPressed: () => context.push(
-                                      '/houses/${widget.houseId}/chores?tab=team',
+                                    onPressed: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            MemberScheduleDetailScreen(
+                                              houseId: widget.houseId,
+                                              userId: member['userId'],
+                                              name: member['name'],
+                                              from: q.from,
+                                              to: q.to,
+                                              seasonId: q.season,
+                                            ),
+                                      ),
                                     ),
-                                    child: const Text('View household chores'),
+                                    child: const Text(
+                                      'View member schedule details',
+                                    ),
                                   ),
                                 ],
                               ),

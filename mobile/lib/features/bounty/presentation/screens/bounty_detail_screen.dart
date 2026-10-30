@@ -1,3 +1,9 @@
+import '../../../../core/utils/vietnam_time.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../house/presentation/providers/house_providers.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../supplies/presentation/providers/supplies_providers.dart';
@@ -17,7 +23,7 @@ import '../../domain/entities/bounty.dart';
 import '../providers/bounty_providers.dart';
 import '../../../ai/presentation/ai_observed_view.dart';
 
-class BountyDetailScreen extends ConsumerWidget {
+class BountyDetailScreen extends ConsumerStatefulWidget {
   final String? houseId;
   final String bountyId;
 
@@ -27,12 +33,86 @@ class BountyDetailScreen extends ConsumerWidget {
     required this.bountyId,
   });
 
+  @override
+  ConsumerState<BountyDetailScreen> createState() => _BountyDetailScreenState();
+}
+
+class _BountyDetailScreenState extends ConsumerState<BountyDetailScreen> {
+  bool _busy = false;
+  String? get houseId => widget.houseId;
+  String get bountyId => widget.bountyId;
+  void _back(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/houses/$houseId/bounties');
+    }
+  }
+
+  Future<void> _cancel(Bounty bounty) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          bounty.status == BountyStatus.claimed
+              ? 'Request / approve cancellation?'
+              : 'Withdraw bounty?',
+        ),
+        content: Text(
+          bounty.status == BountyStatus.claimed
+              ? 'Both participants must agree. On approval, the chore returns to its original assignee and the unfinished commitment is cancelled.'
+              : 'This listing will close. The chore remains yours.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep bounty'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Withdraw'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(dioProvider)
+          .post('/houses/$houseId/bounties/${bounty.id}/cancel');
+      ref.invalidate(
+        bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
+      );
+      ref.invalidate(bountyBoardProvider(houseId!));
+      refreshChoreState(ref, houseId!, occurrenceId: bounty.choreOccurrenceId);
+      ref.invalidate(purchaseDebtsProvider(houseId!));
+      ref.invalidate(householdSummaryProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cancellation saved. Claimed work changes only after both participants agree.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(apiErrorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _accept(
     BuildContext context,
     WidgetRef ref,
     Bounty bounty,
   ) async {
-    if (houseId == null) return;
+    if (houseId == null || _busy) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -54,27 +134,43 @@ class BountyDetailScreen extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
+    setState(() => _busy = true);
     try {
       await ref
           .read(bountyRepositoryProvider)
           .acceptBounty(houseId: houseId!, bountyId: bounty.id);
       ref.invalidate(bountyBoardProvider(houseId!));
+      refreshChoreState(ref, houseId!, occurrenceId: bounty.choreOccurrenceId);
+      ref.invalidate(purchaseDebtsProvider(houseId!));
+      ref.invalidate(householdSummaryProvider);
       ref.invalidate(homeDashboardProvider(houseId!));
       ref.invalidate(paymentListProvider(houseId!));
       ref.invalidate(purchaseDebtsProvider(houseId!));
       ref.invalidate(paymentHistoryProvider);
       ref.invalidate(householdSummaryProvider);
-      if (context.mounted) context.pop();
+      refreshHouseState(ref, houseId: houseId!);
+      ref.invalidate(
+        bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bounty accepted. Find it in Chore → Bonus.'),
+          ),
+        );
+      }
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (houseId == null || houseId!.isEmpty) {
       return const Scaffold(
         body: ErrorState(error: 'House is required.', onRetry: _noop),
@@ -84,7 +180,10 @@ class BountyDetailScreen extends ConsumerWidget {
       bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Bounty Detail')),
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => _back(context)),
+        title: const Text('Bounty Detail'),
+      ),
       body: state.when(
         loading: () => const LoadingWidget(),
         error: (error, stackTrace) => ErrorState(
@@ -121,9 +220,40 @@ class BountyDetailScreen extends ConsumerWidget {
                   value: currency.format(bounty.amount),
                 ),
                 _DetailRow(
-                  label: 'Due',
-                  value: DateFormat('dd/MM HH:mm').format(bounty.expiresAt),
+                  label: 'Chore deadline (Vietnam)',
+                  value: DateFormat('dd/MM/yyyy HH:mm')
+                      .format(vietnamTime(bounty.expiresAt)),
                 ),
+                if (bounty.status == BountyStatus.claimed &&
+                    (bounty.postedByUserId ==
+                            ref.watch(userProfileProvider).asData?.value.id ||
+                        (bounty.claimedByUserId ?? bounty.assignedUserId) ==
+                            ref
+                                .watch(userProfileProvider)
+                                .asData
+                                ?.value
+                                .id)) ...[
+                  if (bounty.cancellationRequestedByUserId != null)
+                    Text(
+                      bounty.cancellationRequestedByUserId ==
+                              ref.watch(userProfileProvider).asData?.value.id
+                          ? 'Cancellation requested · Waiting for the other participant.'
+                          : 'The other participant requests cancellation.',
+                    ),
+                  OutlinedButton(
+                    onPressed:
+                        _busy ||
+                            bounty.cancellationRequestedByUserId ==
+                                ref.watch(userProfileProvider).asData?.value.id
+                        ? null
+                        : () => _cancel(bounty),
+                    child: Text(
+                      bounty.cancellationRequestedByUserId == null
+                          ? 'Request cancellation'
+                          : 'Approve cancellation',
+                    ),
+                  ),
+                ],
                 if (isExpired) ...[
                   const SizedBox(height: 12),
                   Card(
@@ -165,11 +295,29 @@ class BountyDetailScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+                TextButton.icon(
+                  onPressed: () => context.push(
+                    '/houses/$houseId/chores/${bounty.choreOccurrenceId}',
+                  ),
+                  icon: const Icon(Icons.checklist),
+                  label: const Text('Open chore & photo evidence'),
+                ),
+                if (bounty.status == BountyStatus.open &&
+                    bounty.postedByUserId ==
+                        ref.watch(userProfileProvider).asData?.value.id)
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _cancel(bounty),
+                    child: const Text('Withdraw bounty'),
+                  ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: bounty.status == BountyStatus.open
+                    onPressed:
+                        !_busy &&
+                            bounty.status == BountyStatus.open &&
+                            bounty.postedByUserId !=
+                                ref.watch(userProfileProvider).asData?.value.id
                         ? () => _accept(context, ref, bounty)
                         : null,
                     icon: const Icon(Icons.volunteer_activism_outlined),

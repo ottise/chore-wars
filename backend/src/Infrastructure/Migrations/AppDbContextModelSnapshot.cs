@@ -405,6 +405,12 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.PrimitiveCollection<List<DateOnly>>("CustomDates")
                         .IsRequired()
                         .HasColumnType("date[]");
@@ -457,11 +463,15 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HouseId");
-
                     b.HasIndex("SeasonId");
 
                     b.HasIndex("SourceTemplateId");
+
+                    b.HasIndex("HouseId");
+
+                    b.HasIndex("HouseId", "CreatedByUserId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.ToTable("Chores");
                 });
@@ -475,7 +485,13 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("numeric");
 
+                    b.Property<Guid?>("CancellationRequestedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("ChoreOccurrenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClaimedByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -932,6 +948,12 @@ namespace Infrastructure.Migrations
 
                     b.Property<bool>("ChatNotificationsMuted")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ChatReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ChatReadMessageId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("HouseId")
                         .HasColumnType("uuid");
@@ -1705,6 +1727,44 @@ namespace Infrastructure.Migrations
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.ToTable("RewardRedemptions");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ScheduleRedistribution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("SeasonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeasonId");
+
+                    b.HasIndex("HouseId", "ActorId", "ClientRequestId")
+                        .IsUnique();
+
+                    b.ToTable("ScheduleRedistribution");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.SeasonConfirmation", b =>
@@ -3100,6 +3160,21 @@ namespace Infrastructure.Migrations
                     b.Navigation("Reward");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.ScheduleRedistribution", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.ChoreSeason", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.SeasonConfirmation", b =>

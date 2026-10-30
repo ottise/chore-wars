@@ -31,6 +31,7 @@ class AppNotification {
     if (isChat) return '$base/chat/everyone';
     final target = targetId;
     return switch (metadata['targetType']) {
+      'HOUSE' => base,
       'SUPPLY_ORDER' when target != null && target.isNotEmpty =>
         '$base/supplies/orders/${Uri.encodeComponent(target)}',
       'SUPPLY_SCHEDULE' => '$base/supplies/schedules',

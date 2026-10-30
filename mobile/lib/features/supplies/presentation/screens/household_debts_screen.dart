@@ -53,11 +53,18 @@ class HouseholdDebtsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(userProfileProvider).asData?.value.id;
     if (me == null) {
-      return SuppliesPage(title: 'My Debts', child: ref.watch(userProfileProvider).when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
-        data: (_) => const Center(child: Text('Sign in to view your finances.')),
-      ));
+      return SuppliesPage(
+        title: 'My Debts',
+        child: ref
+            .watch(userProfileProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) =>
+                  SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
+              data: (_) =>
+                  const Center(child: Text('Sign in to view your finances.')),
+            ),
+      );
     }
     return SuppliesPage(
       title: 'My Debts',
@@ -141,7 +148,11 @@ class HouseholdDebtsScreen extends ConsumerWidget {
                                         : '${d['debtorName']} owes you',
                                   ),
                                   subtitle: Text(
-                                    '${supplyMoney(d['remainingAmount'])} remaining · ${financeSourceLabel(d['reason'])} · ${d['status'] == 'DISPUTED' ? 'Disputed' : 'Pending'}',
+                                    '${supplyMoney(d['remainingAmount'])} remaining · ${financeSourceLabel(d['reason'])} · ${d['status'] == 'AWAITING_COMPLETION'
+                                        ? 'Awaiting chore completion'
+                                        : d['status'] == 'DISPUTED'
+                                        ? 'Disputed'
+                                        : 'Pending'}',
                                   ),
                                   trailing: const Icon(Icons.chevron_right),
                                   onTap: () => context.push(
@@ -235,11 +246,18 @@ class _InternalRepaymentScreenState
   Widget build(BuildContext context) {
     final me = ref.watch(userProfileProvider).asData?.value.id;
     if (me == null) {
-      return SuppliesPage(title: 'My Debts', child: ref.watch(userProfileProvider).when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
-        data: (_) => const Center(child: Text('Sign in to view your finances.')),
-      ));
+      return SuppliesPage(
+        title: 'My Debts',
+        child: ref
+            .watch(userProfileProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) =>
+                  SupplyFailure(e, () => ref.invalidate(userProfileProvider)),
+              data: (_) =>
+                  const Center(child: Text('Sign in to view your finances.')),
+            ),
+      );
     }
     return SuppliesPage(
       title: 'Direct repayment',

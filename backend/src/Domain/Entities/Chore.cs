@@ -6,6 +6,8 @@ namespace ChoreWars.Domain.Entities;
 
 public class Chore
 {
+    public Guid? ClientRequestId { get; set; }
+    public Guid? CreatedByUserId { get; set; }
     public Guid Id { get; set; }
     public Guid HouseId { get; set; }
     public Guid? SeasonId { get; set; }

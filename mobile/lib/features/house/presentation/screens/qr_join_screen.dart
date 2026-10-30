@@ -298,10 +298,17 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
         ),
       );
       if (confirmed != true || !mounted) return;
-      await ref.read(houseRepositoryProvider).joinHouse(inviteCode: code);
+      final result = await ref
+          .read(houseRepositoryProvider)
+          .joinHouse(inviteCode: code);
       if (!mounted) return;
       refreshHouseState(ref);
-      showAppMessage(context, 'Joined house');
+      showAppMessage(
+        context,
+        result.any((row) => (row['assignedCount'] as num? ?? 0) > 0)
+            ? 'Joined house. Your shared chores are ready.'
+            : 'Joined house. ${result.expand((row) => row['reasons'] as List? ?? []).join(' ')}',
+      );
       joined = true;
       context.go('/houses');
     } catch (error) {

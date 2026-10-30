@@ -70,6 +70,7 @@ class House {
 
 class HouseMember {
   const HouseMember({
+    this.avatarUrl,
     required this.id,
     required this.userId,
     required this.displayName,
@@ -77,6 +78,7 @@ class HouseMember {
     required this.status,
   });
 
+  final String? avatarUrl;
   final String id;
   final String userId;
   final String displayName;
@@ -84,6 +86,7 @@ class HouseMember {
   final HouseMemberStatus status;
 
   factory HouseMember.fromJson(Map<String, dynamic> json) => HouseMember(
+    avatarUrl: json['avatarUrl']?.toString(),
     id: json['id'].toString(),
     userId: json['userId'].toString(),
     displayName: json['displayName']?.toString() ?? '',

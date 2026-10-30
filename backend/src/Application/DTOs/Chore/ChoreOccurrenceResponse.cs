@@ -5,6 +5,7 @@ namespace ChoreWars.Application.DTOs.Chore;
 
 public class ChoreOccurrenceResponse
 {
+    public Guid HouseId { get; set; }
     public Guid Id { get; set; }
     public Guid ChoreId { get; set; }
     public string ChoreName { get; set; } = string.Empty;

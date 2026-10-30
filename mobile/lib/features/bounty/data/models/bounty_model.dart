@@ -2,6 +2,8 @@ import '../../domain/entities/bounty.dart';
 
 class BountyModel extends Bounty {
   const BountyModel({
+    super.claimedByUserId,
+    super.cancellationRequestedByUserId,
     required super.id,
     required super.choreOccurrenceId,
     required super.choreName,
@@ -17,6 +19,9 @@ class BountyModel extends Bounty {
 
   factory BountyModel.fromJson(Map<String, dynamic> json) {
     return BountyModel(
+      claimedByUserId: json['claimedByUserId']?.toString(),
+      cancellationRequestedByUserId: json['cancellationRequestedByUserId']
+          ?.toString(),
       id: json['id']?.toString() ?? '',
       choreOccurrenceId: json['choreOccurrenceId']?.toString() ?? '',
       choreName: json['choreName'] as String? ?? 'Chore',
@@ -25,9 +30,9 @@ class BountyModel extends Bounty {
       assignedUserId: json['assignedUserId']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       status: bountyStatusFromJson(json['status']),
-      expiresAt:
-          DateTime.tryParse(json['expiresAt']?.toString() ?? '')?.toLocal() ??
-          DateTime.now(),
+      expiresAt: DateTime.parse(
+        (json['occurrenceDueAt'] ?? json['expiresAt']).toString(),
+      ).toUtc(),
       newAssigneeDisplayName: json['newAssigneeDisplayName'] as String?,
       forcedCompensationAmount: (json['forcedCompensationAmount'] as num?)
           ?.toDouble(),

@@ -23,8 +23,9 @@ public class BountyService : IBountyService
     private readonly IMapper _mapper;
     private readonly IEventPublisher _eventPublisher;
     private readonly IOverduePenaltyService? _penalties;
+    private readonly INotificationService? _notifications;
 
-    public BountyService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null, IOverduePenaltyService? penalties = null)
+    public BountyService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null, IOverduePenaltyService? penalties = null, INotificationService? notifications = null)
     {
         _clock = clock ?? TimeProvider.System;
         _mutations = mutationCoordinator;
@@ -32,6 +33,7 @@ public class BountyService : IBountyService
         _mapper = mapper;
         _eventPublisher = eventPublisher;
         _penalties = penalties;
+        _notifications = notifications;
     }
 
     public async Task<BountyResponse> CreateBountyAsync(Guid houseId, CreateBountyRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -48,12 +50,12 @@ public class BountyService : IBountyService
         if (occurrence == null)
             throw new NotFoundException(nameof(ChoreOccurrence), request.ChoreOccurrenceId);
 
-        var season = await _unitOfWork.Seasons.GetByIdAsync(occurrence.SeasonId,cancellationToken);
-        if (season == null || season.Status is SeasonStatus.DRAFT or SeasonStatus.REVIEWING or SeasonStatus.CANCELLED || _clock.GetUtcNow().UtcDateTime < season.StartDate)
+        var season = await _unitOfWork.Seasons.GetByIdAsync(occurrence.SeasonId, cancellationToken);
+        if (season == null || season.Status != SeasonStatus.ACTIVE || _clock.GetUtcNow().UtcDateTime < season.StartDate)
             throw new ConflictException("Bounties require an approved season that has started.");
         if (occurrence.Chore.HouseId != houseId)
             throw new NotFoundException(nameof(ChoreOccurrence), request.ChoreOccurrenceId);
-        if (request.Amount <= 0 || occurrence.Status is ChoreOccurrenceStatus.COMPLETED or ChoreOccurrenceStatus.SKIPPED)
+        if (request.Amount <= 0 || occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED)
             throw new ConflictException("Bounty requires an unfinished assigned chore and a positive amount.");
         if (occurrence.AssignedUserId != userId)
             throw new ForbiddenException("You can only post a bounty for your own chore.");
@@ -69,7 +71,7 @@ public class BountyService : IBountyService
             PostedByUserId = userId,
             Amount = request.Amount,
             Status = BountyStatus.OPEN,
-            ExpiresAt = _clock.GetUtcNow().UtcDateTime.AddHours(24),
+            ExpiresAt = occurrence.DueDate,
             CreatedAt = _clock.GetUtcNow().UtcDateTime
         };
 
@@ -101,6 +103,68 @@ public class BountyService : IBountyService
         return response;
     }
 
+    public async Task<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>> EligibleAsync(Guid houseId, Guid actor, CancellationToken ct)
+    {
+        await EnsureHouseMemberAsync(houseId, actor, ct);
+        var season = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, ct);
+        if (season == null || season.StartDate > _clock.GetUtcNow().UtcDateTime) return [];
+        var bounties = (await _unitOfWork.ChoreBounties.GetBountiesByHouseIdAsync(houseId, ct)).Where(b => b.Status != BountyStatus.CANCELLED).Select(b => b.ChoreOccurrenceId).ToHashSet();
+        var chores = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(season.Id, ct)).Where(o =>
+            o.AssignedUserId == actor && o.Status == ChoreOccurrenceStatus.ASSIGNED && o.DueDate > _clock.GetUtcNow().UtcDateTime && !bounties.Contains(o.Id))
+            .OrderBy(o => o.DueDate).ThenBy(o => o.Id);
+        return _mapper.Map<IEnumerable<ChoreWars.Application.DTOs.Chore.ChoreOccurrenceResponse>>(chores);
+    }
+
+    public async Task CancelBountyAsync(Guid houseId, Guid bountyId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        async Task Apply()
+        {
+            await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
+            var bounty = await _unitOfWork.ChoreBounties.GetByIdAsync(bountyId, cancellationToken)
+                ?? throw new NotFoundException("Bounty not found.");
+            if (bounty.ChoreOccurrence.Chore.HouseId != houseId) throw new NotFoundException("Bounty not found.");
+            var occurrence = bounty.ChoreOccurrence;
+            var recipient = bounty.ClaimedByUserId ?? (bounty.Status == BountyStatus.CLAIMED ? occurrence.AssignedUserId : null);
+            if (bounty.PostedByUserId != userId && recipient != userId) throw new ForbiddenException();
+            if (bounty.Status == BountyStatus.CANCELLED) return;
+            if (bounty.Status == BountyStatus.CLAIMED)
+            {
+                bounty.ClaimedByUserId = recipient;
+                if (!recipient.HasValue || occurrence.AssignedUserId != recipient || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED || occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime || occurrence.PlannedStartAt <= _clock.GetUtcNow().UtcDateTime || occurrence.PenaltyCount > 0 || occurrence.EvidenceId != null || !string.IsNullOrEmpty(occurrence.ProofImageUrl))
+                    throw new ConflictException("Started, overdue or evidenced work must be resolved before cancellation.");
+                if (bounty.CancellationRequestedByUserId == userId) return;
+                if (bounty.CancellationRequestedByUserId == null)
+                {
+                    bounty.CancellationRequestedByUserId = userId;
+                    _unitOfWork.ChoreBounties.Update(bounty);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    if (_notifications != null) await _notifications.CreateNotificationAsync(userId == recipient ? bounty.PostedByUserId : recipient.Value, houseId, "Bounty cancellation requested", "The other participant requests cancellation. Review the bounty before accepting.", "BOUNTY_CANCELLED", "BOUNTY", bounty.Id, cancellationToken);
+                    return;
+                }
+                await EnsureHouseMemberAsync(houseId, bounty.PostedByUserId, cancellationToken);
+                var debts = (await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken)).Where(p => p.OccurrenceId == occurrence.Id && p.Reason == PaymentObligationReason.BOUNTY_PAYMENT && p.Status != PaymentObligationStatus.CANCELLED).ToList();
+                if (debts.Any(d => d.Status != PaymentObligationStatus.AWAITING_COMPLETION)) throw new ConflictException("Payable or settled obligations cannot be cancelled by this flow.");
+                var all = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(occurrence.SeasonId, cancellationToken)).ToList();
+                var weekly = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(occurrence.SeasonId, cancellationToken)).ToList();
+                var exceptions = (await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(occurrence.SeasonId, cancellationToken)).ToList();
+                var start = occurrence.PlannedStartAt ?? occurrence.DueDate.AddMinutes(-AllocationEligibilityService.Minutes(occurrence));
+                if (start <= _clock.GetUtcNow().UtcDateTime || await ChoreSchedulingService.AvailableStartAsync(_unitOfWork, houseId, occurrence, bounty.PostedByUserId, all, weekly, exceptions, start, cancellationToken) != start)
+                    throw new ConflictException("The original assignee cannot take this time slot. Adjust availability before approving cancellation.");
+                await ChoreResponsibilityService.AssignAsync(_unitOfWork, occurrence, bounty.PostedByUserId, "BOUNTY_CANCELLED", occurrence.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+                occurrence.PlannedStartAt = start; _unitOfWork.ChoreOccurrences.Update(occurrence);
+                foreach (var debt in debts) { debt.Status = PaymentObligationStatus.CANCELLED; _unitOfWork.PaymentObligations.Update(debt); }
+            }
+            else if (bounty.Status != BountyStatus.OPEN) throw new ConflictException("Only open or jointly approved claimed bounties can be cancelled.");
+            bounty.Status = BountyStatus.CANCELLED;
+            if (_notifications != null) foreach (var participant in new[] { bounty.PostedByUserId, recipient ?? bounty.PostedByUserId }.Distinct())
+                await _notifications.CreateNotificationAsync(participant, houseId, "Bounty cancelled", "The listing is closed. Check the chore for its current assignee.", "BOUNTY_CANCELLED", "BOUNTY", bounty.Id, cancellationToken);
+            _unitOfWork.ChoreBounties.Update(bounty);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        if (_mutations != null) await _mutations.RunAsync(houseId, Apply, cancellationToken);
+        else await Apply();
+    }
+
     public async Task AcceptBountyAsync(Guid bountyId, Guid userId, CancellationToken cancellationToken = default)
     {
         if (_mutations == null) { await AcceptBountyCoreAsync(bountyId, userId, cancellationToken); return; }
@@ -114,6 +178,11 @@ public class BountyService : IBountyService
         if (bounty == null)
             throw new NotFoundException(nameof(ChoreBounty), bountyId);
 
+        if (bounty.Status == BountyStatus.CLAIMED && bounty.ChoreOccurrence.AssignedUserId == userId)
+        {
+            await EnsureHouseMemberAsync(bounty.ChoreOccurrence.Chore.HouseId, userId, cancellationToken);
+            return;
+        }
         if (bounty.Status != BountyStatus.OPEN || bounty.ExpiresAt <= _clock.GetUtcNow().UtcDateTime)
             throw new ConflictException("Bounty is not open.");
 
@@ -125,17 +194,33 @@ public class BountyService : IBountyService
             throw new NotFoundException(nameof(ChoreOccurrence), bounty.ChoreOccurrenceId);
 
         await EnsureHouseMemberAsync(occurrence.Chore.HouseId, userId, cancellationToken);
-        if (occurrence.Status is ChoreOccurrenceStatus.COMPLETED or ChoreOccurrenceStatus.SKIPPED)
+        if (occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED)
             throw new ConflictException("The chore has already ended.");
         if (occurrence.AssignedUserId != bounty.PostedByUserId) throw new ConflictException("The chore responsibility has changed.");
         if (_penalties != null && occurrence.DueDate < _clock.GetUtcNow().UtcDateTime)
-            await _penalties.ApplyUntilAsync(occurrence.Id,_clock.GetUtcNow().UtcDateTime,cancellationToken);
+            await _penalties.ApplyUntilAsync(occurrence.Id, _clock.GetUtcNow().UtcDateTime, cancellationToken);
         bounty.Status = BountyStatus.CLAIMED;
-        await ChoreResponsibilityService.AssignAsync(_unitOfWork, occurrence, userId, "BOUNTY", occurrence.DueDate > _clock.GetUtcNow().UtcDateTime ? occurrence.DueDate : _clock.GetUtcNow().UtcDateTime.AddHours(24), _clock.GetUtcNow().UtcDateTime, cancellationToken);
+        bounty.ClaimedByUserId = userId;
+        await ChoreResponsibilityService.AssignAsync(_unitOfWork, occurrence, userId, "BOUNTY", occurrence.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var debts = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
+            if (!debts.Any(p => p.OccurrenceId == occurrence.Id && p.Reason == PaymentObligationReason.BOUNTY_PAYMENT && p.Status != PaymentObligationStatus.CANCELLED))
+                await _unitOfWork.PaymentObligations.AddAsync(new PaymentObligation
+                {
+                    Id = Guid.NewGuid(),
+                    HouseId = occurrence.Chore.HouseId,
+                    SeasonId = occurrence.SeasonId,
+                    OccurrenceId = occurrence.Id,
+                    DebtorUserId = bounty.PostedByUserId,
+                    CreditorUserId = userId,
+                    Amount = bounty.Amount,
+                    Reason = PaymentObligationReason.BOUNTY_PAYMENT,
+                    Status = PaymentObligationStatus.AWAITING_COMPLETION,
+                    CreatedAt = _clock.GetUtcNow().UtcDateTime
+                }, cancellationToken);
             _unitOfWork.ChoreBounties.Update(bounty);
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -181,9 +266,9 @@ public class BountyService : IBountyService
         if (bounty == null || bounty.ChoreOccurrence.Chore.HouseId != houseId)
             throw new NotFoundException(nameof(ChoreBounty), bountyId);
 
-        var response=_mapper.Map<BountyResponse>(bounty);
-        var payments=await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId,cancellationToken);
-        response.ForcedCompensationAmount=payments.FirstOrDefault(p=>p.OccurrenceId==bounty.ChoreOccurrenceId&&p.Reason==PaymentObligationReason.FORCED_REASSIGNMENT)?.Amount;
+        var response = _mapper.Map<BountyResponse>(bounty);
+        var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
+        response.ForcedCompensationAmount = payments.FirstOrDefault(p => p.OccurrenceId == bounty.ChoreOccurrenceId && p.Reason == PaymentObligationReason.FORCED_REASSIGNMENT)?.Amount;
         return response;
     }
 
@@ -192,7 +277,7 @@ public class BountyService : IBountyService
         await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
 
         var payments = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
-        return payments.Where(p=>p.Reason!=PaymentObligationReason.HOUSEHOLD_PURCHASE).Select(MapPayment).ToList();
+        return payments.Where(p => p.Reason != PaymentObligationReason.HOUSEHOLD_PURCHASE).Select(MapPayment).ToList();
     }
 
     public async Task<PaymentObligationResponse> GetPaymentAsync(Guid houseId, Guid paymentId, Guid userId, CancellationToken cancellationToken = default)
@@ -254,6 +339,7 @@ public class BountyService : IBountyService
 
         await EnsureHouseMemberAsync(payment.HouseId, userId, cancellationToken);
         if (payment.Status == PaymentObligationStatus.PAID) return;
+        if (payment.Status != PaymentObligationStatus.PENDING) throw new ConflictException("This obligation is not payable yet.");
         if (_unitOfWork.Supplies is { } supplies && (await supplies.RepaymentsAsync(paymentId, cancellationToken)).Any(x => x.Status != InternalRepaymentStatus.REJECTED))
             throw new ConflictException("Use My Debts to review the existing transfer records.");
         if (payment.Reason == PaymentObligationReason.FORCED_REASSIGNMENT)

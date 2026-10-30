@@ -532,12 +532,12 @@ void main() {
       tester,
       const ChoreListScreen(houseId: 'house', initialTab: 'mine'),
     );
-    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
     await mount(
       tester,
       const ChoreListScreen(houseId: 'house', initialTab: 'team'),
     );
-    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
     expect(tester.takeException(), isNull);
   });
 }

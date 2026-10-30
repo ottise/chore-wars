@@ -40,10 +40,11 @@ public class SeasonService : ISeasonService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("Only house members can view seasons.");
 
-        var activeSeason = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        var activeSeason = await _unitOfWork.Seasons.GetActiveSeasonByHouseIdAsync(houseId, cancellationToken) ?? await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
         if (activeSeason == null) return null;
         var response = _mapper.Map<SeasonResponse>(activeSeason);
-        if (activeSeason.Status == SeasonStatus.REVIEWING) {
+        if (activeSeason.Status == SeasonStatus.REVIEWING)
+        {
             var confirmations = (await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(activeSeason.Id, cancellationToken)).Where(c => c.ScheduleRevision == activeSeason.ScheduleRevision).ToList();
             response.CurrentUserConfirmationStatus = confirmations.FirstOrDefault(c => c.UserId == userId)?.Status;
             response.ConfirmedCount = confirmations.Count(c => c.Status == ConfirmationStatus.CONFIRMED);
@@ -71,7 +72,7 @@ public class SeasonService : ISeasonService
 
     private async Task<SeasonResponse> CreateSeasonCoreAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
-        var houseContext = await _unitOfWork.Houses.GetByIdAsync(houseId,cancellationToken) ?? throw new NotFoundException("Household not found.");
+        var houseContext = await _unitOfWork.Houses.GetByIdAsync(houseId, cancellationToken) ?? throw new NotFoundException("Household not found.");
         if (houseContext.IsArchived) throw new ConflictException("Archived households are read-only.");
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
         if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
@@ -95,8 +96,8 @@ public class SeasonService : ISeasonService
             Id = Guid.NewGuid(),
             HouseId = houseId,
             Name = request.Name,
-            StartDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.StartDate.ToUniversalTime())),0),
-            EndDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.EndDate.ToUniversalTime())),1440).AddTicks(-1),
+            StartDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.StartDate.ToUniversalTime())), 0),
+            EndDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.EndDate.ToUniversalTime())), 1440).AddTicks(-1),
             Status = SeasonStatus.DRAFT,
             AllocationMethod = request.AllocationMethod
         };
@@ -136,7 +137,7 @@ public class SeasonService : ISeasonService
         if (_clock.GetUtcNow().UtcDateTime <= season.EndDate)
             throw new ConflictException("The season cannot end before its scheduled cutoff.");
         if (_finalizer == null) throw new ConflictException("Season finalizer is unavailable.");
-        await _finalizer.FinalizeSeasonAsync(seasonId,cancellationToken);
+        await _finalizer.FinalizeSeasonAsync(seasonId, cancellationToken);
     }
 
     public async Task<MemberAvailabilityRequest> GetAvailabilityAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
@@ -181,19 +182,21 @@ public class SeasonService : ISeasonService
         if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Availability is locked outside draft.");
         if (request.Availabilities.Keys.Concat(request.Slots.Keys).Any(day => day < 0 || day > 6))
             throw new DomainException("Weekday must be between 0 and 6.");
-        foreach (var slots in request.Slots.Values) {
+        foreach (var slots in request.Slots.Values)
+        {
             var ordered = slots.OrderBy(x => x.StartMinute).ToList();
-            for (var i = 0; i < ordered.Count; i++) {
+            for (var i = 0; i < ordered.Count; i++)
+            {
                 var slot = ordered[i];
-                if (slot.StartMinute < 0 || slot.EndMinute > 1440 || slot.EndMinute <= slot.StartMinute || (i > 0 && ordered[i-1].EndMinute > slot.StartMinute))
+                if (slot.StartMinute < 0 || slot.EndMinute > 1440 || slot.EndMinute <= slot.StartMinute || (i > 0 && ordered[i - 1].EndMinute > slot.StartMinute))
                     throw new DomainException("Availability intervals must be valid and must not overlap.");
             }
         }
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId,cancellationToken))
-                await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId,cancellationToken);
+            if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
+                await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
             var existingAvailabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
             foreach (var existing in existingAvailabilities)
@@ -314,8 +317,8 @@ public class SeasonService : ISeasonService
             Id = Guid.NewGuid(),
             HouseId = originalSeason.HouseId,
             Name = request.Name,
-            StartDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.StartDate.ToUniversalTime())),0),
-            EndDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.EndDate.ToUniversalTime())),1440).AddTicks(-1),
+            StartDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.StartDate.ToUniversalTime())), 0),
+            EndDate = ScheduleTime.Utc(DateOnly.FromDateTime(ScheduleTime.Local(request.EndDate.ToUniversalTime())), 1440).AddTicks(-1),
             Status = SeasonStatus.DRAFT,
             AllocationMethod = request.AllocationMethod
         };
@@ -340,9 +343,12 @@ public class SeasonService : ISeasonService
                     Type = oldChore.Type,
                     FrequencyType = oldChore.FrequencyType,
                     FrequencyValue = oldChore.FrequencyValue,
-                    Difficulty = oldChore.Difficulty, EstimatedMinutes = oldChore.EstimatedMinutes,
-                    SourceTemplateId = oldChore.SourceTemplateId ?? oldChore.Id, DeadlineMinutes = oldChore.DeadlineMinutes,
-                    RecurrenceAnchor = oldChore.RecurrenceAnchor, CustomDates = oldChore.CustomDates.ToList()
+                    Difficulty = oldChore.Difficulty,
+                    EstimatedMinutes = oldChore.EstimatedMinutes,
+                    SourceTemplateId = oldChore.SourceTemplateId ?? oldChore.Id,
+                    DeadlineMinutes = oldChore.DeadlineMinutes,
+                    RecurrenceAnchor = oldChore.RecurrenceAnchor,
+                    CustomDates = oldChore.CustomDates.ToList()
                 };
 
                 foreach (var oldDay in oldChore.FrequencyDays)
@@ -524,7 +530,7 @@ public class SeasonService : ISeasonService
         if (confirmation == null)
             throw new ForbiddenException("You are not eligible to reject this season.");
 
-        var rejectingMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId,userId,cancellationToken);
+        var rejectingMember = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
         if (rejectingMember?.Status != HouseMemberStatus.ACTIVE) throw new ForbiddenException();
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 1000) throw new DomainException("Provide a rejection reason within 1000 characters.");
         season.LastRejectionReason = reason.Trim(); season.LastRejectedByUserId = userId; season.ScheduleRevision++;
