@@ -9,6 +9,32 @@ from app.urgent import Decomposition
 from app.schemas import LanguageInput
 
 
+@pytest.mark.parametrize("intent", ["help", "create_chore"])
+async def test_model_cannot_disable_required_application_confirmation(monkeypatch, intent):
+    client = GeminiClient(Settings(environment="test", service_key="x" * 32))
+
+    async def generate(*args, **kwargs):
+        return {"intent": intent, "summary": "Review this response.", "requires_confirmation": False}
+
+    monkeypatch.setattr(client, "generate", generate)
+    result = await client.interpret(LanguageInput(house_id=uuid4(), actor_id=uuid4(),
+        text="Help me plan chores", now=datetime.now(timezone.utc), consent_version="test-v1"))
+    assert result.intent == intent
+    assert result.requires_confirmation is True
+
+
+async def test_enforcing_confirmation_does_not_accept_other_invalid_model_fields(monkeypatch):
+    client = GeminiClient(Settings(environment="test", service_key="x" * 32))
+
+    async def generate(*args, **kwargs):
+        return {"intent": "unsupported-dangerous-action", "summary": "Invalid", "requires_confirmation": False}
+
+    monkeypatch.setattr(client, "generate", generate)
+    with pytest.raises(ProviderUnavailable, match="PROVIDER_SCHEMA_INVALID"):
+        await client.interpret(LanguageInput(house_id=uuid4(), actor_id=uuid4(),
+            text="Help", now=datetime.now(timezone.utc), consent_version="test-v1"))
+
+
 def test_generation_shape_keeps_fields_and_enums_but_limits_are_still_validated():
     schema=_generation_shape(Decomposition.model_json_schema())
     assert "title" in schema["properties"]

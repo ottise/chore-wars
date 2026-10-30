@@ -1,12 +1,12 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AI_", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="AI_", extra="ignore", populate_by_name=True)
     environment: str = "production"
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@ai-postgres/chorewars_ai"
@@ -23,9 +23,18 @@ class Settings(BaseSettings):
     kafka_ssl_ca_pem: str = ""
     topic_prefix: str = ""
     artifacts: Path = Path("artifacts")
-    gemini_api_key: SecretStr = SecretStr("")
-    gemini_text_model: str = "gemini-3.5-flash-lite"
-    gemini_vision_model: str = "gemini-3.8-flash"
+    gemini_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("GEMINI_API_KEY", "AI_GEMINI_API_KEY"),
+    )
+    gemini_text_model: str = Field(
+        default="gemini-3.5-flash-lite",
+        validation_alias=AliasChoices("GEMINI_TEXT_MODEL", "AI_GEMINI_TEXT_MODEL"),
+    )
+    gemini_vision_model: str = Field(
+        default="gemini-3.8-flash",
+        validation_alias=AliasChoices("GEMINI_VISION_MODEL", "AI_GEMINI_VISION_MODEL"),
+    )
     optimizer_move_budget: int = 10000
     optimizer_timeout_seconds: float = 4.0
 

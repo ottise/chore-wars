@@ -100,6 +100,9 @@ class GeminiClient:
             LanguageResult.model_json_schema(),
         )
         try:
+            # Confirmation is application policy, never a permission delegated to generated text.
+            if isinstance(data, dict):
+                data = {**data, "requires_confirmation": True}
             result = LanguageResult.model_validate(data)
             result = validate_supplies(request, result)
         except (ValidationError, ValueError) as error:
