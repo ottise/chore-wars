@@ -11,11 +11,12 @@ Nguồn: `main` tại `fba119ee82ca5fa2b01340682e169171461ccd4e` và `hotfix/fix
 - Thêm chore vào lịch tự động sẽ được chia theo lịch rảnh/capacity; lịch thủ công giữ task chờ owner phân công. Lịch REVIEWING có task bắt buộc chưa phân công quay về DRAFT, lịch đã phân công đầy đủ cần mọi người xác nhận revision mới.
 - Import routine cũ giữ template nguồn, dùng lại snapshot chưa có occurrence và tạo task đúng một lần. Giao diện tạo chore tiếp tục không có bước routine riêng.
 - UTC trong model, UTC+7 khi hiển thị; không cộng múi giờ hai lần. Deep link cũ chuyển qua occurrence API; navigation bounty dùng route household chuẩn.
+- Task mới có deadline nằm trong cả thời điểm bắt đầu/kết thúc mùa, kể cả khi mùa kết thúc giữa ngày.
 - Giữ SDK `10.0.302` đã đồng bộ với Dockerfile và CI, thay vì nhận riêng pin `10.0.401` của hotfix trong khi Docker còn dùng SDK cũ.
 
 ## Kiểm tra
 
-- 156 backend unit test qua. Các test mới của hotfix được giữ và cập nhật fixture để khai báo rõ automatic/manual.
+- 157 backend unit test qua. Các test mới của hotfix được giữ và cập nhật fixture để khai báo rõ automatic/manual.
 - 105 integration test khác nhau đã qua trong lượt full và kiểm tra lại 15 test chore/household; 15 test cần dịch vụ ngoài được bỏ qua ở full local.
 - Test Flutter → Kestrel → PostgreSQL và SignalR thật qua riêng; lịch test tự động khai báo `AllocationMethod.AUTOMATIC`.
 - 159 Flutter test khác nhau qua trong lượt full và kiểm tra lại 2 test route bounty; live HTTP test chạy riêng.

@@ -25,7 +25,8 @@ public static class ChoreSchedulingService
             SnapshotKarma = chore.KarmaPoints,
             SnapshotMinutes = ScheduleTime.Effort(chore.Difficulty),
             SnapshotDifficulty = chore.Difficulty
-        }).Where(o => o.DueDate > now && !all.Any(old => old.ChoreId == chore.Id && old.DueDate == o.DueDate)).ToList();
+        }).Where(o => o.DueDate > now && o.DueDate >= season.StartDate && o.DueDate <= season.EndDate
+            && !all.Any(old => old.ChoreId == chore.Id && old.DueDate == o.DueDate)).ToList();
         if (added.Count == 0) throw new ChoreWars.Domain.Exceptions.ConflictException("No future chores fall within this season. Choose a future date or an open season.");
         var members = (await uow.HouseMembers.GetByHouseIdAsync(season.HouseId, ct)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
         var weekly = (await uow.MemberAvailabilities.GetBySeasonIdAsync(season.Id, ct)).ToList();

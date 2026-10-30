@@ -76,6 +76,14 @@ public class ChoreCreationWorkflowTests {
         if (status == SeasonStatus.REVIEWING) Assert.All(f.Confirmations, c => { Assert.Equal(5, c.ScheduleRevision); Assert.Equal(ConfirmationStatus.PENDING, c.Status); });
     }
 
+    [Fact] public async Task DeadlineBeyondTheFinalSeasonTimeDoesNotCreateAnExtraTask() {
+        var f = new Fixture();
+        f.Season.EndDate = new FixedClock().GetUtcNow().UtcDateTime.AddDays(1);
+        var result = await f.Create(f.Request());
+        Assert.Single(result.OccurrenceIds);
+        Assert.All(f.Occurrences, o => Assert.InRange(o.DueDate, f.Season.StartDate, f.Season.EndDate));
+    }
+
     [Fact] public async Task RetryReturnsSameChoreAndOccurrencesWithoutAdvancingRevision() {
         var f = new Fixture(); var request = f.Request();
         var first = await f.Create(request); var second = await f.Create(request);
