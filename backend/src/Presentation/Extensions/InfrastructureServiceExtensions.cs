@@ -72,6 +72,10 @@ public static class InfrastructureServiceExtensions
 
         services.Configure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(configuration.GetSection("MediaStorage"));
         services.AddScoped<ChoreWars.Infrastructure.Storage.FileMediaStorage>();
+        services.AddSingleton(ChoreWars.Infrastructure.Storage.CloudinaryOptions.Parse(configuration["CLOUDINARY_URL"]));
+        services.AddHttpClient<ChoreWars.Infrastructure.Storage.CloudinaryClient>(client => client.Timeout = TimeSpan.FromSeconds(45))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+        services.AddScoped<ChoreWars.Infrastructure.Storage.CloudinaryFileStore>();
         services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.DatabaseMediaStorage>();
         services.AddScoped<IAvatarStorage, ChoreWars.Infrastructure.Storage.AvatarStorage>();
         services.AddHttpClient("google-avatar", client => client.Timeout = TimeSpan.FromSeconds(8))

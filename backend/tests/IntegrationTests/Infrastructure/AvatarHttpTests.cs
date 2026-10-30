@@ -79,6 +79,7 @@ public class AvatarHttpTests
     {
         await using var database = await PostgresFixture.CreateAsync(); using var source = new ApiFactory(database);
         var handler = new GoogleHandler(); var clients = new Mock<IHttpClientFactory>();
+        clients.Setup(c => c.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler, false));
         clients.Setup(c => c.CreateClient("google-avatar")).Returns(() => new HttpClient(handler, false));
         using var factory = source.WithWebHostBuilder(b => b.ConfigureTestServices(s => { s.RemoveAll<IHttpClientFactory>(); s.AddSingleton(clients.Object); }));
         using var client = factory.CreateClient(); await Login(client);

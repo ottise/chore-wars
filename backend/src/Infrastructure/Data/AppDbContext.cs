@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
 
     public DbSet<MediaAttachment> MediaAttachments { get; set; } = null!;
     public DbSet<PrivateMediaFile> PrivateMediaFiles { get; set; } = null!;
+    public DbSet<CloudinaryFile> CloudinaryFiles { get; set; } = null!;
     public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
     public DbSet<FailedEvent> FailedEvents { get; set; } = null!;
     public DbSet<FailedEventReplay> FailedEventReplays { get; set; } = null!;

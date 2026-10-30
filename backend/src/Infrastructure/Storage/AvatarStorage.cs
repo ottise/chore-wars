@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace ChoreWars.Infrastructure.Storage;
 
-public sealed class AvatarStorage(IHostEnvironment environment, AppDbContext db, IHttpClientFactory clients) : IAvatarStorage
+public sealed class AvatarStorage(IHostEnvironment environment, AppDbContext db, IHttpClientFactory clients, CloudinaryFileStore? cloud = null) : IAvatarStorage
 {
     private const int MaxAvatarBytes = 5 * 1024 * 1024;
     private string Root => Path.Combine(environment.ContentRootPath, ".local-data", "avatars");
@@ -25,6 +25,11 @@ public sealed class AvatarStorage(IHostEnvironment environment, AppDbContext db,
             (codec.EncodedFormat switch { SKEncodedImageFormat.Png => extension != ".png", SKEncodedImageFormat.Jpeg => extension is not (".jpg" or ".jpeg"), SKEncodedImageFormat.Webp => extension != ".webp", _ => true }))
             throw new DomainException("Choose a valid JPG, PNG or WebP image up to 4096 pixels per side.");
         var id = Guid.NewGuid();
+        if (cloud?.Enabled == true)
+        {
+            await cloud.WriteAsync("avatar-" + id.ToString("N"), bytes, ct);
+            return $"/avatars/{id}{extension}";
+        }
         db.AvatarImages.Add(new AvatarImage { Id = id, Data = bytes, ContentType = ContentType(extension)!, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync(ct);
         return $"/avatars/{id}{extension}";
@@ -37,6 +42,8 @@ public sealed class AvatarStorage(IHostEnvironment environment, AppDbContext db,
         var name = Path.GetFileName(avatarUrl);
         if (avatarUrl != $"/avatars/{name}" || !Guid.TryParse(Path.GetFileNameWithoutExtension(name), out var id)) throw new NotFoundException("Avatar unavailable.");
         var contentType = ContentType(Path.GetExtension(name).ToLowerInvariant()) ?? throw new NotFoundException("Avatar unavailable.");
+        var remoteImage = cloud == null ? null : await cloud.TryReadAsync("avatar-" + id.ToString("N"), ct);
+        if (remoteImage != null) return (remoteImage, contentType);
         var saved = await db.AvatarImages.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (saved != null) return (new MemoryStream(saved.Data, false), saved.ContentType);
         try {

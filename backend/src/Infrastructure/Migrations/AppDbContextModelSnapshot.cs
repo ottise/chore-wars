@@ -463,11 +463,11 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("HouseId");
+
                     b.HasIndex("SeasonId");
 
                     b.HasIndex("SourceTemplateId");
-
-                    b.HasIndex("HouseId");
 
                     b.HasIndex("HouseId", "CreatedByUserId", "ClientRequestId")
                         .IsUnique()
@@ -738,6 +738,37 @@ namespace Infrastructure.Migrations
                     b.HasIndex("HouseId");
 
                     b.ToTable("Seasons");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.CloudinaryFile", b =>
+                {
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AssetId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("CloudName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("StorageKey");
+
+                    b.ToTable("CloudinaryFiles");
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.EmailOtpChallenge", b =>
