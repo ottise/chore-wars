@@ -1,3 +1,8 @@
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/vietnam_time.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
+
 import 'dart:convert';
 
 import 'package:go_router/go_router.dart';
@@ -85,14 +90,19 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
             status: status,
             reason: reason,
           );
-      if (mounted &&
-          updated.type == ProposalType.urgentEvent &&
-          updated.status == ProposalStatus.approved) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Campaign activated! The countdown has started.'),
-          ),
-        );
+      if (mounted) {
+        refreshChoreState(ref, widget.proposal.houseId);
+        final message = updated.type != ProposalType.urgentEvent
+            ? (updated.status == ProposalStatus.rejected
+                  ? 'Request declined.'
+                  : 'Response recorded.')
+            : updated.status == ProposalStatus.rejected
+            ? 'Request declined. No bonus work was created.'
+            : updated.status == ProposalStatus.approved
+            ? 'Confirmed. Your bonus work is ready.'
+            : 'Confirmed. Waiting for the other participants.';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (mounted) {
@@ -186,99 +196,29 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Icon + Type + Status
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _getTypeColor(proposal.type).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _getTypeIcon(proposal.type),
+              Icon(
+                _getTypeIcon(proposal.type),
+                color: _getTypeColor(proposal.type),
+                size: 20,
+              ),
+              Text(
+                _getTypeLabel(proposal.type),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
                   color: _getTypeColor(proposal.type),
-                  size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _getTypeLabel(proposal.type),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                    color: _getTypeColor(proposal.type),
-                  ),
-                ),
-              ),
-              if (proposal.status == ProposalStatus.approved)
-                const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.check_circle_outlined,
-                      color: AppTheme.green,
-                      size: 16,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Approved',
-                      style: TextStyle(
-                        color: AppTheme.green,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                )
-              else if (proposal.status == ProposalStatus.rejected)
-                const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.cancel_outlined, color: AppTheme.red, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      'Rejected',
-                      style: TextStyle(
-                        color: AppTheme.red,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.yellow.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.access_time_outlined,
-                        color: AppTheme.orange,
-                        size: 13,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Awaiting Approval',
-                        style: TextStyle(
-                          color: AppTheme.orange,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              Text(switch (proposal.status) {
+                ProposalStatus.approved => 'Approved',
+                ProposalStatus.rejected => 'Rejected',
+                ProposalStatus.cancelled => 'Cancelled',
+                ProposalStatus.pending => 'Awaiting approval',
+              }),
             ],
           ),
           const SizedBox(height: 12),
@@ -378,7 +318,7 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
                       onPressed: () =>
                           _respond(ProposalConfirmationStatus.confirmed),
                       icon: const Icon(Icons.bolt_outlined, size: 18),
-                      label: const Text('Tham gia ngay'),
+                      label: const Text('Confirm'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.green,
                         foregroundColor: Colors.white,
@@ -441,8 +381,8 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
           ] else if (isTarget && hasResponded) ...[
             Text(
               proposal.hasUserConfirmed(widget.currentUserId)
-                  ? '✅ You have approved this request.'
-                  : '❌ You have rejected this request.',
+                  ? 'Confirmed. Waiting for the other participants.'
+                  : 'You declined this request.',
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
@@ -453,7 +393,9 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
             ),
           ] else if (!isTarget) ...[
             Text(
-              '👁️ This request is intended for another member.',
+              proposal.creatorId == widget.currentUserId
+                  ? 'Waiting for invited members to confirm.'
+                  : 'This request is intended for another member.',
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
@@ -505,40 +447,48 @@ class _InteractiveActionCardState extends ConsumerState<InteractiveActionCard> {
     try {
       final payload = jsonDecode(proposal.payloadJson) as Map<String, dynamic>;
       final deadline = payload['DeadlineMinutes'] ?? payload['deadlineMinutes'];
-      final chores =
-          (payload['Chores'] ?? payload['chores']) as List<dynamic>? ??
-          const [];
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.orange.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
+      final readyBy = payload['ReadyByUtc'] ?? payload['readyByUtc'];
+      final chores = ((payload['Chores'] ?? payload['chores']) as List? ?? [])
+          .map((c) => Map<String, dynamic>.from(c as Map))
+          .toList();
+      final mine = chores
+          .where(
+            (c) =>
+                (c['AssignedUserId'] ?? c['assignedUserId']) ==
+                widget.currentUserId,
+          )
+          .toList();
+      final visible = mine.isNotEmpty ? mine : chores;
+      final due = readyBy == null
+          ? '$deadline minutes after everyone confirms'
+          : '${DateFormat('dd/MM/yyyy HH:mm').format(vietnamTime(readyBy))} (UTC+7)';
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('Deadline: $due'),
+            const SizedBox(height: 8),
             Text(
-              'Deadline: $deadline minutes after everyone agrees',
+              mine.isNotEmpty ? 'Your proposed work' : 'Proposed work',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 6),
-            ...chores.map((raw) {
-              final chore = Map<String, dynamic>.from(raw as Map);
-              return Padding(
-                padding: const EdgeInsets.only(top: 3),
+            for (final chore in visible)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '• ${chore['Name'] ?? chore['name']} (+${chore['KarmaPoints'] ?? chore['karmaPoints']} Karma)\nStart +${chore['PlannedOffsetMinutes'] ?? chore['plannedOffsetMinutes'] ?? 0} minutes · Dependencies: ${chore['DependsOn'] ?? chore['dependsOn'] ?? []} · Resources: ${chore['Resources'] ?? chore['resources'] ?? []}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  "${chore['Name'] ?? chore['name']} · ${chore['KarmaPoints'] ?? chore['karmaPoints']} Karma\n${chore['Description'] ?? chore['description'] ?? ''}",
                 ),
-              );
-            }),
+              ),
+            const SizedBox(height: 8),
+            const Text('Work starts after all invited members confirm.'),
           ],
         ),
       );
     } catch (_) {
-      return const SizedBox.shrink();
+      return const Text(
+        'Unable to load task details. Refresh before confirming.',
+      );
     }
   }
 }

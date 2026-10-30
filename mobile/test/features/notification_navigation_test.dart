@@ -50,7 +50,7 @@ class _Inbox extends NotificationNotifier {
 }
 
 void main() {
-  testWidgets('incoming AI task request shows a banner and opens Assistant', (
+  testWidgets('incoming AI task request shows a banner and opens Bonus', (
     tester,
   ) async {
     final inbox = _Inbox();
@@ -66,8 +66,8 @@ void main() {
           ),
         ),
         GoRoute(
-          path: '/houses/house-A/chat/assistant',
-          builder: (_, _) => const Scaffold(body: Text('Assistant task inbox')),
+          path: '/houses/house-A/chores',
+          builder: (_, _) => const Scaffold(body: Text('Bonus task inbox')),
         ),
       ],
     );
@@ -91,7 +91,7 @@ void main() {
     expect(find.text('Party preparation request'), findsOneWidget);
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    expect(find.text('Assistant task inbox'), findsOneWidget);
+    expect(find.text('Bonus task inbox'), findsOneWidget);
     expect(inbox.read, ['Party preparation request']);
   });
   test(
@@ -104,7 +104,7 @@ void main() {
           targetType: 'AI_REQUEST',
           targetId: 'proposal',
         ).destination,
-        '/houses/house-A/chat/assistant',
+        '/houses/house-A/chores?tab=bonus',
       );
       expect(
         _notice(

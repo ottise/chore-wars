@@ -146,6 +146,7 @@ public class ActionProposalServiceTests
 
         Assert.Equal(ProposalStatus.APPROVED, response.Status);
         Assert.Equal(2, chores.Count);
+        Assert.All(chores, chore => Assert.Equal(ChoreType.BONUS, chore.Type));
         Assert.Equal(2, occurrences.Count);
         Assert.All(occurrences, x =>
         {
@@ -160,7 +161,7 @@ public class ActionProposalServiceTests
             It.IsAny<string>(),
             It.IsAny<string>(),
             nameof(NotificationType.URGENT_EVENT),
-            "ActionProposal",
+            ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest,
             proposal.Id,
             It.IsAny<CancellationToken>()), Times.Exactly(2));
     }

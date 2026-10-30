@@ -94,7 +94,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Clean table · B · 15 min'), findsOneWidget);
         expect(api.paths, ['urgent/request']);
-        expect(find.textContaining('Requests sent.'), findsOneWidget);
+        expect(
+          find.textContaining('Requests sent to Chore → Bonus.'),
+          findsOneWidget,
+        );
         expect(find.text('Retry sending requests'), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
       },

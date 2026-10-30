@@ -7,7 +7,6 @@ import '../../../ai/data/ai_repository.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../providers/action_proposal_providers.dart';
-import 'assistant_requests.dart';
 
 class AiUrgentPlanCard extends ConsumerStatefulWidget {
   const AiUrgentPlanCard({
@@ -152,7 +151,7 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
               ),
             if (_sent)
               const Text(
-                'Requests sent. Participants can review them in Assistant or Household Chat. The campaign starts after everyone approves.',
+                'Requests sent to Chore → Bonus. Invited members can confirm there. Work starts after everyone confirms.',
               ),
             if (!_sent && result?['status'] == 'READY') ...[
               const Text(

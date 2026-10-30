@@ -15,17 +15,12 @@ final actionProposalServiceProvider = Provider<ActionProposalService>((ref) {
 final activeUrgentEventForHouseProvider = FutureProvider.autoDispose
     .family<ActionProposalModel?, String>((ref, houseId) async {
       ref.watch(sessionEpochProvider);
-      final refreshTimer = Timer(
-        const Duration(seconds: 3),
-        ref.invalidateSelf,
+      final room = await ref.watch(
+        assistantRequestRoomProvider(houseId).future,
       );
-      ref.onDispose(refreshTimer.cancel);
-      final room = await ref
-          .watch(chatRepositoryProvider)
-          .getHouseRoom(houseId);
-      final proposals = await ref
-          .watch(actionProposalServiceProvider)
-          .getActiveProposals(room.id);
+      if (!ref.mounted) return null;
+      final proposals =
+          ref.watch(actionProposalProvider(room)).asData?.value ?? [];
       final now = DateTime.now();
       for (final proposal in proposals) {
         if (proposal.type == ProposalType.urgentEvent &&
@@ -42,6 +37,8 @@ class ActionProposalNotifier
     extends Notifier<AsyncValue<List<ActionProposalModel>>> {
   final String roomId;
   int _generation = 0;
+  int _stateRevision = 0;
+  bool _fetching = false;
   ActionProposalNotifier(this.roomId);
 
   @override
@@ -55,40 +52,45 @@ class ActionProposalNotifier
   }
 
   Future<void> loadProposals() async {
+    if (_fetching) return;
+    _fetching = true;
     final generation = _generation;
+    final revision = _stateRevision;
     try {
+      if (!state.hasValue) state = const AsyncValue.loading();
       final service = ref.read(actionProposalServiceProvider);
       final proposals = await service.getActiveProposals(roomId);
-      if (ref.mounted && generation == _generation) {
+      if (ref.mounted &&
+          generation == _generation &&
+          revision == _stateRevision) {
         state = AsyncValue.data(proposals);
       }
     } catch (e, st) {
-      if (ref.mounted && generation == _generation) {
+      if (ref.mounted &&
+          generation == _generation &&
+          revision == _stateRevision) {
         state = AsyncValue.error(e, st);
       }
+    } finally {
+      _fetching = false;
     }
   }
 
   void addProposal(ActionProposalModel proposal) {
-    state.whenData((proposals) {
-      final index = proposals.indexWhere((p) => p.id == proposal.id);
-      if (index != -1) {
-        final updated = List<ActionProposalModel>.from(proposals);
-        updated[index] = proposal;
-        state = AsyncValue.data(updated);
-      } else {
-        state = AsyncValue.data([proposal, ...proposals]);
-      }
-    });
+    _stateRevision++;
+    final proposals = state.asData?.value ?? <ActionProposalModel>[];
+    final index = proposals.indexWhere((p) => p.id == proposal.id);
+    if (index != -1) {
+      final updated = List<ActionProposalModel>.from(proposals);
+      updated[index] = proposal;
+      state = AsyncValue.data(updated);
+    } else {
+      state = AsyncValue.data([proposal, ...proposals]);
+    }
   }
 
   void updateProposal(ActionProposalModel proposal) {
-    state.whenData((proposals) {
-      final updated = proposals
-          .map((p) => p.id == proposal.id ? proposal : p)
-          .toList();
-      state = AsyncValue.data(updated);
-    });
+    addProposal(proposal);
   }
 
   Future<ActionProposalModel> respondProposal({
@@ -97,6 +99,7 @@ class ActionProposalNotifier
     String? reason,
   }) async {
     final generation = _generation;
+    _stateRevision++;
     final service = ref.read(actionProposalServiceProvider);
     final updated = await service.respondProposal(
       proposalId: proposalId,
@@ -114,3 +117,20 @@ final actionProposalProvider = NotifierProvider.autoDispose
       AsyncValue<List<ActionProposalModel>>,
       String
     >(ActionProposalNotifier.new);
+
+final assistantRequestRoomProvider = FutureProvider.autoDispose
+    .family<String, String>((ref, houseId) async {
+      ref.watch(sessionEpochProvider);
+      final room = await ref
+          .watch(chatRepositoryProvider)
+          .getHouseRoom(houseId);
+      if (!ref.mounted) return room.id;
+      final timer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (ref.mounted &&
+            !ref.read(actionProposalProvider(room.id)).hasError) {
+          ref.read(actionProposalProvider(room.id).notifier).loadProposals();
+        }
+      });
+      ref.onDispose(timer.cancel);
+      return room.id;
+    }, retry: (_, _) => null);

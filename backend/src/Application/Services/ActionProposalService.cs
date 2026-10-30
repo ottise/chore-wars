@@ -108,7 +108,7 @@ public class ActionProposalService : IActionProposalService
                 foreach (var targetId in targetIds)
                     await _notificationService.CreateNotificationAsync(
                         targetId, houseId, "A household task needs your approval",
-                        $"{proposal.Title}. Open Assistant to review and confirm your participation.",
+                        $"{proposal.Title}. Open Chore > Bonus to review and confirm your participation.",
                         nameof(NotificationType.URGENT_EVENT), ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest, proposal.Id, cancellationToken);
             }
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -232,7 +232,7 @@ public class ActionProposalService : IActionProposalService
                     "Urgent campaign started!",
                     $"{proposal.Title} was approved by all required members. The countdown has started.",
                     nameof(NotificationType.URGENT_EVENT),
-                    "ActionProposal",
+                    ChoreWars.Domain.Common.Constants.NotificationTargets.AiRequest,
                     proposal.Id,
                     cancellationToken);
             }
@@ -412,7 +412,7 @@ public class ActionProposalService : IActionProposalService
                         Name = item.Name.Trim(),
                         Description = item.Description?.Trim() ?? string.Empty,
                         KarmaPoints = item.KarmaPoints,
-                        Type = ChoreType.NORMAL,
+                        Type = ChoreType.BONUS,
                         FrequencyType = FrequencyType.CUSTOM,
                         Difficulty = item.Difficulty,
                         EstimatedMinutes = ScheduleTime.Effort(item.Difficulty)
