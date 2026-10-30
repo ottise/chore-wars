@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../providers/voice_note_provider.dart';
@@ -241,9 +242,28 @@ class PrivateImageBubble extends ConsumerWidget {
           height: 80,
           child: Center(child: CircularProgressIndicator()),
         ),
-        error: (_, _) => TextButton(
-          onPressed: () => ref.invalidate(privateMediaProvider(attachmentId)),
-          child: const Text('Retry image'),
-        ),
+        error: (error, _) {
+          final status = error is DioException
+              ? error.response?.statusCode
+              : null;
+          if (status == 404 || status == 410) {
+            return const SizedBox(
+              width: 240,
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Photo unavailable on the server. The original photo or a backup is needed to restore it.',
+                ),
+              ),
+            );
+          }
+          if (status == 403) {
+            return const Text('You no longer have access to this photo.');
+          }
+          return TextButton(
+            onPressed: () => ref.invalidate(privateMediaProvider(attachmentId)),
+            child: const Text('Retry image'),
+          );
+        },
       );
 }

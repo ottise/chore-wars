@@ -24,7 +24,8 @@ public sealed class MediaService(IUnitOfWork uow, IChatService chat, IMediaStora
     public async Task<(MediaAttachment Metadata, Stream Stream)> DownloadAsync(Guid id, Guid userId, CancellationToken ct) {
         var media = await uow.Chats.GetAttachmentAsync(id,ct) ?? throw new NotFoundException("Media not found.");
         await chat.EnsureRoomAccessAsync(media.RoomId,userId,ct);
-        if (media.AttachedAt == null && media.OwnerId != userId) throw new ForbiddenException();
+        if (media.AttachedAt == null && media.OwnerId != userId
+            && !await uow.Chats.IsAttachmentInMessageAsync(media.RoomId,media.Id,ct)) throw new ForbiddenException();
         return (media, await storage.ReadAsync(media.StorageKey,ct));
     }
     public async Task<ChatMessageResponse> SendAsync(Guid roomId, Guid attachmentId, Guid clientId, Guid userId, CancellationToken ct) {

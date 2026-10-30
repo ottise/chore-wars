@@ -78,6 +78,8 @@ builder.Services.PostConfigure<ChoreWars.Infrastructure.Storage.MediaStorageOpti
 {
     if (!Path.IsPathRooted(options.RootPath))
         options.RootPath = Path.Combine(builder.Environment.ContentRootPath, options.RootPath);
+    options.LegacyRootPaths = options.LegacyRootPaths.Select(path => Path.IsPathRooted(path)
+        ? path : Path.Combine(builder.Environment.ContentRootPath, path)).ToArray();
 });
 builder.Services.AddApplicationServices();
 builder.Services.AddHealthChecks().AddCheck<ChoreWars.Presentation.Health.DatabaseReadinessCheck>("database",tags:new[]{"ready"});
