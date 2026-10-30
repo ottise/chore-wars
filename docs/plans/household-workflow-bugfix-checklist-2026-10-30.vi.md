@@ -46,7 +46,7 @@ Chưa kết luận nguyên nhân runtime của “nhận rồi báo lỗi”, �
 - [ ] **A03** Detail tải lại được bằng URL trực tiếp, refresh browser và mở từ notification; hiển thị tên, assignee, trạng thái, ngày/giờ đầy đủ và mùa đúng.
 - [ ] **A04** Hiện Take photo/Choose photo cho người được phép; ảnh upload lưu bền, reload thấy ảnh, complete với evidenceId đúng occurrence. Trạng thái hoàn thành/quá hạn có capability riêng, không chỉ điều kiện ASSIGNED ở FE.
 - [ ] **A05** Chuẩn hóa UTC trong API/DB, hiển thị Vietnam time có nhãn. Không dựa vào timezone máy người dùng, không fallback thời gian hiện tại khi thiếu/sai timestamp.
-- [ ] **A06** Back ở bounty board/detail/create luôn có hành vi hợp lệ: pop nếu có stack, nếu không thì về board đúng nhà. Không để exception `pop` đổi một thao tác thành công thành thông báo thất bại.
+- [x] **A06** Back ở bounty board/detail/create luôn có hành vi hợp lệ: pop nếu có stack, nếu không thì về board đúng nhà. Không để exception `pop` đổi một thao tác thành công thành thông báo thất bại.
 
 ### P0-B — Chore: quyền tạo, bỏ routine và thêm vào lịch đã chốt
 

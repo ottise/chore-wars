@@ -143,7 +143,49 @@ void main() {
         ),
       );
       expect((await chores.getHouseChores(house.id)).single.id, chore.id);
-      expect(await chores.getMyChores(house.id), isEmpty);
+      // Creating a chore now persists and assigns its future occurrences immediately.
+      final mineA = await chores.getMyChores(house.id);
+      final mineB = await ChoreRemoteDataSource(b).getMyChores(house.id);
+      expect(mineA, isNotEmpty);
+      expect(mineB, isNotEmpty);
+      expect(
+        [...mineA, ...mineB].every(
+          (task) =>
+              task.choreId == chore.id &&
+              task.dueDate.isAfter(DateTime.now().toUtc()),
+        ),
+        isTrue,
+      );
+      final currentSeason = (await a.get('/houses/${house.id}/seasons/current'))
+          .data;
+      final occurrences =
+          (await a.get(
+                '/houses/${house.id}/seasons/${currentSeason['id']}/occurrences',
+              )).data
+              as List;
+      expect(
+        [...mineA, ...mineB].map((task) => task.id).toSet(),
+        occurrences.map((task) => task['id'].toString()).toSet(),
+      );
+      expect(chore.unassignedCount, 0);
+      final preview = await a.get(
+        '/houses/${house.id}/seasons/${currentSeason['id']}/redistribution-preview',
+        queryParameters: {'targetUserId': (await authB.getProfile()).id},
+      );
+      expect(preview.data['contextHash'], isNotEmpty);
+      await expectLater(
+        b.get(
+          '/houses/${house.id}/seasons/${currentSeason['id']}/redistribution-preview',
+          queryParameters: {'targetUserId': profile.id},
+        ),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'status',
+            403,
+          ),
+        ),
+      );
       final dashboard = await HomeDashboardRepository(a).getDashboard(house.id);
       expect(dashboard.houseName, 'QA network household');
       final gamification = GamificationRemoteDataSource(a);
@@ -229,6 +271,13 @@ void main() {
         (await apiA.getMessages(room.id)).items.any((m) => m.id == sent.id),
         isTrue,
       );
+      expect((await b.get('/houses/${house.id}/chat/unread')).data['count'], 1);
+      expect((await a.get('/houses/${house.id}/chat/unread')).data['count'], 0);
+      await b.put(
+        '/houses/${house.id}/chat/read',
+        data: {'messageId': sent.id},
+      );
+      expect((await b.get('/houses/${house.id}/chat/unread')).data['count'], 0);
       final png = base64Decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=',
       );
@@ -240,6 +289,23 @@ void main() {
           options: Options(responseType: ResponseType.bytes),
         )).data,
         png,
+      );
+      expect(
+        (await b.get<List<int>>(
+          '/houses/${house.id}/members/${profile.id}/avatar',
+          options: Options(responseType: ResponseType.bytes),
+        )).data,
+        png,
+      );
+      await expectLater(
+        b.get('/houses/${otherHouse.id}/members/${profile.id}/avatar'),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'status',
+            403,
+          ),
+        ),
       );
       final photo = await apiA.sendMedia(
         room.id,

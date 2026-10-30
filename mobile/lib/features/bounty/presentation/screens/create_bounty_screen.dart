@@ -36,7 +36,20 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
     super.dispose();
   }
 
+  void _back() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(
+        widget.houseId == null
+            ? '/houses'
+            : '/houses/${widget.houseId}/bounties',
+      );
+    }
+  }
+
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate() ||
         widget.houseId == null ||
         widget.occurrenceId == null) {
@@ -56,7 +69,10 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
       if (!mounted) return;
       ref.invalidate(bountyBoardProvider(widget.houseId!));
       ref.invalidate(homeDashboardProvider(widget.houseId!));
-      context.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bounty posted successfully.')),
+      );
+      _back();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -70,7 +86,10 @@ class _CreateBountyScreenState extends ConsumerState<CreateBountyScreen> {
   Widget build(BuildContext context) {
     final canSubmit = widget.houseId != null && widget.occurrenceId != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Bounty')),
+      appBar: AppBar(
+        leading: BackButton(onPressed: _isSubmitting ? null : _back),
+        title: const Text('Create Bounty'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(

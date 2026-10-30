@@ -15,9 +15,9 @@ Bản sửa chung cho chore, chia việc, bounty, chat, thống kê và giao di�
 
 ## Kiểm thử local
 
-- Flutter: 148 bài đạt, 1 bài HTTP live cần fixture riêng bị skip; gồm OTP 320/354/390/480 px ở text scale 1.3, paste mã, đổi email, badge 0/1/10/10+, scope notification, route, role và layout hiện có.
-- .NET: 129 unit tests đạt; integration suite 95 đạt, 15 bài hạ tầng ngoài bị skip. Sau thay đổi guard REVIEWING, chạy thêm 10 bài hồi quy chuyên biệt: tất cả đạt. Chưa tuyên bố các bài bị skip là đã chạy.
-- Backend build và Flutter web release build đạt. Analyzer/diff/secret scan và SQL review là gate trước commit/push.
+- Flutter: 148 bài trong lượt full suite đạt; thêm hai test Back/đăng bounty từ URL trực tiếp đều đạt. Test HTTP live được chạy riêng và đạt với Kestrel/Postgres thật; gồm OTP 320/354/390/480 px ở text scale 1.3, paste mã, đổi email, badge 0/1/10/10+, scope notification, route, role và layout hiện có.
+- .NET: 129 unit tests đạt; integration suite 95 đạt, 15 bài hạ tầng ngoài bị skip. Sau thay đổi guard REVIEWING, chạy thêm 10 bài hồi quy chuyên biệt: tất cả đạt. Các bài hạ tầng bị skip ở local được phân biệt với lượt runtime integration đã đạt trên CI.
+- Backend build và Flutter web release build đạt. HTTP live đối chiếu việc được phân công của hai thành viên với occurrence trong DB, quyền preview, unread/read cursor, avatar theo house và SignalR. Analyzer/diff/secret scan và SQL review là gate trước commit/push.
 - SQL được chạy thử toàn bộ 36 migration trên PostgreSQL trống. Hai migration mới chỉ bổ sung cột/bảng/index; giữ index HouseId cũ. Dump cloud nằm trong vùng ignored riêng, kiểm tra định dạng/checksum/TOC trước khi áp dụng.
 
 ## Triển khai
