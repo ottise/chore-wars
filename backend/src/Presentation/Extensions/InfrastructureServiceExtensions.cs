@@ -73,6 +73,8 @@ public static class InfrastructureServiceExtensions
         services.Configure<ChoreWars.Infrastructure.Storage.MediaStorageOptions>(configuration.GetSection("MediaStorage"));
         services.AddScoped<IMediaStorage, ChoreWars.Infrastructure.Storage.FileMediaStorage>();
         services.AddScoped<IAvatarStorage, ChoreWars.Infrastructure.Storage.AvatarStorage>();
+        services.AddHttpClient("google-avatar", client => client.Timeout = TimeSpan.FromSeconds(8))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 
 
         services.AddScoped<ISupplyRepository, SupplyRepository>();

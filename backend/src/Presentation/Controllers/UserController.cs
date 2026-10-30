@@ -43,10 +43,12 @@ public class UserController : ControllerBase
     public async Task<IActionResult> ReadAvatar(CancellationToken cancellationToken)
     {
         var profile = await _authService.GetProfileAsync(CurrentUserId, cancellationToken);
-        if (string.IsNullOrWhiteSpace(profile.AvatarUrl)) return NotFound();
-        var image = await _avatars.ReadAsync(profile.AvatarUrl, cancellationToken);
         Response.Headers.CacheControl = "private, no-store";
-        return File(image.Stream, image.ContentType);
+        if (string.IsNullOrWhiteSpace(profile.AvatarUrl)) return NoContent();
+        try {
+            var image = await _avatars.ReadAsync(profile.AvatarUrl, cancellationToken);
+            return File(image.Stream, image.ContentType);
+        } catch (ChoreWars.Domain.Exceptions.NotFoundException) { return NoContent(); }
     }
 
     [HttpPost("avatar")]

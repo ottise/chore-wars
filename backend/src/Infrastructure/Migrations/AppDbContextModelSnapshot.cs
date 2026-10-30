@@ -303,6 +303,29 @@ namespace Infrastructure.Migrations
                     b.ToTable("ActionProposals");
                 });
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AvatarImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AvatarImages");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")

@@ -289,9 +289,7 @@ class ProfileScreen extends ConsumerWidget {
                                     color: colors.primary,
                                   ),
                                   title: const Text('Household Chores'),
-                                  subtitle: const Text(
-                                    'Your assigned chores',
-                                  ),
+                                  subtitle: const Text('Your assigned chores'),
                                   trailing: const Icon(
                                     Icons.chevron_right_outlined,
                                     size: 18,
@@ -394,7 +392,13 @@ class _ProfileAvatar extends ConsumerWidget {
               child: ref
                   .watch(accountAvatarProvider(avatarUrl!))
                   .when(
-                    data: (bytes) => Image.memory(bytes, fit: BoxFit.cover),
+                    data: (bytes) => bytes == null
+                        ? fallback
+                        : Image.memory(
+                            bytes,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => fallback,
+                          ),
                     loading: () => fallback,
                     error: (_, _) => fallback,
                   ),
