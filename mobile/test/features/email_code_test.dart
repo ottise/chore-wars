@@ -94,7 +94,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(adapter.calls, hasLength(2));
         expect(
-          find.text('Wait one minute before requesting another code.'),
+          find.textContaining('Wait one minute before requesting another code.'),
           findsOneWidget,
         );
         dio.close();

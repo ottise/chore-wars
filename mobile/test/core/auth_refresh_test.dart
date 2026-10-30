@@ -74,6 +74,33 @@ class RefreshAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  test(
+    'requests after session expiry never hit auth or protected endpoints again',
+    () async {
+      final adapter = RefreshAdapter()..denyRefresh = true;
+      final tokens = MemoryTokens();
+      var expired = 0;
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = adapter;
+      dio.interceptors.add(
+        AuthInterceptor(
+          secureStorage: tokens,
+          dio: dio,
+          onSessionExpired: () => expired++,
+        ),
+      );
+      await expectLater(dio.get('/first'), throwsA(isA<DioException>()));
+      final calls = adapter.requests.length;
+      for (var i = 0; i < 10; i++) {
+        await expectLater(dio.get('/profile'), throwsA(isA<DioException>()));
+      }
+      await Future<void>.delayed(Duration.zero);
+      expect(adapter.requests.length, calls);
+      expect(adapter.refreshes, 1);
+      expect(expired, 1);
+      dio.close();
+    },
+  );
   for (final deny in [false, true]) {
     test(
       'old refresh (denied=$deny) cannot replace a new Google session',

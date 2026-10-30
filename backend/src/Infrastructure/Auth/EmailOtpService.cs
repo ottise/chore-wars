@@ -31,14 +31,23 @@ public sealed class EmailOtpService(AppDbContext db, IAccountEmailSender sender,
         var now = clock.GetUtcNow().UtcDateTime;
         var prior = await db.EmailOtpChallenges.Where(x => x.UserId == user.Id && x.Purpose == purpose).OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
         if (prior.FirstOrDefault()?.CreatedAt > now.AddSeconds(-60)) return;
-        foreach (var old in prior.Where(x => x.ConsumedAt == null)) old.ConsumedAt = now;
         var id = Guid.NewGuid();
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
-        db.EmailOtpChallenges.Add(new() { Id = id, UserId = user.Id, Purpose = purpose, CodeHash = Hash(id, code),
-            CreatedAt = now, ExpiresAt = now.AddMinutes(10) });
+        var challenge = new EmailOtpChallenge { Id = id, UserId = user.Id, Purpose = purpose, CodeHash = Hash(id, code),
+            CreatedAt = now, ExpiresAt = now.AddMinutes(10) };
+        db.EmailOtpChallenges.Add(challenge);
         await db.SaveChangesAsync(ct);
         try { await sender.SendCodeAsync(user.Email, code, purpose, ct); }
-        catch (Exception e) when (e is not OperationCanceledException) { throw new ConflictException("Could not send your code. Please try again later."); }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // Keep the resend cooldown even if the provider is unavailable.
+            // A previous successfully delivered code remains usable.
+            challenge.ConsumedAt = now;
+            await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+            throw new ConflictException("Could not send your code. Please wait one minute before trying again.");
+        }
+        foreach (var old in prior.Where(x => x.ConsumedAt == null)) old.ConsumedAt = now;
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }
 

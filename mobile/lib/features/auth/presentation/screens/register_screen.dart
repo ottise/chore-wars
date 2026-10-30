@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/app_states.dart';
+import '../../../../core/network/request_cooldown.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../providers/auth_providers.dart';
 import '../../../../core/utils/api_error_message.dart';
@@ -25,9 +26,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscureConfirm = true;
   bool _isLoading = false;
   String? _errorMessage;
+  late final _cooldown = RequestCooldown(() {
+    if (mounted) setState(() {});
+  });
 
   @override
   void dispose() {
+    _cooldown.dispose();
     _displayNameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -61,6 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 36),
                 TextFormField(
                   controller: _displayNameCtrl,
+                  enabled: !_isLoading,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     labelText: 'Display name',
@@ -77,6 +83,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailCtrl,
+                  enabled: !_isLoading,
                   autocorrect: false,
                   enableSuggestions: false,
                   keyboardType: TextInputType.emailAddress,
@@ -96,6 +103,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordCtrl,
+                  enabled: !_isLoading,
                   autocorrect: false,
                   enableSuggestions: false,
                   enableIMEPersonalizedLearning: false,
@@ -123,6 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordCtrl,
+                  enabled: !_isLoading,
                   autocorrect: false,
                   enableSuggestions: false,
                   enableIMEPersonalizedLearning: false,
@@ -141,7 +150,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
-                    errorText: _errorMessage,
                   ),
                   validator: (v) {
                     if (v != _passwordCtrl.text) {
@@ -151,10 +159,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 32),
+                if (_errorMessage != null)
+                  Semantics(
+                    liveRegion: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_cooldown.seconds > 0)
+                  Text('Try again in ${_cooldown.seconds}s.'),
                 PrimaryButton(
                   text: 'Create account',
                   isLoading: _isLoading,
-                  onPressed: _submit,
+                  onPressed: _cooldown.seconds > 0 ? null : _submit,
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -179,6 +202,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isLoading || _cooldown.seconds > 0) return;
     setState(() => _errorMessage = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
@@ -205,7 +229,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         context.go('/login');
       }
     } catch (error) {
-      if (mounted) setState(() => _errorMessage = apiErrorMessage(error));
+      if (mounted) {
+        setState(() {
+          _errorMessage = apiErrorMessage(error);
+          _cooldown.afterError(error, fallback: 30);
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

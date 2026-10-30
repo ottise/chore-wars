@@ -18,6 +18,7 @@ class AuthInterceptor extends Interceptor {
   final Dio dio;
   Future<String?>? _refreshing;
   bool _expired = false;
+  bool _expiryNotified = false;
   bool get _current => isSessionCurrent?.call() ?? true;
   bool _publicAuth(RequestOptions request) => [
     ApiEndpoints.login,
@@ -36,8 +37,29 @@ class AuthInterceptor extends Interceptor {
     if (_publicAuth(options)) {
       options.headers.remove('Authorization');
     } else {
+      if (_expired || !_current) {
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.cancel,
+            message: 'Session expired.',
+          ),
+        );
+        return;
+      }
       final token = await secureStorage.getAccessToken();
-      if (token != null) options.headers['Authorization'] = 'Bearer $token';
+      if (token == null) {
+        await _expire(options);
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.cancel,
+            message: 'Sign in required.',
+          ),
+        );
+        return;
+      }
+      options.headers['Authorization'] = 'Bearer $token';
     }
     handler.next(options);
   }
@@ -75,7 +97,7 @@ class AuthInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) async {
     final request = err.requestOptions;
-    if (!_current) {
+    if (!_current || _expired) {
       handler.next(err);
       return;
     }
@@ -130,13 +152,15 @@ class AuthInterceptor extends Interceptor {
             request.headers['Authorization'] != 'Bearer $current') {
       return;
     }
+    if (_expired) return;
+    _expired = true;
     await secureStorage.deleteTokens();
     if (_current) _notifyExpired();
   }
 
   void _notifyExpired() {
-    if (!_expired) {
-      _expired = true;
+    if (!_expiryNotified) {
+      _expiryNotified = true;
       scheduleMicrotask(() {
         if (_current) onSessionExpired?.call();
       });

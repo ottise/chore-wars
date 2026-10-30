@@ -37,6 +37,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("password-auth")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         await _authService.RegisterAsync(request, cancellationToken);
@@ -44,6 +45,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("password-auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.LoginAsync(request, cancellationToken);
@@ -51,6 +53,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("refresh-token")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("password-auth")]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
         var response = await _authService.RefreshTokenAsync(request, cancellationToken);

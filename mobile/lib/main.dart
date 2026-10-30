@@ -1,4 +1,5 @@
 import 'core/constants/app_constants.dart';
+import 'core/network/provider_retry.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ void main() async {
 
     runApp(
       ProviderScope(
+        retry: appProviderRetry,
         overrides: [
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         ],

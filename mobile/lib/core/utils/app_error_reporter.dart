@@ -5,7 +5,7 @@ import '../widgets/app_error_fallback.dart';
 
 class AppErrorReporter {
   static final messengerKey = GlobalKey<ScaffoldMessengerState>();
-  static const _noticeInterval = Duration(seconds: 5);
+  static const _noticeInterval = Duration(seconds: 30);
   static DateTime? _lastNotice;
 
   static void install() {

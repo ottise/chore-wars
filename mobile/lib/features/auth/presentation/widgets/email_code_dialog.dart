@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/request_cooldown.dart';
 import '../../../../core/utils/api_error_message.dart';
 
 Future<bool?> showEmailCodeDialog(
@@ -31,10 +32,17 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
   late final _email = TextEditingController(text: widget.email);
   final _code = TextEditingController(), _password = TextEditingController();
   bool _busy = false, _requested = false;
-  DateTime? _retryAfter;
+  late final _sendCooldown = RequestCooldown(_tick);
+  late final _verifyCooldown = RequestCooldown(_tick);
   String? _message;
+  void _tick() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _sendCooldown.dispose();
+    _verifyCooldown.dispose();
     _email.dispose();
     _code.dispose();
     _password.dispose();
@@ -48,14 +56,13 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
       setState(() => _message = 'Enter a valid email address.');
       return;
     }
-    if (request &&
-        _retryAfter != null &&
-        DateTime.now().isBefore(_retryAfter!)) {
+    if (request && _sendCooldown.seconds > 0) {
       setState(
         () => _message = 'Wait one minute before requesting another code.',
       );
       return;
     }
+    if (!request && _verifyCooldown.seconds > 0) return;
     if (!request &&
         (_code.text.length != 6 ||
             widget.resetPassword && _password.text.length < 6)) {
@@ -68,6 +75,7 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
     setState(() {
       _busy = true;
       _message = null;
+      if (request) _sendCooldown.start(60);
     });
     try {
       final dio = ref.read(dioProvider);
@@ -89,14 +97,22 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
       if (request) {
         setState(() {
           _requested = true;
-          _retryAfter = DateTime.now().add(const Duration(seconds: 60));
           _message = 'If this account is eligible, a code has been sent. Check your email and spam folder. The code expires in 10 minutes.';
         });
       } else {
         Navigator.pop(context, true);
       }
     } catch (error) {
-      if (mounted) setState(() => _message = apiErrorMessage(error));
+      if (mounted) {
+        setState(() {
+          _message = apiErrorMessage(error);
+          if (request) {
+            _sendCooldown.afterError(error);
+          } else {
+            _verifyCooldown.afterError(error, fallback: 10);
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -150,6 +166,14 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
                   padding: const EdgeInsets.only(top: 12),
                   child: Semantics(liveRegion: true, child: Text(_message!)),
                 ),
+              if (_sendCooldown.seconds > 0)
+                Text(
+                  'Wait one minute before requesting another code. ${_sendCooldown.seconds}s remaining.',
+                ),
+              if (_verifyCooldown.seconds > 0)
+                Text(
+                  'You can try the code again in ${_verifyCooldown.seconds}s.',
+                ),
             ],
           ),
         ),
@@ -160,12 +184,16 @@ class _EmailCodeDialogState extends ConsumerState<EmailCodeDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: _busy ? null : () => _run(true),
+          onPressed: _busy || _sendCooldown.seconds > 0
+              ? null
+              : () => _run(true),
           child: Text(_requested ? 'Resend code' : 'Send code'),
         ),
         if (_requested)
           FilledButton(
-            onPressed: _busy ? null : () => _run(false),
+            onPressed: _busy || _verifyCooldown.seconds > 0
+                ? null
+                : () => _run(false),
             child: Text(_busy ? 'Please wait…' : 'Confirm'),
           ),
       ],

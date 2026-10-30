@@ -25,14 +25,41 @@ public class EmailOtpHttpTests
     private sealed class Mailbox : IAccountEmailSender
     {
         public bool IsConfigured => true;
+        public bool Fail;
+        public int Attempts;
         public List<(string Email, string Code, string Purpose)> Messages { get; } = [];
         public Task SendCodeAsync(string email, string code, string purpose, CancellationToken ct)
-        { Messages.Add((email, code, purpose)); return Task.CompletedTask; }
+        {
+            Attempts++;
+            if (Fail) throw new InvalidOperationException("Simulated email outage");
+            Messages.Add((email, code, purpose)); return Task.CompletedTask;
+        }
     }
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now = DateTimeOffset.UtcNow;
         public override DateTimeOffset GetUtcNow() => Now;
+    }
+    [PostgresFact]
+    public async Task FailedDeliveryRetainsCooldownAndDoesNotInvalidateAnEarlierDeliveredCode()
+    {
+        var mailbox = new Mailbox { Fail = true }; var clock = new Clock();
+        await using var db = await PostgresFixture.CreateAsync(new() {
+            ["Jwt:Secret"] = "isolated-otp-test-signing-key-not-production-000000000", ["EmailVerification:Required"] = "true"
+        }, s => { s.AddSingleton<IAccountEmailSender>(mailbox); s.AddSingleton<TimeProvider>(clock); });
+        await using (var scope = db.Services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<IAuthService>().RegisterAsync(new() { Email = "outage@example.test", Password = "Password1!", DisplayName = "Outage" });
+        async Task Request() { await using var scope = db.Services.CreateAsyncScope(); await scope.ServiceProvider.GetRequiredService<IEmailOtpService>().RequestAsync("outage@example.test", "VERIFY_EMAIL", default); }
+        await Assert.ThrowsAsync<ChoreWars.Domain.Exceptions.ConflictException>(Request);
+        for (var i = 0; i < 5; i++) await Request();
+        Assert.Equal(1, mailbox.Attempts);
+        clock.Now = clock.Now.AddSeconds(61); mailbox.Fail = false;
+        await Request(); var delivered = Assert.Single(mailbox.Messages).Code;
+        clock.Now = clock.Now.AddSeconds(61); mailbox.Fail = true;
+        await Assert.ThrowsAsync<ChoreWars.Domain.Exceptions.ConflictException>(Request);
+        Assert.Equal(3, mailbox.Attempts);
+        await using var verifyScope = db.Services.CreateAsyncScope();
+        await verifyScope.ServiceProvider.GetRequiredService<IEmailOtpService>().VerifyAsync("outage@example.test", delivered, null, default);
     }
     [PostgresFact]
     public async Task RegistrationVerificationAndPasswordResetUseSingleUsePurposeBoundCodes()

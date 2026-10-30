@@ -99,4 +99,4 @@ final authStateProvider = NotifierProvider<AuthStateNotifier, AuthState>(
 
 final userProfileProvider = FutureProvider.autoDispose<UserProfile>((ref) {
   return ref.watch(authRepositoryProvider).getProfile();
-});
+}, retry: (_, _) => null);
