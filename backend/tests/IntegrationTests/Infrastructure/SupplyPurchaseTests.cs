@@ -23,7 +23,7 @@ public sealed class SupplyPurchaseTests
   var users=Enumerable.Range(0,4).Select(i=>new User{Id=Guid.NewGuid(),Email=$"{Guid.NewGuid()}@test.example",DisplayName=$"Person {i}",PasswordHash="test",CreatedAt=DateTime.UtcNow}).ToArray();db.Users.AddRange(users);
   var h=new House{Id=Guid.NewGuid(),Name="Supply test",InviteCode=Guid.NewGuid().ToString("N")[..8],CreatedAt=DateTime.UtcNow};db.Houses.Add(h);
   db.HouseMembers.AddRange(users.Take(3).Select((u,i)=>new HouseMember{Id=Guid.NewGuid(),HouseId=h.Id,UserId=u.Id,Role=i==0?HouseRole.OWNER:HouseRole.MEMBER,Status=HouseMemberStatus.ACTIVE,JoinedAt=DateTime.UtcNow}));
-  var s=new Supplier{Id=Guid.NewGuid(),OperatorUserId=users[3].Id,Name="Test supplier",Phone="",Email="supplier@example.test",DeliveryArea="Test area"};db.Suppliers.Add(s);
+  var s=new Supplier{Id=Guid.NewGuid(),OperatorUserId=users[3].Id,Name="Test supplier",Phone="0123456789",Email="supplier@example.test",DeliveryArea="Test area"};db.Suppliers.Add(s);
   var p=new SupplyProduct{Id=Guid.NewGuid(),SupplierId=s.Id,Sku="RICE",Name="Rice",Unit="bag",Price=360000,AvailableQuantity=10};db.SupplyProducts.Add(p);await db.SaveChangesAsync();return new(h.Id,users[0].Id,users[1].Id,users[2].Id,users[3].Id,s.Id,p.Id);
  }
  private static async Task<T> Call<S,T>(PostgresFixture f,Func<S,Task<T>> fn)where S:notnull{await using var scope=f.Services.CreateAsyncScope();return await fn(scope.ServiceProvider.GetRequiredService<S>());}
@@ -53,6 +53,21 @@ public sealed class SupplyPurchaseTests
   received=await Call<IInternalRepaymentService,PurchaseDebtResponse>(f,x=>x.RespondAsync(debt.Id,transfer.Id,seed.A,new(true),default));Assert.Equal(70000,received.RemainingAmount);
   await Assert.ThrowsAsync<ConflictException>(async()=>{await using var scope=f.Services.CreateAsyncScope();await scope.ServiceProvider.GetRequiredService<IBountyService>().SettlePaymentAsync(debt.Id,seed.A);});
   await using var read=f.Services.CreateAsyncScope();var db=read.ServiceProvider.GetRequiredService<AppDbContext>();Assert.Equal(2,await db.PaymentObligations.CountAsync());Assert.Equal(1,await db.PaymentWebhookReceipts.CountAsync());Assert.Equal(9,(await db.SupplyProducts.SingleAsync()).AvailableQuantity);
+ }
+ [PostgresFact]public async Task SmsOrderCanOnlyBeMarkedPaidAfterPayOSVerifiesAndCreatesOneDebtPerMember(){
+  var gateway=new Gateway();await using var f=await PostgresFixture.CreateAsync(configure:s=>s.AddSingleton<IPurchasePaymentGateway>(gateway));var seed=await Data(f);
+  var request=new SendSupplyOrderRequest(Guid.NewGuid(),seed.Supplier,[new(seed.Product,1)],Shares:[new(seed.A),new(seed.B),new(seed.C)]);
+  var order=await Call<ISimpleSupplyOrderService,SupplyOrderResponse>(f,x=>x.SendAsync(seed.House,seed.A,request,default));
+  Assert.Equal("SIMPLE_SMS",order.Workflow);Assert.Equal(3,order.Shares.Count);Assert.Equal(360000,order.Shares.Sum(s=>s.Amount));
+  await Assert.ThrowsAsync<ConflictException>(()=>Call<ISimpleSupplyOrderService,SupplyOrderResponse>(f,x=>x.RecordPaymentAsync(seed.House,order.Id,seed.A,new(Guid.NewGuid(),360000,"fake"),default)));
+  var checkout=await Call<ISupplierPaymentService,SupplierCheckoutResponse>(f,x=>x.CheckoutAsync(seed.House,order.Id,seed.A,order.Version,default));
+  Assert.Equal("PENDING",checkout.Status);Assert.Equal("https://pay.payos.vn/test",checkout.CheckoutUrl);
+  gateway.Paid=true;
+  var verified=await Call<ISupplierPaymentService,SupplierCheckoutResponse?>(f,x=>x.RefreshAsync(seed.House,order.Id,seed.A,default));Assert.Equal("VERIFIED",verified!.Status);
+  var paid=await Call<ISupplyOrderService,SupplyOrderResponse>(f,x=>x.ReadAsync(seed.House,order.Id,seed.A,default));Assert.Equal("PAID",paid.Status);Assert.Equal("PAYOS_VERIFIED",paid.PaymentConfirmationSource);
+  var debts=await Call<IInternalRepaymentService,PurchaseDebtSummaryResponse>(f,x=>x.SummaryAsync(seed.House,seed.A,default));
+  Assert.Equal(2,debts.Debts.Count);Assert.Equal(240000,debts.OwedToMe);Assert.Equal(120000,debts.PersonalCost);
+  await using var read=f.Services.CreateAsyncScope();var db=read.ServiceProvider.GetRequiredService<AppDbContext>();Assert.Equal(2,await db.PaymentObligations.CountAsync());
  }
  [PostgresFact]public async Task SupplierRefundAfterRepaymentCreatesReturnDebtWithoutNetting(){
   var gateway=new Gateway();await using var f=await PostgresFixture.CreateAsync(configure:s=>s.AddSingleton<IPurchasePaymentGateway>(gateway));var seed=await Data(f);var order=await Buy(f,seed,gateway);

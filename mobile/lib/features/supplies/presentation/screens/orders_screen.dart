@@ -4,13 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/utils/api_error_message.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/repositories/supplies_repository.dart';
 import '../providers/supplies_providers.dart';
 import '../widgets/supplier_contact_card.dart';
 import '../widgets/supplies_ui.dart';
 import '../widgets/shop_item_dialog.dart';
 import '../widgets/shop_presets.dart';
-import '../widgets/simple_order_detail_body.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({
@@ -33,6 +34,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   String _requestId = const Uuid().v4();
   bool _sending = false;
   String? _error;
+  final Set<String> _shareUserIds = {};
+  bool _sharesInitialized = false;
   @override
   void initState() {
     super.initState();
@@ -54,7 +57,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Future<void> _send(
     SupplyData supplier,
     List<SupplyData> selected, {
-    bool recordPayment = false,
+    bool payNow = false,
   }) async {
     if (_sending) return;
     setState(() {
@@ -69,6 +72,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           'supplierId': supplier['id'],
           'note': _note.text,
           'viaAI': widget.aiDraft != null,
+          'shares': _shareUserIds.map((userId) => {'userId': userId}).toList(),
           'lines': selected
               .map(
                 (p) => {'productId': p['id'], 'quantity': _quantities[p['id']]},
@@ -83,27 +87,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           _note.clear();
           _requestId = const Uuid().v4();
         });
-        if (recordPayment) {
-          await recordSupplyPayment(context, ref, widget.houseId, order, (
-            action,
-          ) async {
-            try {
-              await action();
-            } catch (error) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Order saved. ${apiErrorMessage(error)}'),
-                  ),
-                );
-              }
-            }
-          });
-          ref.invalidate(supplyOrdersProvider(widget.houseId));
-        }
         if (!mounted) return;
-        context.push('/houses/${widget.houseId}/orders/${order['id']}');
-        if (!recordPayment) await supplyOpenOrderSms(context, order);
+        final path = '/houses/${widget.houseId}/orders/${order['id']}';
+        if (payNow) {
+          context.push('$path?payNow=1');
+        } else {
+          await supplyOpenOrderSms(context, order);
+          if (mounted) context.push(path);
+        }
       }
     } catch (error) {
       if (mounted) setState(() => _error = apiErrorMessage(error));
@@ -170,6 +161,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           () => ref.invalidate(houseShopSuppliersProvider(widget.houseId)),
         ),
         data: (shops) {
+          final members =
+              ref.watch(houseMembersProvider(widget.houseId)).asData?.value ??
+              const [];
+          final me = ref.watch(userProfileProvider).asData?.value.id;
+          if (!_sharesInitialized && members.isNotEmpty && me != null) {
+            _sharesInitialized = true;
+            _shareUserIds
+              ..clear()
+              ..addAll(members.map((member) => member.userId));
+            _shareUserIds.add(me);
+          }
           if (shops.isEmpty) {
             return Padding(
               padding: EdgeInsets.all(20),
@@ -326,6 +328,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         'Total: ${supplyMoney(total)}',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Split this order',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const Text(
+                        'Selected members share the total equally. Debts are recorded only after PayOS verifies payment.',
+                      ),
+                      for (final member in members)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value:
+                              _shareUserIds.contains(member.userId) ||
+                              member.userId == me,
+                          title: Text(
+                            member.userId == me
+                                ? '${member.displayName} (payer)'
+                                : member.displayName,
+                          ),
+                          subtitle: member.userId == me
+                              ? const Text('Pays the full amount first')
+                              : null,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: _sending || member.userId == me
+                              ? null
+                              : (selected) => setState(() {
+                                  if (selected == true) {
+                                    _shareUserIds.add(member.userId);
+                                  } else {
+                                    _shareUserIds.remove(member.userId);
+                                  }
+                                }),
+                        ),
                       const SizedBox(height: 16),
                       if (_error != null)
                         Padding(
@@ -354,13 +389,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       OutlinedButton.icon(
                         onPressed: _sending || selected.isEmpty
                             ? null
-                            : () => _send(
-                                supplier,
-                                selected,
-                                recordPayment: true,
-                              ),
+                            : () => _send(supplier, selected, payNow: true),
                         icon: const Icon(Icons.payments_outlined),
-                        label: const Text('Save & record payment'),
+                        label: const Text('Save & pay with PayOS'),
                       ),
                       if (supplier['phone']?.toString().trim().isEmpty ?? true)
                         const Text(

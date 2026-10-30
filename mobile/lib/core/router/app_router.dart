@@ -222,6 +222,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (_, state) => SupplyOrderDetailScreen(
                       houseId: state.pathParameters['houseId']!,
                       orderId: state.pathParameters['orderId']!,
+                      startCheckout: state.uri.queryParameters['payNow'] == '1',
                     ),
                   ),
                   GoRoute(
@@ -272,6 +273,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (_, state) => SupplyOrderDetailScreen(
                       houseId: state.pathParameters['houseId']!,
                       orderId: state.pathParameters['orderId']!,
+                      startCheckout: state.uri.queryParameters['payNow'] == '1',
                     ),
                   ),
                   GoRoute(

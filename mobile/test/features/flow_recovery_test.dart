@@ -60,7 +60,7 @@ class _SlowOrder extends Fake implements SuppliesRepository {
 
 void main() {
   testWidgets(
-    'order polling does not restart a slow request or poll manual SMS orders',
+    'order polling does not restart a slow request and polls unpaid SMS orders',
     (tester) async {
       final shop = _SlowOrder();
       await tester.pumpWidget(
@@ -87,7 +87,7 @@ void main() {
       shop.response.complete({'workflow': 'SIMPLE_SMS'});
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 20));
-      expect(shop.calls, 1);
+      expect(shop.calls, 2);
       expect(find.text('Saved'), findsOneWidget);
     },
   );

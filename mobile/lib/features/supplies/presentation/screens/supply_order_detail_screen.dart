@@ -24,10 +24,12 @@ class SupplyOrderDetailScreen extends ConsumerStatefulWidget {
   const SupplyOrderDetailScreen({
     required this.houseId,
     required this.orderId,
+    this.startCheckout = false,
     super.key,
   });
   final String houseId;
   final String orderId;
+  final bool startCheckout;
   @override
   ConsumerState<SupplyOrderDetailScreen> createState() =>
       _SupplyOrderDetailScreenState();
@@ -82,9 +84,7 @@ class _SupplyOrderDetailScreenState
                   houseId: widget.houseId,
                   order: o,
                   isCreator: me == o['creatorUserId'],
-                  busy: _busy,
-                  error: _error,
-                  run: _run,
+                  startCheckout: widget.startCheckout,
                 );
               }
               final status = o['status'].toString();

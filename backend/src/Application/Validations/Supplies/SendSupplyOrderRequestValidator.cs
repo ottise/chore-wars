@@ -13,5 +13,12 @@ public sealed class SendSupplyOrderRequestValidator : AbstractValidator<SendSupp
         RuleFor(x => x.DeliveryAddress).NotNull().MaximumLength(500);
         RuleFor(x => x.ContactPhone).NotNull().MaximumLength(24);
         RuleFor(x => x.Note).NotNull().MaximumLength(1000);
+        RuleFor(x => x.Shares).Must(x => x == null ||
+            (x.Count <= SupplyConstants.MaxMembers &&
+             x.Select(y => y.UserId).Distinct().Count() == x.Count &&
+             x.All(y => y.UserId != Guid.Empty &&
+                 (y.Amount == null || (y.Amount >= 0 && y.Amount <= SupplyConstants.MaxMoney && decimal.Truncate(y.Amount.Value) == y.Amount.Value))) &&
+             (x.All(y => y.Amount == null) || x.All(y => y.Amount != null))))
+            .WithMessage("Choose unique household members and provide either all share amounts or none.");
     }
 }

@@ -29,25 +29,24 @@ public class SimpleOrderCalendarTests
     }
 
     [PostgresFact]
-    public async Task SendAndManualPaymentAreIdempotentWithoutApprovalsOrAutomaticDebt()
+    public async Task SendDefaultsToPayerShareAndManualPaymentCannotConfirmAnOrder()
     {
         await using var f = await Fixture(); var seed = await CoreConcurrencyTests.Seed(f); var catalog = await Catalog(f, seed.Users[0]);
         var request = new SendSupplyOrderRequest(Guid.NewGuid(), catalog.Supplier, [new(catalog.Product, 2)]);
         await using var scope = f.Services.CreateAsyncScope(); var service = scope.ServiceProvider.GetRequiredService<ISimpleSupplyOrderService>();
         var first = await service.SendAsync(seed.HouseId, seed.Users[0], request, default);
         Assert.Equal(first.Id, (await service.SendAsync(seed.HouseId, seed.Users[0], request, default)).Id);
-        Assert.Empty(first.Shares); Assert.Equal("NOT_REQUESTED", first.EmailStatus);
+        Assert.Single(first.Shares); Assert.Equal(seed.Users[0], first.Shares[0].UserId); Assert.Equal(2000, first.Shares[0].Amount); Assert.Equal("NOT_REQUESTED", first.EmailStatus);
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Single(await db.SupplyOrders.ToListAsync()); Assert.Empty(await db.SupplyOrderEmailDispatches.ToListAsync());
         Assert.Empty(await db.ActionProposals.ToListAsync()); Assert.Empty(await db.PaymentObligations.ToListAsync());
         var payment = new RecordSupplyOrderPaymentRequest(Guid.NewGuid(), 2000, "bank reference");
         await Assert.ThrowsAsync<ForbiddenException>(() => service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[1], payment, default));
-        var paid = await service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default);
-        var retry = await service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default);
-        Assert.Equal(paid.Id, retry.Id); Assert.Equal(OrderEmailState.UserReported, paid.PaymentConfirmationSource);
-        Assert.Equal(seed.Users[0], paid.PaymentRecordedByUserId); Assert.Equal(2000, paid.RecordedPaidAmount);
+        await Assert.ThrowsAsync<ConflictException>(() => service.RecordPaymentAsync(seed.HouseId, first.Id, seed.Users[0], payment, default));
+        Assert.Equal("DRAFT", (await service.SendAsync(seed.HouseId, seed.Users[0], request, default)).Status);
         Assert.Empty(await db.PaymentObligations.ToListAsync());
-        Assert.Single(await db.SupplyOrderActivities.Where(a => a.Kind == OrderEmailState.UserReported).ToListAsync());
+        Assert.Single(await db.SupplyOrderActivities.Where(a => a.Kind == "SMS_PREPARED").ToListAsync());
+        Assert.Empty(await db.SupplyOrderActivities.Where(a => a.Kind == OrderEmailState.UserReported).ToListAsync());
         await Assert.ThrowsAsync<ConflictException>(() => service.SendAsync(seed.HouseId, seed.Users[0], request with { Lines = [new(catalog.Product, 3)] }, default));
     }
 

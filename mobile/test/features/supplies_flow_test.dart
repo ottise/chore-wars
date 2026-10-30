@@ -7,6 +7,7 @@ import 'package:chore_wars/features/supplies/domain/repositories/supplies_reposi
 import 'package:chore_wars/features/supplies/presentation/providers/supplies_providers.dart';
 import 'package:chore_wars/features/supplies/presentation/screens/supplies_catalog_screen.dart';
 import 'package:chore_wars/features/supplies/presentation/screens/household_debts_screen.dart';
+import 'package:chore_wars/features/supplies/presentation/screens/supply_order_detail_screen.dart';
 import 'package:chore_wars/features/supplies/presentation/widgets/ai_supply_draft_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,24 +53,67 @@ class _Shop extends Fake implements SuppliesRepository {
     requests.add(request);
     expect([
       '/houses/house/orders/send',
-      '/houses/house/orders/saved/record-payment',
+      '/houses/house/supply-orders/saved/checkout',
     ], contains(path));
+    if (path.endsWith('/checkout')) {
+      return {
+        'paymentId': 'payment',
+        'status': 'PENDING',
+        'checkoutUrl': '',
+        'qrCode': '',
+        'expiresAt': '2026-10-31T00:00:00Z',
+      };
+    }
     return {'id': 'saved', 'total': 240000};
   }
 
   @override
   Future<List<SupplyData>> orders(String house) async => [];
+
+  @override
+  Future<SupplyData> order(String house, String id) async => {
+    'id': 'saved',
+    'workflow': 'SIMPLE_SMS',
+    'status': 'DRAFT',
+    'creatorUserId': 'A',
+    'payerUserId': 'A',
+    'version': 1,
+    'supplierName': 'Test supplier',
+    'supplierPhone': '0901234567',
+    'supplierEmail': 'shop@example.test',
+    'total': 240000,
+    'deliveryFee': 0,
+    'lines': [
+      {'quantity': 1, 'name': 'Rice', 'unitPrice': 240000, 'unit': 'bag'},
+    ],
+    'shares': [
+      {'userId': 'A', 'displayName': 'Alice', 'amount': 120000},
+      {'userId': 'B', 'displayName': 'Bob', 'amount': 120000},
+    ],
+  };
+
+  @override
+  Future<SupplyData> get(String path) async => {};
 }
 
 void main() {
-  Future<void> setup(WidgetTester tester, _Shop shop, {bool ai = false}) async {
+  Future<void> setup(
+    WidgetTester tester,
+    _Shop shop, {
+    bool ai = false,
+    bool directCheckout = false,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     await loadSupplyCaptureFonts(tester);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final router = GoRouter(
-      initialLocation: ai ? '/ai' : '/houses/house/orders',
+      initialLocation: directCheckout
+          ? '/houses/house/orders/saved?payNow=1'
+          : ai
+          ? '/ai'
+          : '/houses/house/orders',
       routes: [
         GoRoute(
           path: '/ai',
@@ -97,8 +141,12 @@ void main() {
           ),
         ),
         GoRoute(
-          path: '/houses/house/orders/saved',
-          builder: (_, _) => const Scaffold(body: Text('Saved order log')),
+          path: '/houses/house/orders/:orderId',
+          builder: (_, state) => SupplyOrderDetailScreen(
+            houseId: 'house',
+            orderId: state.pathParameters['orderId']!,
+            startCheckout: state.uri.queryParameters['payNow'] == '1',
+          ),
         ),
       ],
     );
@@ -148,7 +196,7 @@ void main() {
 
   for (final ai in [false, true]) {
     testWidgets(
-      '${ai ? 'AI' : 'Manual'} selection prepares an SMS order without choosing payer or participants',
+      '${ai ? 'AI' : 'Manual'} selection prepares an SMS order with equal shares',
       (tester) async {
         final shop = _Shop();
         await setup(tester, shop, ai: ai);
@@ -175,10 +223,12 @@ void main() {
         );
         await tester.tap(find.text('Save & open SMS'));
         await tester.pumpAndSettle();
-        expect(find.text('Saved order log'), findsOneWidget);
         final request = shop.requests.single;
         expect(request.containsKey('payerUserId'), isFalse);
-        expect(request.containsKey('shares'), isFalse);
+        expect(request['shares'], [
+          {'userId': 'A'},
+          {'userId': 'B'},
+        ]);
         expect(request['viaAI'], ai);
         expect((request['lines'] as List).single, {
           'productId': 'rice',
@@ -188,34 +238,60 @@ void main() {
       },
     );
   }
-  testWidgets('shop saves the order before recording a separate payment', (
-    tester,
-  ) async {
-    final shop = _Shop();
-    await setup(tester, shop);
-    await tester.tap(find.byTooltip('Add one Rice'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Save & record payment'),
-      180,
-      scrollable: find
-          .descendant(
-            of: find.byType(ListView).first,
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-    await tester.tap(find.text('Save & record payment'));
-    await tester.pumpAndSettle();
-    expect(shop.requests.length, 1);
-    expect(find.text('Mark as paid'), findsOneWidget);
-    await tester.tap(find.text('Save payment'));
-    await tester.pumpAndSettle();
-    expect(shop.requests.length, 2);
-    expect(shop.requests.last['amount'], 240000);
-    expect(find.text('Saved order log'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'shop directs payment through PayOS instead of manual confirmation',
+    (tester) async {
+      final shop = _Shop();
+      await setup(tester, shop);
+      await tester.tap(find.byTooltip('Add one Rice'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Save & pay with PayOS'),
+        180,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.tap(find.text('Save & pay with PayOS'));
+      await tester.pumpAndSettle();
+      expect(shop.requests.length, 2);
+      expect(shop.requests.first['shares'], [
+        {'userId': 'A'},
+        {'userId': 'B'},
+      ]);
+      expect(shop.requests.last, {'expectedVersion': 1});
+      expect(find.text('Mark as paid'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'unpaid order detail creates PayOS checkout automatically when requested',
+    (tester) async {
+      final shop = _Shop();
+      await setup(tester, shop, directCheckout: true);
+      await tester.pumpAndSettle();
+      expect(shop.requests, [
+        {'expectedVersion': 1},
+      ]);
+      await tester.scrollUntilVisible(
+        find.text('Pay supplier with PayOS'),
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).first,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Pay supplier with PayOS'), findsOneWidget);
+      expect(find.text('Open PayOS to pay'), findsOneWidget);
+      expect(find.text('Mark as paid'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'direct debts keep opposite directions and show individual remaining amounts',
     (tester) async {

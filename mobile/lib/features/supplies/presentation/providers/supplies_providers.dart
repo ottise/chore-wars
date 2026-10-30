@@ -41,7 +41,13 @@ final supplyOrderProvider = FutureProvider.autoDispose
       final order = await ref
           .watch(suppliesRepositoryProvider)
           .order(key.house, key.id);
-      if (ref.mounted && order['workflow'] != 'SIMPLE_SMS') {
+      if (ref.mounted &&
+          ![
+            'PAID',
+            'COMPLETED',
+            'CANCELLED',
+            'REFUNDED',
+          ].contains(order['status'])) {
         final timer = Timer(const Duration(seconds: 15), () {
           if (ref.mounted) ref.invalidateSelf();
         });

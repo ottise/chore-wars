@@ -20,11 +20,14 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
    await access.EnsureActiveAsync(house,actor,ct);await access.EnsureWritableAsync(house,ct);
    var o=await store.OrderAsync(order,ct)??throw new NotFoundException("Order not found.");
    if(o.HouseId!=house||o.PayerUserId!=actor)throw new ForbiddenException("Only the designated payer can checkout.");
-   var previous=(await store.PaymentsAsync(order,ct)).FirstOrDefault();
+   var previous=(await store.PaymentsAsync(order,ct)).FirstOrDefault(p=>p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING or SupplierPaymentStatus.VERIFIED);
    if(previous!=null)return previous;
-   SupplyOrderService.CheckVersion(o,version);
-   if(o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved||!o.Shares.All(s=>s.ApprovedAt.HasValue))throw new ConflictException("Every participant must approve before checkout.");
+   var simple=o.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT;
+   if(simple){if(o.Version!=version)throw new ConflictException("This order changed. Refresh and try again.");if(o.Status!=SupplyOrderStatus.DRAFT)throw new ConflictException("Only an unpaid order can start PayOS checkout.");}
+   else {SupplyOrderService.CheckVersion(o,version);if(o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved||!o.Shares.All(s=>s.ApprovedAt.HasValue))throw new ConflictException("Every participant must approve before checkout.");}
    if(clock.GetUtcNow().UtcDateTime>=o.QuoteExpiresAt)throw new ConflictException("This quote expired. Cancel and create a new purchase.");
+   if(o.Shares.Count==0)throw new ConflictException("Choose household cost shares before checkout.");
+   if(o.Shares.Sum(s=>s.Amount)!=o.Total)throw new ConflictException("Household shares do not match the order total.");
    foreach(var s in o.Shares)await access.EnsureActiveAsync(house,s.UserId,ct);
    gateway.EnsureConfigured();
    var payment=new SupplierPayment{Id=Guid.NewGuid(),OrderId=o.Id,Amount=o.Total,OrderCode=RandomNumberGenerator.GetInt32(100_000_000,1_000_000_000)+(DateTimeOffset.UtcNow.ToUnixTimeSeconds()*1_000_000),
@@ -74,9 +77,13 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
     return;
    }
    if(r.Amount!=p.Amount || r.Amount!=o.Total)throw new ConflictException("The received amount needs manual reconciliation.");
-   if(o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved)throw new ConflictException("Late payment needs review before fulfillment.");
+   var simple=o.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT;
+   if(simple ? o.Status!=SupplyOrderStatus.DRAFT : o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved)
+    throw new ConflictException("Late payment needs review before fulfillment.");
    if(await store.ReceiptExistsAsync(r.Reference,ct))throw new ConflictException("This payment reference was already applied.");
    p.Status=SupplierPaymentStatus.VERIFIED;p.Reference=r.Reference;p.PaymentLinkId=r.PaymentLinkId;o.Status=SupplyOrderStatus.PAID;o.PaidAt=clock.GetUtcNow().UtcDateTime;o.Version++;
+   o.RecordedPaidAmount=r.Amount;o.PaymentRecordedByUserId=o.PayerUserId;o.PaymentRecordedAt=o.PaidAt;
+   o.PaymentConfirmationSource="PAYOS_VERIFIED";o.PaymentReference=r.Reference;
    store.Add(new PaymentWebhookReceipt{Id=Guid.NewGuid(),PaymentId=p.Id,Reference=r.Reference,ReceivedAt=o.PaidAt.Value});
    foreach(var share in o.Shares.Where(s=>s.UserId!=o.PayerUserId&&s.Amount>0))
     await uow.PaymentObligations.AddAsync(new PaymentObligation{Id=Guid.NewGuid(),HouseId=o.HouseId,SourceOrderId=o.Id,DebtorUserId=share.UserId,CreditorUserId=o.PayerUserId,Amount=share.Amount,Reason=PaymentObligationReason.HOUSEHOLD_PURCHASE,Status=PaymentObligationStatus.PENDING,CreatedAt=o.PaidAt.Value},ct);

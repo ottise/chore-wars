@@ -17,7 +17,7 @@ namespace IntegrationTests.Infrastructure;
 public class ShopOrderJourneyTests
 {
     [PostgresFact]
-    public async Task HttpCreateContactPrepareSmsRecordPaymentAndReloadHistoryAreConnected()
+    public async Task HttpCreateContactPrepareSmsCannotManuallyConfirmPayment()
     {
         await using var db = await PostgresFixture.CreateAsync();
         using var root = new ApiFactory(db);
@@ -58,20 +58,20 @@ public class ShopOrderJourneyTests
         Assert.Equal("0901234567", order.GetProperty("supplierPhone").GetString());
         (await client.PostAsJsonAsync($"/api/houses/{house}/orders/send", sendRequest)).EnsureSuccessStatusCode();
         var payment = new { clientRequestId = Guid.NewGuid(), amount = 300000, reference = "test bank transfer" };
-        (await client.PostAsJsonAsync($"/api/houses/{house}/orders/{id}/record-payment", payment)).EnsureSuccessStatusCode();
-        (await client.PostAsJsonAsync($"/api/houses/{house}/orders/{id}/record-payment", payment)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/houses/{house}/orders/{id}/record-payment", payment)).StatusCode);
         var history = await client.GetFromJsonAsync<JsonElement>($"/api/houses/{house}/supply-orders");
         Assert.Equal(1, history.GetArrayLength());
         var detail = await client.GetFromJsonAsync<JsonElement>($"/api/houses/{house}/supply-orders/{id}");
-        Assert.Equal("PAID", detail.GetProperty("status").GetString());
-        Assert.Equal(actor, detail.GetProperty("paymentRecordedByUserId").GetGuid());
-        Assert.Equal(300000, detail.GetProperty("recordedPaidAmount").GetDecimal());
+        Assert.Equal("DRAFT", detail.GetProperty("status").GetString());
+        Assert.Null(detail.GetProperty("paymentConfirmationSource").GetString());
+        Assert.Equal(JsonValueKind.Null, detail.GetProperty("recordedPaidAmount").ValueKind);
         Assert.Equal("NOT_REQUESTED", detail.GetProperty("emailStatus").GetString());
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"/api/houses/{house}/supply-orders/{id}")).StatusCode);
         await using var read = factory.Services.CreateAsyncScope();
         var context = read.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Equal(1, await context.Suppliers.CountAsync()); Assert.Equal(1, await context.SupplyProducts.CountAsync());
         Assert.Equal(1, await context.SupplyOrders.CountAsync()); Assert.Equal(0, await context.SupplyOrderEmailDispatches.CountAsync());
-        Assert.Equal(1, await context.SupplyOrderActivities.CountAsync(a => a.Kind == OrderEmailState.UserReported));
+        Assert.Equal(1, await context.SupplyOrderActivities.CountAsync(a => a.Kind == "SMS_PREPARED"));
+        Assert.Equal(0, await context.PaymentObligations.CountAsync());
     }
 }

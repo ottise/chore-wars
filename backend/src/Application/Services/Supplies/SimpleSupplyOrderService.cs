@@ -12,7 +12,7 @@ using FluentValidation;
 
 namespace ChoreWars.Application.Services.Supplies;
 
-public sealed class SimpleSupplyOrderService(ISupplyRepository store, IHouseAccessService access,
+public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWork uow, IHouseAccessService access,
     IHouseMutationCoordinator mutations, TimeProvider clock,
     IValidator<SendSupplyOrderRequest> sendValidator, IValidator<RecordSupplyOrderPaymentRequest> paymentValidator) : ISimpleSupplyOrderService
 {
@@ -52,6 +52,31 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IHouseAcce
             }
             order.Total = order.Lines.Sum(x => x.Quantity * x.UnitPrice) + order.DeliveryFee;
             if (order.Total <= 0 || order.Total > SupplyConstants.MaxMoney) throw new DomainException("Invalid order total.");
+            var requestedShares = request.Shares is { Count: > 0 }
+                ? request.Shares
+                : [new OrderCostShareRequest(actor)];
+            if (requestedShares.Count > SupplyConstants.MaxMembers ||
+                requestedShares.Select(x => x.UserId).Distinct().Count() != requestedShares.Count ||
+                !requestedShares.Any(x => x.UserId == actor))
+                throw new DomainException("Choose unique household members including the person paying.");
+            if (requestedShares.Any(x => x.Amount.HasValue) && requestedShares.Any(x => !x.Amount.HasValue))
+                throw new DomainException("Specify every member's share or split the total equally.");
+            var amounts = requestedShares.All(x => !x.Amount.HasValue)
+                ? SupplyCostSplitter.Split(order.Total, requestedShares.Select(x => x.UserId).ToList())
+                : requestedShares.ToDictionary(x => x.UserId, x => x.Amount!.Value);
+            if (amounts.Values.Sum() != order.Total)
+                throw new DomainException("Member shares must add up to the exact order total.");
+            foreach (var share in requestedShares)
+            {
+                await access.EnsureActiveAsync(house, share.UserId, ct);
+                var member = await uow.HouseMembers.GetByHouseAndUserIdAsync(house, share.UserId, ct)
+                    ?? throw new ForbiddenException("A selected household member is no longer active.");
+                order.Shares.Add(new OrderCostShare
+                {
+                    Id = Guid.NewGuid(), OrderId = order.Id, UserId = share.UserId,
+                    DisplayName = member.User.DisplayName, Amount = amounts[share.UserId]
+                });
+            }
             order.Activities.Add(new() { Id = Guid.NewGuid(), OrderId = order.Id, ActorUserId = actor, Kind = "SMS_PREPARED", RecordedAt = now });
             store.Add(order);
             return SupplyOrderService.Map(order);
@@ -72,6 +97,8 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IHouseAcce
         {
             await Access(house, actor, ct);
             var order = await OwnedOrder(house, id, actor, ct);
+            if (order.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT)
+                throw new ConflictException("Payment must be verified by PayOS. Open the order and choose Pay with PayOS.");
             if (order.PaymentRecordRequestId.HasValue)
             {
                 if (order.PaymentRecordRequestId == request.ClientRequestId && order.RecordedPaidAmount == request.Amount && order.PaymentReference == request.Reference.Trim())
