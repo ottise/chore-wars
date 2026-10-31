@@ -61,6 +61,7 @@ public class GlobalExceptionMiddleware
             NotFoundException => (int)HttpStatusCode.NotFound,
             ForbiddenException => (int)HttpStatusCode.Forbidden,
             ConflictException => (int)HttpStatusCode.Conflict,
+            ServiceUnavailableException => (int)HttpStatusCode.ServiceUnavailable,
             ValidationException => (int)HttpStatusCode.BadRequest,
             FluentValidation.ValidationException => (int)HttpStatusCode.BadRequest,
             DomainException => (int)HttpStatusCode.BadRequest,
@@ -100,6 +101,7 @@ public class GlobalExceptionMiddleware
         (int)HttpStatusCode.Forbidden => "Permission denied",
         (int)HttpStatusCode.NotFound => "Resource not found",
         (int)HttpStatusCode.Conflict => "Request conflict",
+        (int)HttpStatusCode.ServiceUnavailable => "Service unavailable",
         _ => "Server error"
     };
 }
