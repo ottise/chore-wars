@@ -92,6 +92,7 @@ class _SupplyOrderDetailScreenState
               final isCreator = me == o['creatorUserId'];
               final shares = (o['shares'] as List? ?? []).cast<Map>();
               final mine = shares.where((s) => s['userId'] == me).firstOrNull;
+              final shortId = o['id'].toString().split('-').first;
               Future<void> action(
                 String name, [
                 SupplyData extra = const {},
@@ -111,12 +112,33 @@ class _SupplyOrderDetailScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          status.replaceAll('_', ' '),
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Order $shortId',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDE7FF),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                status.replaceAll('_', ' '),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF6845D6),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        Text('${o['supplierName']} · ${o['supplierPhone']}'),
                         for (final line in o['lines'] as List)
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
@@ -134,13 +156,15 @@ class _SupplyOrderDetailScreenState
                           Text(
                             'Refund acknowledged: ${supplyMoney(o['refundedAmount'])}',
                           ),
-                        const SizedBox(height: 12),
-                        Text(o['deliveryAddress'].toString()),
-                        Text(o['contactPhone'].toString()),
+                        if (o['deliveryAddress']?.toString().isNotEmpty ==
+                            true) ...[
+                          const SizedBox(height: 12),
+                          Text(o['deliveryAddress'].toString()),
+                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Text(
                     'Cost shares',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -155,7 +179,7 @@ class _SupplyOrderDetailScreenState
                             title: Text(s['displayName'].toString()),
                             subtitle: Text(
                               s['userId'] == o['payerUserId']
-                                  ? 'Pays the supplier first'
+                                  ? 'Pays first'
                                   : 'Repays the payer directly',
                             ),
                             trailing: Column(
@@ -444,7 +468,9 @@ class SupplyOrderHistoryScreen extends ConsumerWidget {
                     child: SupplySurface(
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(o['supplierName'].toString()),
+                        title: Text(
+                          'Order #${o['id'].toString().split('-').first}',
+                        ),
                         subtitle: Text(
                           '${o['status']} · ${supplyMoney(o['total'])}',
                         ),

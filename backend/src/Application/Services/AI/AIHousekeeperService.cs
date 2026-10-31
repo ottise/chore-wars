@@ -101,7 +101,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         bool create=false;
         var record=await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,request.Kind is AIConstants.Allocation or AIConstants.Evolution,ct); await access.EnsureWritableAsync(house,ct);
-            if (request.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("Enable AI for this household first.");
+            if (request.Kind is not (AIConstants.Urgent or AIConstants.Swap) && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("Enable AI for this household first.");
             var inputHash=confirmationHash ?? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request))));
             var old=await ai.FindRequestAsync(house,actor,request.ClientRequestId,ct);
             if (old!=null) { if (old.InputHash!=inputHash) throw new ConflictException("Request ID already used with different input."); return old; }
@@ -121,8 +121,11 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             var expected=request.Kind is AIConstants.Allocation or AIConstants.Evolution?AIConstants.Draft:"ACTIVE";
             if (context.GetProperty("status").GetString()!=expected) throw new ConflictException($"This recommendation requires a {expected} season.");
             if (request.Kind==AIConstants.Swap) {
-                var source=context.GetProperty("tasks").EnumerateArray().FirstOrDefault(t=>t.GetProperty("id").GetGuid()==request.SourceOccurrenceId);
-                if (source.ValueKind==JsonValueKind.Undefined || source.GetProperty("assigned_to").ValueKind==JsonValueKind.Null || source.GetProperty("assigned_to").GetGuid()!=actor || source.GetProperty("locked").GetBoolean()) throw new ForbiddenException("Select an unlocked responsibility assigned to yourself.");
+                var tasks=context.GetProperty("tasks").EnumerateArray();
+                var eligible=tasks.Where(t=>t.GetProperty("assigned_to").ValueKind==JsonValueKind.String && t.GetProperty("assigned_to").GetGuid()==actor && !t.GetProperty("locked").GetBoolean() && t.GetProperty("status").GetString()=="ASSIGNED" && t.GetProperty("due_at").GetDateTimeOffset()>context.GetProperty("as_of").GetDateTimeOffset()).ToList();
+                if (request.SourceOccurrenceId.HasValue && !eligible.Any(t=>t.GetProperty("id").GetGuid()==request.SourceOccurrenceId.Value)) throw new ForbiddenException("Select an unlocked future responsibility assigned to yourself.");
+                if (!request.SourceOccurrenceId.HasValue && eligible.Count==0) throw new ForbiddenException("You have no unlocked future responsibility to swap.");
+                if (request.TargetMemberId.HasValue && (request.TargetMemberId.Value==actor || !context.GetProperty("members").EnumerateArray().Any(m=>m.GetProperty("id").GetGuid()==request.TargetMemberId.Value))) throw new ForbiddenException("Choose another active household member for the swap.");
             }
             if (request.Kind==AIConstants.Evolution) {
                 var previous=request.SourceSeasonId.HasValue?await uow.Seasons.GetByIdAsync(request.SourceSeasonId.Value,ct):null;
@@ -136,13 +139,13 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         try
         {
             var body=new Dictionary<string,object?>{["context"]=context,["history_enabled"]=true,["mode"]="SERVING_DEADLINE"};
-            if (request.Kind==AIConstants.Swap) body["source_occurrence_id"]=request.SourceOccurrenceId;
+            if (request.Kind==AIConstants.Swap) { body["source_occurrence_id"]=request.SourceOccurrenceId; body["target_member_id"]=request.TargetMemberId; }
             if (request.Kind==AIConstants.Urgent) body=new(){["context"]=context,["text"]=request.Text,["deadline_minutes"]=deadlineMinutes,["ready_by"]=request.ReadyBy,["guest_count"]=request.GuestCount,["participant_ids"]=request.ParticipantIds,["resources"]=request.Resources};
             var path=request.Kind switch { AIConstants.Replan=>"/v1/schedules/replan",AIConstants.Swap=>"/v1/schedules/swap",AIConstants.Evolution=>"/v1/seasons/evolve",AIConstants.Urgent=>"/v1/urgent/plan",_=>"/v1/schedules/propose" };
             var result=await client.PostAsync(house,actor,path,body,ct);
             return await mutations.RunAsync(house,async()=> {
                 await AuthorizeAsync(house,actor,request.Kind is AIConstants.Allocation or AIConstants.Evolution,ct);
-                if (request.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled during inference.");
+                if (request.Kind is not (AIConstants.Urgent or AIConstants.Swap) && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI was disabled during inference.");
                 var current=await ai.RecommendationAsync(record.Id,ct) ?? throw new NotFoundException("Recommendation not found.");
                 current.PayloadJson=result.GetRawText(); current.Status=AIConstants.Ready;
                 return View(current);
@@ -187,7 +190,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var value=await GetAsync(house,actor,id,ct);
         if (value.Status==AIConstants.Applied || value.ProposalId.HasValue) return View(value);
         await access.EnsureWritableAsync(house,ct);
-        if (value.Kind!=AIConstants.Urgent && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
+        if (value.Kind is not (AIConstants.Urgent or AIConstants.Swap) && (await ai.SettingsAsync(house,ct))?.Enabled!=true) throw new ConflictException("AI is disabled for this household.");
         if (value.Status!=AIConstants.Ready || value.ExpiresAt<=clock.GetUtcNow().UtcDateTime) throw new ConflictException("Recommendation is not ready or has expired.");
         var context=await contexts.BuildAsync(house,value.SeasonId,ct);
         if (contexts.Fingerprint(context)!=value.ContextHash)
@@ -206,8 +209,16 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         if (value.Kind==AIConstants.Swap) {
             if (!payload.RootElement.TryGetProperty("swap_payload",out var swap)) throw new ConflictException("No feasible swap was found.");
             var swapData=swap.Deserialize<ChoreSwapPayload>() ?? throw new DomainException("Invalid swap candidate.");
+            var source=await uow.ChoreOccurrences.GetByIdAsync(swapData.SourceOccurrenceId,ct) ?? throw new NotFoundException("Swap source missing.");
             var target=await uow.ChoreOccurrences.GetByIdAsync(swapData.TargetOccurrenceId,ct) ?? throw new NotFoundException("Swap target missing.");
-            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.CHORE_SWAP,Title="AI Chore Swap Proposal",Description="Both members must approve before responsibility changes.",PayloadJson=swap.GetRawText(),TargetUserIds=[target.AssignedUserId!.Value],ExpiresAt=value.ExpiresAt},actor,ct);
+            if(source.AssignedUserId!=actor || !target.AssignedUserId.HasValue)throw new ConflictException("The selected chores are no longer assigned to the expected members.");
+            var creatorName=source.AssignedUser?.DisplayName ?? "you";
+            var targetName=target.AssignedUser?.DisplayName ?? "the other member";
+            var plannedTasks=payload.RootElement.GetProperty("tasks");
+            var sourceStart=PlannedStart(plannedTasks,source.Id);
+            var targetStart=PlannedStart(plannedTasks,target.Id);
+            var details=$"AI suggests swapping {source.Chore.Name} (currently assigned to {creatorName}) with {target.Chore.Name} (currently assigned to {targetName}). If confirmed, {source.Chore.Name} moves to {targetName} at {sourceStart}, and {target.Chore.Name} moves to {creatorName} at {targetStart} (Vietnam time). You requested this swap; {targetName} must confirm before the schedule changes.";
+            var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.CHORE_SWAP,Title="AI Chore Swap Proposal",Description=details,PayloadJson=swap.GetRawText(),TargetUserIds=[target.AssignedUserId.Value],ExpiresAt=value.ExpiresAt},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
         if (value.Kind==AIConstants.Replan) {
@@ -304,6 +315,10 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var names=(await uow.HouseMembers.GetByHouseIdAsync(house,ct)).Where(m=>m.Status==HouseMemberStatus.ACTIVE).ToDictionary(m=>m.UserId.ToString(),m=>m.User?.DisplayName ?? "");
         var chores=(await uow.Chores.GetByHouseIdAsync(house,ct)).ToDictionary(c=>c.Id.ToString(),c=>c.Name);
         var occurrences=(await uow.ChoreOccurrences.GetUnresolvedByHouseIdAsync(house,ct)).Where(o=>o.AssignedUserId==actor).ToDictionary(o=>o.Id.ToString(),o=>o.Chore.Name);
+        var activeSeason=await uow.Seasons.GetActiveSeasonByHouseIdAsync(house,ct);
+        if(activeSeason!=null)
+            foreach(var occurrence in (await uow.ChoreOccurrences.GetBySeasonIdAsync(activeSeason.Id,ct)).Where(o=>o.AssignedUserId==actor && o.Status==ChoreOccurrenceStatus.ASSIGNED && o.DueDate>clock.GetUtcNow().UtcDateTime && o.Chore.Type==ChoreType.NORMAL))
+                occurrences.TryAdd(occurrence.Id.ToString(),occurrence.Chore.Name);
         var catalog = new Dictionary<string,object>();
         var allowedProducts = new Dictionary<Guid,SupplyProduct>();
         if (uow.Supplies is { } supplies)
@@ -432,4 +447,13 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
     }
 
     private static JsonElement View(AIRecommendation value) => JsonSerializer.SerializeToElement(new{id=value.Id,status=value.Status,kind=value.Kind,expires_at=value.ExpiresAt,result=JsonSerializer.Deserialize<JsonElement>(value.PayloadJson),availability_changes=JsonSerializer.Deserialize<JsonElement>(value.AvailabilityChangesJson),proposal_id=value.ProposalId});
+
+    private static string PlannedStart(JsonElement tasks, Guid id) {
+        foreach(var task in tasks.EnumerateArray()) {
+            if(!task.TryGetProperty("id",out var taskId) || taskId.GetGuid()!=id)continue;
+            if(!task.TryGetProperty("start_at",out var start) || start.ValueKind!=JsonValueKind.String)return "time not assigned";
+            return ScheduleTime.Local(start.GetDateTimeOffset().UtcDateTime).ToString("yyyy-MM-dd HH:mm");
+        }
+        return "time not assigned";
+    }
 }

@@ -126,7 +126,8 @@ class ProposalInput(Contract):
 
 
 class SwapInput(ProposalInput):
-    source_occurrence_id: UUID
+    source_occurrence_id: UUID | None = None
+    target_member_id: UUID | None = None
 
 
 class LanguageInput(Contract):

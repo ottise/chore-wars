@@ -78,20 +78,26 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
         for (final b in bounties.data as List)
           if (me != null &&
               (b['status'] == 1 || b['status'] == 'CLAIMED') &&
-              b['assignedUserId'] == me)
+              _sameId(b['assignedUserId'], me))
             b['choreOccurrenceId'].toString(): b,
       };
+      final now = DateTime.now();
       final chores = (res.data as List)
           .map((c) => Map<String, dynamic>.from(c as Map))
           .where((c) {
             if (accepted.containsKey(c['id'].toString())) return true;
             if (c['type'] != 1 && c['type'] != 'BONUS') return false;
-            if (me != null && c['assignedUserId'] == me) return true;
-            return c['assignedUserId'] == null &&
-                (c['status'] == 0 || c['status'] == 'ASSIGNED') &&
-                (DateTime.tryParse(c['dueDate'].toString())
-                        ?.isAfter(DateTime.now()) ??
-                    false);
+            final assignedTo = c['assignedUserId']?.toString();
+            final mine = me != null && _sameId(assignedTo, me);
+            final pending =
+                c['status'] == 0 || c['status'] == 'ASSIGNED';
+            final due = DateTime.tryParse(c['dueDate'].toString());
+            if (mine) return true;
+
+            // Urgent AI campaign chores are assigned to individual members,
+            // but every participant needs to see the shared preparation plan.
+            // Keep completed/expired chores out of other members' view.
+            return pending && (due?.isAfter(now) ?? false);
           })
           .map(
             (c) => {
@@ -130,6 +136,9 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
     }
   }
 
+  bool _sameId(Object? left, Object? right) =>
+      left?.toString().toLowerCase() == right?.toString().toLowerCase();
+
   Future<void> _refresh() async {
     final room = ref
         .read(assistantRequestRoomProvider(widget.houseId))
@@ -167,9 +176,23 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
 
   Widget _chore(Map<String, dynamic> c) {
     final id = c['id'].toString();
-    final owned = c['assignedUserId'] == _userId || c['bounty'] != null;
+    final assignedTo = c['assignedUserId']?.toString();
+    final assignedToMe = _userId != null && _sameId(assignedTo, _userId);
+    final unassigned = assignedTo == null;
+    final owned = assignedToMe || c['bounty'] != null;
     final due = DateFormat('dd/MM/yyyy HH:mm')
         .format(vietnamTime(c['dueDate']));
+    final plannedStart = DateTime.tryParse(
+      c['plannedStartAt']?.toString() ?? '',
+    );
+    final displayName = c['assignedUserDisplayName']?.toString().trim() ?? '';
+    final assigneeName = assignedTo == null
+        ? null
+        : assignedToMe
+        ? 'you'
+        : displayName.isNotEmpty
+        ? displayName
+        : 'another household member';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -186,7 +209,12 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
                   ? "Bounty: ${c['bounty']['amount']} VND"
                   : "Reward: ${c['karmaPoints']} Karma",
             ),
+            if (plannedStart != null)
+              Text(
+                'Prepare at ${DateFormat('dd/MM/yyyy HH:mm').format(vietnamTime(plannedStart))} (UTC+7)',
+              ),
             Text('Due $due (UTC+7)'),
+            if (assigneeName != null) Text('Assigned to $assigneeName'),
             if (owned)
               Text('Status: ${ChoreStatus.fromJson(c['status']).label}'),
             const SizedBox(height: 8),
@@ -198,7 +226,7 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
                       context.push('/houses/${widget.houseId}/chores/$id'),
                   child: const Text('View chore'),
                 ),
-                if (!owned)
+                if (unassigned && !owned)
                   ElevatedButton(
                     onPressed: _claiming.contains(id)
                         ? null

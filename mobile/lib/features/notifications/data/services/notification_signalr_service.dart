@@ -9,8 +9,10 @@ class NotificationSignalRService {
     this._getToken,
     this._onNotificationReceived, {
     this.onChatUnreadChanged,
+    this.onBountyBoardChanged,
   });
   final void Function(String)? onChatUnreadChanged;
+  final void Function(String)? onBountyBoardChanged;
   final Future<String?> Function() _getToken;
   final void Function(AppNotification) _onNotificationReceived;
   HubConnection? _connection;
@@ -37,8 +39,14 @@ class NotificationSignalRService {
           onChatUnreadChanged?.call(args!.first.toString());
         }
       });
+      connection.on('BountyBoardChanged', (args) {
+        if (!_disposed && args?.isNotEmpty == true) {
+          onBountyBoardChanged?.call(args!.first.toString());
+        }
+      });
       connection.onreconnected(({connectionId}) {
         onChatUnreadChanged?.call('');
+        onBountyBoardChanged?.call('');
       });
       connection.on('NotificationReceived', (arguments) {
         if (_disposed || arguments == null || arguments.isEmpty) return;

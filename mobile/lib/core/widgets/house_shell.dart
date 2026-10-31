@@ -91,6 +91,8 @@ class HouseShell extends ConsumerWidget {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final conversation =
         location == '$base/chat/everyone' || location == '$base/chat/assistant';
+    final assistantShortcutPage =
+        location == base || location == '$base/chores';
     final selfContainedHeader =
         redesigned &&
         ([
@@ -108,7 +110,7 @@ class HouseShell extends ConsumerWidget {
       backgroundColor: redesigned ? AppPageFrame.background : null,
       resizeToAvoidBottomInset: false,
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      floatingActionButton: keyboard || conversation
+      floatingActionButton: keyboard || conversation || !assistantShortcutPage
           ? null
           : AssistantShortcut(houseId: houseId),
       body: SafeArea(
@@ -274,7 +276,9 @@ class HouseShell extends ConsumerWidget {
       bottomNavigationBar: keyboard
           ? null
           : AppBottomBar(
-              chatUnread: ref.watch(unreadChatCountProvider(houseId)),
+              chatUnread:
+                  ref.watch(unreadChatCountProvider(houseId)) +
+                  ref.watch(unreadAssistantCountProvider(houseId)),
               paths: paths,
               selected: selected,
             ),

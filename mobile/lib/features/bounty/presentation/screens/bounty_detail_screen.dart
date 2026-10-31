@@ -3,6 +3,7 @@ import '../../../chore/presentation/providers/chore_providers.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
+import '../../../notifications/presentation/providers/notification_providers.dart';
 
 import 'package:flutter/material.dart';
 
@@ -176,6 +177,17 @@ class _BountyDetailScreenState extends ConsumerState<BountyDetailScreen> {
         body: ErrorState(error: 'House is required.', onRetry: _noop),
       );
     }
+    ref.listen(
+      notificationNotifierProvider.select((state) => state.bountyBoardEpoch),
+      (previous, next) {
+        if (previous != next) {
+          ref.invalidate(
+            bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
+          );
+          ref.invalidate(bountyBoardProvider(houseId!));
+        }
+      },
+    );
     final state = ref.watch(
       bountyDetailProvider((houseId: houseId!, bountyId: bountyId)),
     );
@@ -185,6 +197,7 @@ class _BountyDetailScreenState extends ConsumerState<BountyDetailScreen> {
         title: const Text('Bounty Detail'),
       ),
       body: state.when(
+        skipLoadingOnRefresh: true,
         loading: () => const LoadingWidget(),
         error: (error, stackTrace) => ErrorState(
           error: error,
@@ -219,6 +232,12 @@ class _BountyDetailScreenState extends ConsumerState<BountyDetailScreen> {
                   label: 'Bounty',
                   value: currency.format(bounty.amount),
                 ),
+                if (bounty.createdAt != null)
+                  _DetailRow(
+                    label: 'Posted at (Vietnam)',
+                    value: DateFormat('dd/MM/yyyy HH:mm')
+                        .format(vietnamTime(bounty.createdAt!)),
+                  ),
                 _DetailRow(
                   label: 'Chore deadline (Vietnam)',
                   value: DateFormat('dd/MM/yyyy HH:mm')

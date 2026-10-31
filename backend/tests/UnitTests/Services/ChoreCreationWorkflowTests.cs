@@ -78,7 +78,7 @@ public class ChoreCreationWorkflowTests {
 
     [Fact] public async Task DeadlineBeyondTheFinalSeasonTimeDoesNotCreateAnExtraTask() {
         var f = new Fixture();
-        f.Season.EndDate = new FixedClock().GetUtcNow().UtcDateTime.AddDays(1);
+        f.Season.EndDate = new FixedClock().GetUtcNow().UtcDateTime.AddDays(2);
         var result = await f.Create(f.Request());
         Assert.Single(result.OccurrenceIds);
         Assert.All(f.Occurrences, o => Assert.InRange(o.DueDate, f.Season.StartDate, f.Season.EndDate));
@@ -125,5 +125,10 @@ public class ChoreCreationWorkflowTests {
         task.Status = ChoreOccurrenceStatus.COMPLETED;
         response = await f.Service.GetOccurrenceAsync(task.Id, f.User);
         Assert.False(response.CanComplete);
+        var lateUtc = ScheduleTime.Utc(new(2026, 10, 30), 1434);
+        var lateChore = new Chore { Id = Guid.NewGuid(), HouseId = f.House.Id, SeasonId = f.Season.Id, Name = "Late night", KarmaPoints = 10, FrequencyType = FrequencyType.DAILY, Type = ChoreType.NORMAL, Difficulty = ChoreEffort.MEDIUM, DeadlineMinutes = 1439 };
+        await ChoreSchedulingService.AppendAsync(f.Uow.Object, lateChore, f.Season, lateUtc, CancellationToken.None);
+        Assert.Equal(new DateOnly(2026, 10, 31), DateOnly.FromDateTime(ScheduleTime.Local(f.Occurrences.Where(o => o.ChoreId == lateChore.Id).Min(o => o.DueDate))));
+        Assert.All(f.Occurrences.Where(o => o.ChoreId == lateChore.Id), o => Assert.Equal(f.User, o.AssignedUserId));
     }
 }

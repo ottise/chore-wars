@@ -16,7 +16,11 @@ public class NotificationRealtimePublisher : INotificationRealtimePublisher
         _hubContext = hubContext;
     }
 
-    public Task ChatUnreadChangedAsync(Guid userId, Guid houseId, CancellationToken ct = default) => _hubContext.Clients.User(userId.ToString()).SendAsync("ChatUnreadChanged", houseId.ToString(), ct);
+    public Task ChatUnreadChangedAsync(Guid userId, Guid houseId, CancellationToken ct = default) =>
+        _hubContext.Clients.User(userId.ToString()).SendAsync("ChatUnreadChanged", houseId.ToString(), ct);
+
+    public Task BountyBoardChangedAsync(Guid userId, Guid houseId, CancellationToken ct = default) =>
+        _hubContext.Clients.User(userId.ToString()).SendAsync("BountyBoardChanged", houseId.ToString(), ct);
 
     public Task PublishAsync(NotificationResponse notification, CancellationToken cancellationToken = default)
     {

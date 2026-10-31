@@ -7,6 +7,7 @@ public sealed class AIGenerateRequest
     public Guid ClientRequestId { get; set; }
     public Guid SeasonId { get; set; }
     public Guid? SourceOccurrenceId { get; set; }
+    public Guid? TargetMemberId { get; set; }
     public Guid? SourceSeasonId { get; set; }
     [StringLength(8000)] public string? Text { get; set; }
     public int DeadlineMinutes { get; set; } = 30;

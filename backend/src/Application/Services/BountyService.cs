@@ -24,8 +24,17 @@ public class BountyService : IBountyService
     private readonly IEventPublisher _eventPublisher;
     private readonly IOverduePenaltyService? _penalties;
     private readonly INotificationService? _notifications;
+    private readonly INotificationRealtimePublisher? _realtime;
 
-    public BountyService(IUnitOfWork unitOfWork, IMapper mapper, IEventPublisher eventPublisher, IHouseMutationCoordinator? mutationCoordinator = null, TimeProvider? clock = null, IOverduePenaltyService? penalties = null, INotificationService? notifications = null)
+    public BountyService(
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        IEventPublisher eventPublisher,
+        IHouseMutationCoordinator? mutationCoordinator = null,
+        TimeProvider? clock = null,
+        IOverduePenaltyService? penalties = null,
+        INotificationService? notifications = null,
+        INotificationRealtimePublisher? realtime = null)
     {
         _clock = clock ?? TimeProvider.System;
         _mutations = mutationCoordinator;
@@ -34,6 +43,7 @@ public class BountyService : IBountyService
         _eventPublisher = eventPublisher;
         _penalties = penalties;
         _notifications = notifications;
+        _realtime = realtime;
     }
 
     public async Task<BountyResponse> CreateBountyAsync(Guid houseId, CreateBountyRequest request, Guid userId, CancellationToken cancellationToken = default)
@@ -89,6 +99,7 @@ public class BountyService : IBountyService
         }
 
         await _eventPublisher.PublishAsync(new BountyCreatedEvent(bounty.Id, houseId), cancellationToken);
+        await NotifyHouseBountyBoardChangedAsync(houseId, cancellationToken);
 
         var response = _mapper.Map<BountyResponse>(bounty);
         if (bounty.Status == BountyStatus.EXPIRED)
@@ -139,6 +150,7 @@ public class BountyService : IBountyService
                     _unitOfWork.ChoreBounties.Update(bounty);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
                     if (_notifications != null) await _notifications.CreateNotificationAsync(userId == recipient ? bounty.PostedByUserId : recipient.Value, houseId, "Bounty cancellation requested", "The other participant requests cancellation. Review the bounty before accepting.", "BOUNTY_CANCELLED", "BOUNTY", bounty.Id, cancellationToken);
+                    await NotifyHouseBountyBoardChangedAsync(houseId, cancellationToken);
                     return;
                 }
                 await EnsureHouseMemberAsync(houseId, bounty.PostedByUserId, cancellationToken);
@@ -160,6 +172,7 @@ public class BountyService : IBountyService
                 await _notifications.CreateNotificationAsync(participant, houseId, "Bounty cancelled", "The listing is closed. Check the chore for its current assignee.", "BOUNTY_CANCELLED", "BOUNTY", bounty.Id, cancellationToken);
             _unitOfWork.ChoreBounties.Update(bounty);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await NotifyHouseBountyBoardChangedAsync(houseId, cancellationToken);
         }
         if (_mutations != null) await _mutations.RunAsync(houseId, Apply, cancellationToken);
         else await Apply();
@@ -193,7 +206,8 @@ public class BountyService : IBountyService
         if (occurrence == null)
             throw new NotFoundException(nameof(ChoreOccurrence), bounty.ChoreOccurrenceId);
 
-        await EnsureHouseMemberAsync(occurrence.Chore.HouseId, userId, cancellationToken);
+        var houseId = occurrence.Chore.HouseId;
+        await EnsureHouseMemberAsync(houseId, userId, cancellationToken);
         if (occurrence.DueDate <= _clock.GetUtcNow().UtcDateTime || occurrence.Status != ChoreOccurrenceStatus.ASSIGNED)
             throw new ConflictException("The chore has already ended.");
         if (occurrence.AssignedUserId != bounty.PostedByUserId) throw new ConflictException("The chore responsibility has changed.");
@@ -206,12 +220,12 @@ public class BountyService : IBountyService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var debts = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(occurrence.Chore.HouseId, cancellationToken);
+            var debts = await _unitOfWork.PaymentObligations.GetByHouseIdAsync(houseId, cancellationToken);
             if (!debts.Any(p => p.OccurrenceId == occurrence.Id && p.Reason == PaymentObligationReason.BOUNTY_PAYMENT && p.Status != PaymentObligationStatus.CANCELLED))
                 await _unitOfWork.PaymentObligations.AddAsync(new PaymentObligation
                 {
                     Id = Guid.NewGuid(),
-                    HouseId = occurrence.Chore.HouseId,
+                    HouseId = houseId,
                     SeasonId = occurrence.SeasonId,
                     OccurrenceId = occurrence.Id,
                     DebtorUserId = bounty.PostedByUserId,
@@ -232,7 +246,31 @@ public class BountyService : IBountyService
             throw;
         }
 
+        if (_notifications != null)
+        {
+            await _notifications.CreateNotificationAsync(
+                bounty.PostedByUserId,
+                houseId,
+                "Bounty Accepted",
+                $"A member has accepted your bounty for \"{occurrence.Chore.Name}\".",
+                "BOUNTY_ACCEPTED",
+                "BOUNTY",
+                bounty.Id,
+                cancellationToken);
+        }
+
+        await NotifyHouseBountyBoardChangedAsync(houseId, cancellationToken);
         await _eventPublisher.PublishAsync(new BountyAcceptedEvent(bounty.Id, userId), cancellationToken);
+    }
+
+    private async Task NotifyHouseBountyBoardChangedAsync(Guid houseId, CancellationToken cancellationToken)
+    {
+        if (_realtime == null) return;
+        var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId, cancellationToken);
+        foreach (var member in members.Where(m => m.Status == HouseMemberStatus.ACTIVE))
+        {
+            await _realtime.BountyBoardChangedAsync(member.UserId, houseId, cancellationToken);
+        }
     }
 
     public async Task<IEnumerable<BountyResponse>> GetBountiesAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)

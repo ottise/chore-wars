@@ -11,7 +11,9 @@ public static class ChoreSchedulingService
     public static async Task AppendAsync(IUnitOfWork uow, Chore chore, ChoreSeason season, DateTime now, CancellationToken ct)
     {
         var all = (await uow.ChoreOccurrences.GetBySeasonIdAsync(season.Id, ct)).ToList();
-        var from = DateOnly.FromDateTime(ScheduleTime.Local(season.StartDate));
+        var seasonStart = DateOnly.FromDateTime(ScheduleTime.Local(season.StartDate));
+        var tomorrow = DateOnly.FromDateTime(ScheduleTime.Local(now)).AddDays(1);
+        var from = tomorrow > seasonStart ? tomorrow : seasonStart;
         var to = DateOnly.FromDateTime(ScheduleTime.Local(season.EndDate));
         var days = RecurrenceCalculator.Dates(chore, from, to);
         var added = days.Select(day => new ChoreOccurrence

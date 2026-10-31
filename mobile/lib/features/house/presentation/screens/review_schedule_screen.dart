@@ -297,16 +297,24 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
     final me = ref.watch(userProfileProvider).asData?.value.id;
     final waiting = members.where((m) => !_signed(m.userId)).toList();
     return DefaultTabController(
-      length: 4,
+      length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xFFFAF9FE),
         appBar: AppBar(
+          backgroundColor: const Color(0xFFFAF9FE),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           leading: BackButton(
             onPressed: () => context.go('/houses/${widget.houseId}'),
           ),
           title: const Text(
-            'Household Summary',
+            'House Pulse',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
           ),
           actions: [
             IconButton(
@@ -316,163 +324,222 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
             ),
           ],
           bottom: const TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
+            labelColor: Color(0xFF7C4DFF),
+            unselectedLabelColor: Color(0xFF64748B),
+            indicatorColor: Color(0xFF7C4DFF),
+            labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             tabs: [
-              Tab(text: 'Schedule'),
+              Tab(text: 'Overview'),
               Tab(text: 'Spending & Payments'),
-              Tab(text: 'Chore Completion'),
-              Tab(text: 'Member Contributions'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-              children: [
-                if (_busy) const LinearProgressIndicator(),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_season != null) ...[
-                  Text(
-                    '${_season!['name']} · Revision ${_season!['scheduleRevision']}',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _reviewing
-                        ? '${members.length - waiting.length}/${members.length} approvals. Waiting for ${waiting.map((m) => m.displayName).join(', ')}.'
-                        : _active
-                        ? 'The season is active. New members receive eligible future chores automatically.'
-                        : 'Prepare the schedule, then submit it for everyone to review.',
-                  ),
-                  const SizedBox(height: 16),
-                  if (_reviewing)
-                    FilledButton.icon(
-                      onPressed: _busy || me == null || _signed(me)
-                          ? null
-                          : () => _act('confirm'),
-                      icon: const Icon(Icons.done_all),
-                      label: Text(
-                        me != null && _signed(me)
-                            ? 'Confirmed · Waiting for other members'
-                            : 'Confirm & Approve Schedule',
-                      ),
-                    ),
-                  if (_reviewing)
-                    TextButton(
-                      onPressed: _busy ? null : () => _act('reject'),
-                      child: const Text('Request changes'),
-                    ),
-                  for (final member in members)
-                    Card(
-                      child: ListTile(
-                        leading: MemberAvatar(
-                          houseId: widget.houseId,
-                          userId: member.userId,
-                          name: member.displayName,
-                          version: member.avatarUrl ?? '',
-                        ),
-                        title: Text(member.displayName),
-                        subtitle: Text(
-                          _reviewing
-                              ? _signed(member.userId)
-                                    ? 'Confirmed'
-                                    : _rejected(member.userId)
-                                    ? 'Rejected'
-                                    : 'Awaiting confirmation'
-                              : member.isOwner
-                              ? 'Owner'
-                              : 'Member',
-                        ),
-                        trailing: _owner && (_draft || _reviewing || _active)
-                            ? IconButton(
-                                tooltip:
-                                    'Review redistribution for ${member.displayName}',
-                                onPressed: _busy
-                                    ? null
-                                    : () => _redistribute(member.userId),
-                                icon: const Icon(Icons.swap_horiz),
-                              )
-                            : null,
-                      ),
-                    ),
-                  if (_draft && _owner) ...[
-                    OutlinedButton(
-                      onPressed: _busy ? null : () => _act('generate-schedule'),
-                      child: const Text('Generate / regenerate draft'),
-                    ),
-                    FilledButton(
-                      onPressed:
-                          _busy ||
-                              _occurrences.isEmpty ||
-                              _occurrences.any(
-                                (o) =>
-                                    (o['type'] == 0 || o['type'] == 'NORMAL') &&
-                                    o['assignedUserId'] == null,
-                              )
-                          ? null
-                          : () => _act('submit-review'),
-                      child: const Text('Submit for everyone to review'),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  if (_owner && (_draft || _active)) ...[
-                    for (final occurrence in _occurrences.where(
-                      (o) =>
-                          (o['type'] == 0 || o['type'] == 'NORMAL') &&
-                          o['assignedUserId'] == null,
-                    ))
-                      ListTile(
-                        title: Text(occurrence['choreName']),
-                        subtitle: const Text(
-                          'Needs assignment · Review member availability',
-                        ),
-                        trailing: TextButton(
-                          onPressed: _busy
-                              ? null
-                              : () => _assign(
-                                  Map<String, dynamic>.from(occurrence),
-                                ),
-                          child: const Text('Assign'),
-                        ),
-                      ),
-                  ],
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        context.go('/houses/${widget.houseId}/chores?tab=team'),
-                    icon: const Icon(Icons.calendar_month),
-                    label: const Text('View team schedule'),
-                  ),
-                  TextButton(
-                    onPressed: () => context.push(
-                      '/houses/${widget.houseId}/seasons/${widget.seasonId}/leaderboard',
-                    ),
-                    child: const Text('Season ranking'),
-                  ),
-                ],
-              ],
+            HouseholdSummarySection(
+              houseId: widget.houseId,
+              seasonId: widget.seasonId,
+              section: 2,
+              seasonName: _season?['name']?.toString(),
+              occurrences: _occurrences,
+              scheduleHeader: !_active
+                  ? _buildScheduleSection(
+                      context,
+                      members: members,
+                      waiting: waiting,
+                      me: me,
+                    )
+                  : null,
+              scheduleFooter: _active
+                  ? _buildScheduleSection(
+                      context,
+                      members: members,
+                      waiting: waiting,
+                      me: me,
+                    )
+                  : null,
             ),
-            for (var section = 1; section <= 3; section++)
-              HouseholdSummarySection(
-                houseId: widget.houseId,
-                seasonId: widget.seasonId,
-                section: section,
-              ),
+            HouseholdSummarySection(
+              houseId: widget.houseId,
+              seasonId: widget.seasonId,
+              section: 1,
+              seasonName: _season?['name']?.toString(),
+              occurrences: _occurrences,
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleSection(
+    BuildContext context, {
+    required List<HouseMember> members,
+    required List<HouseMember> waiting,
+    required String? me,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDEAF6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_busy) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+            ),
+          if (_season != null) ...[
+            Text(
+              '${_season!['name']} · Revision ${_season!['scheduleRevision']}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _reviewing
+                  ? '${members.length - waiting.length}/${members.length} approvals. Waiting for ${waiting.map((m) => m.displayName).join(', ')}.'
+                  : _active
+                  ? 'The season is active. New members receive eligible future chores automatically.'
+                  : 'Prepare the schedule, then submit it for everyone to review.',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (_reviewing)
+              FilledButton.icon(
+                onPressed: _busy || me == null || _signed(me)
+                    ? null
+                    : () => _act('confirm'),
+                icon: const Icon(Icons.done_all),
+                label: Text(
+                  me != null && _signed(me)
+                      ? 'Confirmed · Waiting for other members'
+                      : 'Confirm & Approve Schedule',
+                ),
+              ),
+            if (_reviewing)
+              TextButton(
+                onPressed: _busy ? null : () => _act('reject'),
+                child: const Text('Request changes'),
+              ),
+            for (final member in members)
+              Card(
+                elevation: 0,
+                color: const Color(0xFFF8FAFC),
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFEDEAF6)),
+                ),
+                child: ListTile(
+                  leading: MemberAvatar(
+                    houseId: widget.houseId,
+                    userId: member.userId,
+                    name: member.displayName,
+                    version: member.avatarUrl ?? '',
+                  ),
+                  title: Text(
+                    member.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    _reviewing
+                        ? _signed(member.userId)
+                              ? 'Confirmed'
+                              : _rejected(member.userId)
+                              ? 'Rejected'
+                              : 'Awaiting confirmation'
+                        : member.isOwner
+                        ? 'Owner'
+                        : 'Member',
+                  ),
+                  trailing: _owner && (_draft || _reviewing || _active)
+                      ? IconButton(
+                          tooltip:
+                              'Review redistribution for ${member.displayName}',
+                          onPressed: _busy
+                              ? null
+                              : () => _redistribute(member.userId),
+                          icon: const Icon(Icons.swap_horiz),
+                        )
+                      : null,
+                ),
+              ),
+            if (_draft && _owner) ...[
+              OutlinedButton(
+                onPressed: _busy ? null : () => _act('generate-schedule'),
+                child: const Text('Generate / regenerate draft'),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed:
+                    _busy ||
+                        _occurrences.isEmpty ||
+                        _occurrences.any(
+                          (o) =>
+                              (o['type'] == 0 || o['type'] == 'NORMAL') &&
+                              o['assignedUserId'] == null,
+                        )
+                    ? null
+                    : () => _act('submit-review'),
+                child: const Text('Submit for everyone to review'),
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (_owner && (_draft || _active)) ...[
+              for (final occurrence in _occurrences.where(
+                (o) =>
+                    (o['type'] == 0 || o['type'] == 'NORMAL') &&
+                    o['assignedUserId'] == null,
+              ))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(occurrence['choreName']),
+                  subtitle: const Text(
+                    'Needs assignment · Review member availability',
+                  ),
+                  trailing: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _assign(
+                            Map<String, dynamic>.from(occurrence),
+                          ),
+                    child: const Text('Assign'),
+                  ),
+                ),
+            ],
+            OutlinedButton.icon(
+              onPressed: () =>
+                  context.go('/houses/${widget.houseId}/chores?tab=team'),
+              icon: const Icon(Icons.calendar_month),
+              label: const Text('View team schedule'),
+            ),
+            TextButton(
+              onPressed: () => context.push(
+                '/houses/${widget.houseId}/seasons/${widget.seasonId}/leaderboard',
+              ),
+              child: const Text('Season ranking'),
+            ),
+          ],
+        ],
       ),
     );
   }

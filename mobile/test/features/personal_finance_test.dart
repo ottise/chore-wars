@@ -100,7 +100,7 @@ Future<void> _mount(WidgetTester tester, _Finance repo) async {
 
 void main() {
   testWidgets(
-    'debtor reports only the amount not already awaiting confirmation',
+    'debtor reports only the amount not already awaiting confirmation via single Confirm button',
     (tester) async {
       final repo = _Finance();
       await _mount(tester, repo);
@@ -108,24 +108,19 @@ void main() {
       await tester.ensureVisible(find.text('Mark as paid'));
       await tester.tap(find.text('Mark as paid'));
       await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TextFormField>(find.byType(TextFormField).first)
-            .controller!
-            .text,
-        '60',
-      );
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(TextFormField), findsNothing);
       await tester.ensureVisible(
-        find.widgetWithText(FilledButton, 'Mark as paid'),
+        find.widgetWithText(FilledButton, 'Confirm'),
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Mark as paid'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
       expect(repo.calls.single.$1, '/payment-obligations/out/repayments');
       expect(repo.calls.single.$2['amount'], 60);
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('creditor records actual receipt using a separate operation', (
+  testWidgets('creditor records actual receipt using a single Confirm button', (
     tester,
   ) async {
     final repo = _Finance();
@@ -134,33 +129,30 @@ void main() {
     await tester.tap(find.text('Confirm received'));
     await tester.pumpAndSettle();
     expect(repo.calls, isEmpty);
-    await tester.ensureVisible(find.text('Record receipt'));
-    await tester.tap(find.text('Record receipt'));
+    expect(find.byType(TextField), findsNothing);
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
     await tester.pumpAndSettle();
     expect(repo.calls.single.$1, '/payment-obligations/in/record-receipt');
     expect(repo.calls.single.$2['amount'], 100);
     expect(tester.takeException(), isNull);
   });
   testWidgets(
-    'creditor reviews a pending report instead of creating another receipt',
+    'creditor confirms a pending report using a single Confirm button',
     (tester) async {
       final repo = _Finance(pendingReceipt: true);
       await _mount(tester, repo);
       await tester.ensureVisible(find.text('Confirm received'));
       await tester.tap(find.text('Confirm received'));
       await tester.pumpAndSettle();
-      expect(find.text('Record receipt'), findsNothing);
-      await tester.tap(find.text('Not received'));
-      await tester.pumpAndSettle();
-      expect(repo.calls, isEmpty);
-      await tester.enterText(find.byType(TextField).last, 'Not in my account');
-      await tester.tap(find.text('Not received'));
+      expect(find.byType(TextField), findsNothing);
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
       await tester.pumpAndSettle();
       expect(
         repo.calls.single.$1,
         '/payment-obligations/in/repayments/pending-in/respond',
       );
-      expect(repo.calls.single.$2['confirm'], false);
+      expect(repo.calls.single.$2['confirm'], true);
       expect(tester.takeException(), isNull);
     },
   );

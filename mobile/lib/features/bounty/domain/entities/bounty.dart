@@ -10,6 +10,7 @@ class Bounty {
   final String? assignedUserId;
   final double amount;
   final BountyStatus status;
+  final DateTime? createdAt;
   final DateTime expiresAt;
   final String? newAssigneeDisplayName;
   final double? forcedCompensationAmount;
@@ -25,6 +26,7 @@ class Bounty {
     this.assignedUserId,
     required this.amount,
     required this.status,
+    this.createdAt,
     required this.expiresAt,
     this.newAssigneeDisplayName,
     this.forcedCompensationAmount,

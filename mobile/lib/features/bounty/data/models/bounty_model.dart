@@ -12,12 +12,14 @@ class BountyModel extends Bounty {
     super.assignedUserId,
     required super.amount,
     required super.status,
+    super.createdAt,
     required super.expiresAt,
     super.newAssigneeDisplayName,
     super.forcedCompensationAmount,
   });
 
   factory BountyModel.fromJson(Map<String, dynamic> json) {
+    final rawCreatedAt = json['createdAt']?.toString();
     return BountyModel(
       claimedByUserId: json['claimedByUserId']?.toString(),
       cancellationRequestedByUserId: json['cancellationRequestedByUserId']
@@ -30,6 +32,9 @@ class BountyModel extends Bounty {
       assignedUserId: json['assignedUserId']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       status: bountyStatusFromJson(json['status']),
+      createdAt: rawCreatedAt != null && rawCreatedAt.isNotEmpty
+          ? DateTime.tryParse(rawCreatedAt)?.toUtc()
+          : null,
       expiresAt: DateTime.parse(
         (json['occurrenceDueAt'] ?? json['expiresAt']).toString(),
       ).toUtc(),

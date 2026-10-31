@@ -201,19 +201,9 @@ class InternalRepaymentScreen extends ConsumerStatefulWidget {
 
 class _InternalRepaymentScreenState
     extends ConsumerState<InternalRepaymentScreen> {
-  final _amount = TextEditingController();
-  final _reference = TextEditingController();
-  final _reason = TextEditingController();
   String _requestId = const Uuid().v4();
   bool _busy = false;
   String? _error;
-  @override
-  void dispose() {
-    _amount.dispose();
-    _reference.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
 
   Future<void> _run(String path, SupplyData request) async {
     if (_busy) return;
@@ -225,8 +215,6 @@ class _InternalRepaymentScreenState
       await ref.read(suppliesRepositoryProvider).mutate(path, request);
       if (mounted) {
         _requestId = const Uuid().v4();
-        _amount.clear();
-        _reference.clear();
         ref.invalidate(
           purchaseDebtProvider((house: widget.houseId, id: widget.debtId)),
         );
@@ -279,6 +267,19 @@ class _InternalRepaymentScreenState
             data: (d) {
               final debtor = d['debtorUserId'] == me;
               final remaining = d['remainingAmount'] as num? ?? 0;
+              final repayments = (d['repayments'] as List? ?? [])
+                  .cast<Map<dynamic, dynamic>>();
+              final pending = repayments
+                  .where((r) => r['status'] == 'REPORTED')
+                  .toList();
+              final pendingAmount = pending.fold<num>(
+                0,
+                (sum, r) => sum + (r['amount'] as num? ?? 0),
+              );
+              final availableToReport = remaining - pendingAmount;
+              final isPayable = d['status'] == 'PENDING' && remaining > 0;
+              final awaitingCompletion = d['status'] == 'AWAITING_COMPLETION';
+
               return ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
@@ -311,31 +312,37 @@ class _InternalRepaymentScreenState
                       ),
                       child: const Text('View source purchase'),
                     ),
-                  if (!debtor && remaining > 0)
-                    OutlinedButton(
+                  if (awaitingCompletion) ...[
+                    const SizedBox(height: 16),
+                    const SupplySurface(
+                      child: Text(
+                        'This obligation is awaiting chore completion before payment can be confirmed.',
+                      ),
+                    ),
+                  ],
+                  if (!debtor && isPayable) ...[
+                    const SizedBox(height: 16),
+                    FilledButton(
                       onPressed: _busy
                           ? null
-                          : () async {
-                              await showModalBottomSheet<bool>(
-                                context: context,
-                                isScrollControlled: true,
-                                showDragHandle: true,
-                                builder: (_) => DebtActionSheet(
-                                  houseId: widget.houseId,
-                                  debt: d,
-                                  debtor: false,
-                                ),
-                              );
-                              ref.invalidate(
-                                purchaseDebtProvider((
-                                  house: widget.houseId,
-                                  id: widget.debtId,
-                                )),
-                              );
-                            },
-                      child: const Text('Confirm received'),
+                          : () => pending.isNotEmpty
+                                ? _run(
+                                    '/payment-obligations/${widget.debtId}/repayments/${pending.first['id']}/respond',
+                                    {'confirm': true},
+                                  )
+                                : _run(
+                                    '/payment-obligations/${widget.debtId}/record-receipt',
+                                    {
+                                      'clientRequestId': _requestId,
+                                      'amount': remaining,
+                                      'reference': '',
+                                    },
+                                  ),
+                      child: const Text('Confirm'),
                     ),
+                  ],
                   if (debtor && remaining > 0) ...[
+                    const SizedBox(height: 16),
                     ref
                         .watch(repaymentInstructionsProvider(widget.debtId))
                         .when(
@@ -401,56 +408,50 @@ class _InternalRepaymentScreenState
                             );
                           },
                         ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Transfer using your bank, then report it here. Only the recipient can confirm receipt.',
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _amount,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Amount transferred (VND)',
+                    if (isPayable && availableToReport > 0) ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Transfer using your bank, then confirm here. Only the recipient can confirm receipt.',
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _reference,
-                      maxLength: 300,
-                      decoration: const InputDecoration(
-                        labelText: 'Bank reference / transfer note',
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _run(
+                                '/payment-obligations/${widget.debtId}/repayments',
+                                {
+                                  'clientRequestId': _requestId,
+                                  'amount': availableToReport,
+                                  'reference': '',
+                                },
+                              ),
+                        child: const Text('Confirm'),
                       ),
-                    ),
-                    FilledButton(
-                      onPressed: _busy
-                          ? null
-                          : () => _run(
-                              '/payment-obligations/${widget.debtId}/repayments',
-                              {
-                                'clientRequestId': _requestId,
-                                'amount': num.tryParse(_amount.text) ?? 0,
-                                'reference': _reference.text.trim(),
-                              },
-                            ),
-                      child: const Text('Report transfer'),
-                    ),
+                    ] else if (pendingAmount > 0) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Waiting for ${d['creditorName']} to confirm receipt.',
+                      ),
+                    ],
                   ],
-                  if (_error != null)
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
                     Text(
                       _error!,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
+                  ],
                   if (_busy) const LinearProgressIndicator(),
                   const SizedBox(height: 24),
                   Text(
                     'Transfer history',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  if ((d['repayments'] as List? ?? []).isEmpty)
+                  if (repayments.isEmpty)
                     const Text('No transfers reported yet.'),
-                  for (final r in d['repayments'] as List? ?? [])
+                  for (final r in repayments)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: SupplySurface(
@@ -458,36 +459,21 @@ class _InternalRepaymentScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(supplyMoney(r['amount'])),
-                            Text('Debt · ${r['reference']}\n${r['status']}'),
+                            Text('Debt · ${r['status']}'),
                             if (r['responseReason'] != null)
                               Text(r['responseReason'].toString()),
-                            if (!debtor && r['status'] == 'REPORTED') ...[
-                              TextButton(
+                            if (!debtor &&
+                                isPayable &&
+                                r['status'] == 'REPORTED') ...[
+                              const SizedBox(height: 8),
+                              FilledButton(
                                 onPressed: _busy
                                     ? null
                                     : () => _run(
                                         '/payment-obligations/${widget.debtId}/repayments/${r['id']}/respond',
                                         {'confirm': true},
                                       ),
-                                child: const Text('I received this amount'),
-                              ),
-                              TextField(
-                                controller: _reason,
-                                decoration: const InputDecoration(
-                                  labelText: 'Reason if not received',
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _run(
-                                        '/payment-obligations/${widget.debtId}/repayments/${r['id']}/respond',
-                                        {
-                                          'confirm': false,
-                                          'reason': _reason.text.trim(),
-                                        },
-                                      ),
-                                child: const Text('Reject report'),
+                                child: const Text('Confirm'),
                               ),
                             ],
                           ],

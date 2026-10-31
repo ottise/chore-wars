@@ -8,7 +8,6 @@ import '../../../../core/utils/api_error_message.dart';
 import '../../domain/repositories/supplies_repository.dart';
 import '../providers/supplies_providers.dart';
 import 'supplies_ui.dart';
-import 'supplier_contact_card.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
@@ -148,119 +147,365 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
         widget.order['payerUserId'] == me?.id ||
         (widget.order['payerUserId'] == null && creator);
     final recorded = widget.order['paymentConfirmationSource'] != null;
+    final shortId = widget.order['id'].toString().split('-').first;
+    final lines = widget.order['lines'] as List? ?? [];
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
+      cacheExtent: 0,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 88),
       children: [
-        SupplierContactCard(
-          supplier: {
-            'name': widget.order['supplierName'],
-            'phone': widget.order['supplierPhone'],
-            'email': widget.order['supplierEmail'],
-          },
+        SupplySurface(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDE7FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Color(0xFF7C4DFF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order $shortId',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Ordered by ${person(widget.order['creatorUserId'])}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: recorded
+                          ? const Color(0xFFE6F7F0)
+                          : const Color(0xFFEDE7FF),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      recorded ? 'Paid' : 'Order saved',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: recorded
+                            ? const Color(0xFF0D9F6E)
+                            : const Color(0xFF6845D6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const SizedBox(height: 12),
+              for (final line in lines)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${line['quantity']}×',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${line['quantity']} × ${line['name']} · ${supplyMoney(line['unitPrice'])} / ${line['unit']}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const Divider(height: 20, color: Color(0xFFF1F5F9)),
+              Text(
+                'Delivery: ${supplyMoney(widget.order['deliveryFee'])}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF475569),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Total: ${supplyMoney(widget.order['total'])}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF7C4DFF),
+                ),
+              ),
+              if (widget.order['note']?.toString().isNotEmpty == true) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.order['note'].toString(),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
-        if (sms)
+        if (sms) ...[
+          const SizedBox(height: 14),
           SupplySurface(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Order saved'),
                 const Text(
-                  'Send the prepared message in your SMS app. Sending an SMS does not confirm supplier payment.',
-                ),
-                TextButton.icon(
-                  onPressed: () => supplyOpenOrderSms(context, widget.order),
-                  icon: const Icon(Icons.sms_outlined),
-                  label: const Text('Open SMS'),
-                ),
-                TextButton(
-                  onPressed: () => supplyCopy(
-                    context,
-                    'Order message',
-                    supplySmsBody(widget.order),
+                  'SMS order message',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
                   ),
-                  child: const Text('Copy message'),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Send the prepared message in your SMS app. Sending an SMS does not confirm payment.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () =>
+                          supplyOpenOrderSms(context, widget.order),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFEDE7FF),
+                        foregroundColor: const Color(0xFF6845D6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.sms_outlined, size: 16),
+                      label: const Text('Open SMS'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => supplyCopy(
+                        context,
+                        'Order message',
+                        supplySmsBody(widget.order),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        foregroundColor: const Color(0xFF334155),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      label: const Text('Copy message'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+        ],
+        const SizedBox(height: 14),
         SupplySurface(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Order ${widget.order['id'].toString().split('-').first}',
-                style: Theme.of(context).textTheme.titleMedium,
+              const Text(
+                'Cost shares',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
               ),
               const SizedBox(height: 12),
-              Text('Ordered by ${person(widget.order['creatorUserId'])}'),
-              for (final line in widget.order['lines'] as List? ?? [])
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '${line['quantity']} × ${line['name']} · ${supplyMoney(line['unitPrice'])} / ${line['unit']}',
-                  ),
+              for (var i = 0; i < shares.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: shares[i]['userId'] == widget.order['payerUserId']
+                            ? const Color(0xFFEDE7FF)
+                            : const Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        person(
+                          shares[i]['userId'],
+                        ).characters.first.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color:
+                              shares[i]['userId'] == widget.order['payerUserId']
+                              ? const Color(0xFF6845D6)
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            person(shares[i]['userId']),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            shares[i]['userId'] == widget.order['payerUserId']
+                                ? 'Pays first'
+                                : payer
+                                ? 'You owe this amount to the payer after payment'
+                                : 'Owes ${person(widget.order['payerUserId'])} after payment',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        supplyMoney(shares[i]['amount']),
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              const Divider(height: 28),
-              Text('Delivery: ${supplyMoney(widget.order['deliveryFee'])}'),
-              Text(
-                'Total: ${supplyMoney(widget.order['total'])}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              if (widget.order['note']?.toString().isNotEmpty == true)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(widget.order['note'].toString()),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        SupplySurface(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Cost shares',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              for (final share in shares)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(person(share['userId'])),
-                  subtitle: Text(
-                    share['userId'] == widget.order['payerUserId']
-                        ? 'Pays the supplier first'
-                        : payer
-                        ? 'You owe this amount to the payer after payment'
-                        : 'Owes this amount to ${person(widget.order['payerUserId'])} after payment',
-                  ),
-                  trailing: Text(supplyMoney(share['amount'])),
-                ),
+              ],
+              const SizedBox(height: 12),
               const Text(
                 'Debts are created only when PayOS confirms the full payment.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
         if (recorded)
           SupplySurface(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Payment verified by PayOS',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF0D9F6E),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Payment verified by PayOS',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(supplyMoney(widget.order['recordedPaidAmount'])),
+                const SizedBox(height: 8),
+                Text(
+                  supplyMoney(widget.order['recordedPaidAmount']),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0D9F6E),
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   'Paid by ${person(widget.order['paymentRecordedByUserId'])}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
-                const Text(
-                  'Household reimbursements are available in My Debts.',
-                ),
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () =>
                       context.push('/houses/${widget.houseId}/account/debts'),
@@ -274,33 +519,42 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Pay supplier with PayOS',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
+                const SizedBox(height: 4),
                 const Text(
                   'The order is confirmed as paid only after PayOS verifies the transfer.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : _payment == null
-                      ? _startCheckout
-                      : () {
-                          final url =
-                              _payment?['checkoutUrl']?.toString() ?? '';
-                          if (url.isNotEmpty) {
-                            supplyLaunch(context, Uri.parse(url));
-                          }
-                        },
-                  icon: const Icon(Icons.payment),
-                  label: Text(
-                    _busy
-                        ? 'Preparing PayOS…'
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy
+                        ? null
                         : _payment == null
-                        ? 'Create PayOS payment'
-                        : 'Open PayOS to pay',
+                        ? _startCheckout
+                        : () {
+                            final url =
+                                _payment?['checkoutUrl']?.toString() ?? '';
+                            if (url.isNotEmpty) {
+                              supplyLaunch(context, Uri.parse(url));
+                            }
+                          },
+                    icon: const Icon(Icons.payment, size: 18),
+                    label: Text(
+                      _busy
+                          ? 'Preparing PayOS…'
+                          : _payment == null
+                          ? 'Create PayOS payment'
+                          : 'Open PayOS to pay',
+                    ),
                   ),
                 ),
                 if ((_payment?['qrCode']?.toString() ?? '').isNotEmpty) ...[
@@ -315,13 +569,21 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                     child: const Text('Copy payment details'),
                   ),
                 ],
+                const SizedBox(height: 4),
                 TextButton.icon(
                   onPressed: _busy ? null : () => _refreshPayment(),
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Check payment status'),
                 ),
                 if (_payment != null)
-                  Text('PayOS status: ${_payment!['status']}'),
+                  Text(
+                    'PayOS status: ${_payment!['status']}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
               ],
             ),
           )
@@ -329,6 +591,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
           SupplySurface(
             child: Text(
               'Waiting for ${person(widget.order['payerUserId'])} to pay this order with PayOS.',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
             ),
           ),
         if (_error != null)

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 typedef ShopPreset = ({String name, String unit, int price, IconData icon});
 
-// Editable starting points, never advertised as confirmed supplier prices.
 const shopPresets = <ShopPreset>[
   (
     name: 'Gas',
@@ -30,27 +29,78 @@ class ShopPresets extends StatelessWidget {
   final ValueChanged<ShopPreset>? onSelect;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('Quick add', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+      side: const BorderSide(color: Color(0xFFE8ECF2)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final preset in shopPresets)
-            OutlinedButton.icon(
-              onPressed: onSelect == null ? null : () => onSelect!(preset),
-              icon: Icon(preset.icon, size: 18),
-              label: Text(preset.name),
-            ),
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_outlined,
+                size: 16,
+                color: Color(0xFF7C4DFF),
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Quick add',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final preset in shopPresets)
+                OutlinedButton.icon(
+                  onPressed: onSelect == null ? null : () => onSelect!(preset),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    backgroundColor: const Color(0xFFF8FAFC),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 34),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: Icon(
+                    preset.icon,
+                    size: 16,
+                    color: const Color(0xFF7C4DFF),
+                  ),
+                  label: Text(
+                    preset.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
-      const SizedBox(height: 8),
-      const Text(
-        'Suggested prices. Edit the item, unit and price, then add a contact number before saving.',
-      ),
-    ],
+    ),
   );
 }

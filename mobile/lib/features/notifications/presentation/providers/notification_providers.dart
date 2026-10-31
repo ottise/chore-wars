@@ -1,5 +1,6 @@
 import '../../../../core/storage/session_provider.dart';
 import '../../../../core/utils/api_error_message.dart';
+import '../../../bounty/presentation/providers/bounty_providers.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,11 +28,13 @@ class NotificationState {
     this.isLoading = false,
     this.error,
     this.latestArrival,
+    this.bountyBoardEpoch = 0,
   });
   final List<AppNotification> notifications;
   final bool isLoading;
   final String? error;
   final AppNotification? latestArrival;
+  final int bountyBoardEpoch;
 }
 
 class NotificationNotifier extends Notifier<NotificationState> {
@@ -52,9 +55,16 @@ class NotificationNotifier extends Notifier<NotificationState> {
         () => ref.read(secureStorageProvider).getAccessToken(),
         (notification) {
           if (!_current(generation)) return;
+          if (notification.houseId != null &&
+              notification.houseId!.isNotEmpty) {
+            ref.invalidate(bountyBoardProvider(notification.houseId!));
+          } else {
+            ref.invalidate(bountyBoardProvider);
+          }
           if (state.notifications.any((n) => n.id == notification.id)) return;
           state = NotificationState(
             latestArrival: notification,
+            bountyBoardEpoch: state.bountyBoardEpoch + 1,
             notifications: [
               notification,
               ...state.notifications.where((n) => n.id != notification.id),
@@ -68,6 +78,23 @@ class NotificationNotifier extends Notifier<NotificationState> {
             } else {
               ref.invalidate(chatUnreadRequestProvider(house));
             }
+          }
+        },
+        onBountyBoardChanged: (house) {
+          if (_current(generation)) {
+            if (house.isEmpty) {
+              ref.invalidate(bountyBoardProvider);
+            } else {
+              ref.invalidate(bountyBoardProvider(house));
+            }
+            ref.invalidate(bountyDetailProvider);
+            state = NotificationState(
+              notifications: state.notifications,
+              isLoading: state.isLoading,
+              error: state.error,
+              latestArrival: state.latestArrival,
+              bountyBoardEpoch: state.bountyBoardEpoch + 1,
+            );
           }
         },
       );
@@ -84,6 +111,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     state = NotificationState(
       notifications: state.notifications,
       isLoading: true,
+      bountyBoardEpoch: state.bountyBoardEpoch,
     );
     try {
       final data = await ref
@@ -95,6 +123,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
             .toList();
         final arrivalIds = arrivals.map((n) => n.id).toSet();
         state = NotificationState(
+          bountyBoardEpoch: state.bountyBoardEpoch,
           notifications: [
             ...arrivals,
             ...data.where((n) => !arrivalIds.contains(n.id)),
@@ -106,6 +135,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
         state = NotificationState(
           notifications: state.notifications,
           error: apiErrorMessage(error),
+          bountyBoardEpoch: state.bountyBoardEpoch,
         );
       }
     }
@@ -116,6 +146,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     await ref.read(notificationRepositoryProvider).markAsRead(id);
     if (_current(generation)) {
       state = NotificationState(
+        bountyBoardEpoch: state.bountyBoardEpoch,
         notifications: state.notifications
             .map((n) => n.id == id ? n.asRead() : n)
             .toList(),
@@ -128,6 +159,7 @@ class NotificationNotifier extends Notifier<NotificationState> {
     await ref.read(notificationRepositoryProvider).markAllAsRead();
     if (_current(generation)) {
       state = NotificationState(
+        bountyBoardEpoch: state.bountyBoardEpoch,
         notifications: state.notifications
             .map((n) => (n.isChat || n.isTaskRequest) ? n : n.asRead())
             .toList(),

@@ -479,7 +479,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if request.context.house_id != auth[0]:
             raise HTTPException(403, "House scope mismatch")
         try:
-            return find_swap(request.context, request.source_occurrence_id, auth[1])
+            return find_swap(
+                request.context,
+                request.source_occurrence_id,
+                auth[1],
+                request.target_member_id,
+            )
         except ValueError as error:
             raise HTTPException(409, str(error))
 

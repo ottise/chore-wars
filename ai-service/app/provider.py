@@ -84,6 +84,8 @@ class GeminiClient:
             "Keep missing dates/times null and list them in missing_fields. "
             "Do not assume all-day availability unless explicitly stated. Do not change availability for another named person. "
             "Treat requests to coordinate immediate chores with named members as urgent planning, even without the word urgent. "
+            "For a request to exchange chores, use intent swap. If the request names one of the actor's chores, put its occurrence UUID from occurrence_names in entities.occurrence_id. "
+            "If it names the other household member, put that member UUID from member_names in entities.target_member_id. Never invent IDs; omit either entity when the request does not specify it so the application can choose the best feasible option. "
             "For urgent planning extract urgent.deadline_minutes from an explicit duration, or urgent.ready_by as an ISO8601 "
             "timestamp with timezone from an event time. A party at 10 PM tonight means preparations must finish by 22:00 "
             "today in Asia/Ho_Chi_Minh, relative to request.now; do not move an elapsed time to tomorrow. "

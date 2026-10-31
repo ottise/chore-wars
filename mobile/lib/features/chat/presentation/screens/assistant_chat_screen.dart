@@ -6,12 +6,14 @@ import '../../../supplies/presentation/widgets/ai_supply_draft_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../ai/data/ai_repository.dart';
 import '../../../ai/presentation/ai_availability_review_screen.dart';
 import '../../../ai/presentation/ai_voice_controls.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../widgets/ai_urgent_plan_card.dart';
+import '../widgets/ai_swap_plan_card.dart';
 import '../widgets/assistant_inbox.dart';
 
 class AssistantChatScreen extends ConsumerStatefulWidget {
@@ -42,7 +44,11 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
           Map<String, dynamic>? availability,
           Map<String, dynamic>? urgent,
           Map<String, dynamic>? supply,
+          String? swapSourceOccurrenceId,
+          String? swapTargetMemberId,
+          String? swapRequestId,
           String? planningKind,
+          String? planningPrompt,
           DateTime at,
         })
       >[];
@@ -80,6 +86,9 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
       if (!mounted) return;
       final missing = response['missing_fields'] as List? ?? [];
       final summary = response['summary']?.toString().trim() ?? '';
+      final entities = response['entities'] is Map
+          ? Map<String, dynamic>.from(response['entities'] as Map)
+          : <String, dynamic>{};
       if (summary.isEmpty) {
         throw const FormatException('Missing assistant reply');
       }
@@ -104,6 +113,12 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
               'replan' => 'REPLAN',
               _ => null,
             },
+            planningPrompt: response['intent'] == 'swap' ? requestText : null,
+            swapSourceOccurrenceId: entities['occurrence_id']?.toString(),
+            swapTargetMemberId: entities['target_member_id']?.toString(),
+            swapRequestId: response['intent'] == 'swap'
+                ? const Uuid().v4()
+                : null,
             availability: response['availability'] is Map
                 ? Map<String, dynamic>.from(response['availability'] as Map)
                 : null,
@@ -125,6 +140,10 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             text: prompt,
             availability: null,
             planningKind: null,
+            planningPrompt: null,
+            swapSourceOccurrenceId: null,
+            swapTargetMemberId: null,
+            swapRequestId: null,
             urgent: null,
             supply: null,
             at: DateTime.now(),
@@ -392,8 +411,28 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                             as String,
                                                     candidate: message.urgent!,
                                                   ),
+                                                if (message.planningKind ==
+                                                        'SWAP' &&
+                                                    message.planningPrompt !=
+                                                        null)
+                                                  AiSwapPlanCard(
+                                                    key: ValueKey(
+                                                      message.swapRequestId,
+                                                    ),
+                                                    houseId: widget.houseId,
+                                                    prompt: message
+                                                        .planningPrompt!,
+                                                    sourceOccurrenceId: message
+                                                        .swapSourceOccurrenceId,
+                                                    targetMemberId: message
+                                                        .swapTargetMemberId,
+                                                    clientRequestId: message
+                                                        .swapRequestId!,
+                                                  ),
                                                 if (message.planningKind !=
-                                                    null)
+                                                        null &&
+                                                    message.planningKind !=
+                                                        'SWAP')
                                                   TextButton(
                                                     onPressed: () =>
                                                         Navigator.of(
@@ -409,11 +448,8 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                                 ),
                                                           ),
                                                         ),
-                                                    child: Text(
-                                                      message.planningKind ==
-                                                              'SWAP'
-                                                          ? 'Review chore swap'
-                                                          : 'Review schedule changes',
+                                                    child: const Text(
+                                                      'Review schedule changes',
                                                     ),
                                                   ),
                                                 if (message.supply != null)

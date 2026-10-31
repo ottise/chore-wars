@@ -1,12 +1,12 @@
-import '../../../../core/widgets/member_avatar.dart';
-import '../../../../core/widgets/app_page_bar.dart';
-import '../../../../core/widgets/app_page_frame.dart';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/app_page_frame.dart';
 import '../../../../core/widgets/app_states.dart';
+import '../../../../core/widgets/member_avatar.dart';
 import '../../domain/entities/gamification_models.dart';
 import '../providers/gamification_providers.dart';
 
@@ -27,7 +27,36 @@ class LeaderboardScreen extends ConsumerWidget {
     final rankings = ref.watch(leaderboardProvider(key));
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppPageBar(title: 'Leaderboard'),
+      backgroundColor: colors.surface,
+      appBar: AppBar(
+        toolbarHeight: 68,
+        leadingWidth: 64,
+        backgroundColor: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        leading: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 0, 12),
+          child: BackButton(
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1E293B),
+              side: const BorderSide(color: Color(0xFFE8ECF2)),
+              iconSize: 19,
+              shape: const CircleBorder(),
+            ),
+          ),
+        ),
+        titleSpacing: 12,
+        title: const Text(
+          'Leaderboard',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(leaderboardProvider(key));
@@ -53,18 +82,8 @@ class LeaderboardScreen extends ConsumerWidget {
             );
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
               children: [
-                Text(
-                  'Season standings',
-                  style: TextStyle(color: colors.primary, fontSize: 12),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'House standings',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 24),
                 if (items.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
@@ -80,120 +99,95 @@ class LeaderboardScreen extends ConsumerWidget {
                       for (final member in podium)
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: _PodiumPlace(member: member),
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
+                            child: _PodiumPlace(
+                              houseId: houseId,
+                              member: member,
+                            ),
                           ),
                         ),
                     ],
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
                 if (sorted.isNotEmpty)
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Chore contribution',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0C1E293B),
+                          blurRadius: 20,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Chore contribution',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: Color(0xFF1E293B),
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () => context.push(
-                                  '/houses/$houseId/karma/history',
-                                ),
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(44, 32),
-                                ),
-                                child: const Text(
-                                  'View History',
-                                  style: TextStyle(fontSize: 12),
-                                ),
+                            ),
+                            TextButton(
+                              onPressed: () => context.push(
+                                '/houses/$houseId/karma/history',
                               ),
-                            ],
-                          ),
-                          for (final member in sorted)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(44, 32),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 4,
+                                ),
+                                foregroundColor: const Color(0xFF7C4DFF),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  MemberAvatar(
-                                    houseId: houseId,
-                                    userId: member.userId,
-                                    name: member.displayName,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          member.displayName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Rank #${member.rank}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: colors.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    'View History',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF7C4DFF),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 90,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '${member.choresCompleted} completed',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        LinearProgressIndicator(
-                                          value: completed == 0
-                                              ? 0
-                                              : member.choresCompleted /
-                                                    completed,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          minHeight: 5,
-                                          color: member.rank == 1
-                                              ? AppPageFrame.accent
-                                              : colors.tertiaryFixedDim,
-                                        ),
-                                      ],
-                                    ),
+                                  SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 16,
+                                    color: Color(0xFF7C4DFF),
                                   ),
                                 ],
                               ),
                             ),
-                          Text(
-                            'Share of completed chores this season',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colors.onSurfaceVariant,
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        for (var i = 0; i < sorted.length; i++) ...[
+                          if (i > 0)
+                            const Divider(
+                              height: 22,
+                              thickness: 1,
+                              color: Color(0xFFF1F5F9),
                             ),
+                          _ContributionRow(
+                            houseId: houseId,
+                            member: sorted[i],
+                            totalCompleted: completed,
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
               ],
@@ -205,84 +199,164 @@ class LeaderboardScreen extends ConsumerWidget {
   }
 }
 
-class _PodiumPlace extends StatelessWidget {
-  const _PodiumPlace({required this.member});
+class _PodiumPlace extends ConsumerWidget {
+  const _PodiumPlace({required this.houseId, required this.member});
+  final String houseId;
   final SeasonRanking member;
+
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final winner = member.rank == 1;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bytes = ref
+        .watch(
+          memberAvatarProvider((
+            house: houseId,
+            user: member.userId,
+            version: '',
+          )),
+        )
+        .asData
+        ?.value;
+
+    final rank = member.rank;
+    final winner = rank == 1;
+    final isThird = rank == 3;
+
+    final ringColor = winner
+        ? const Color(0xFF7C4DFF)
+        : isThird
+        ? const Color(0xFFF5B041)
+        : const Color(0xFFCBD5E1);
+    final avatarFill = winner
+        ? const Color(0xFFEDE7FF)
+        : isThird
+        ? const Color(0xFFFEF3C7)
+        : const Color(0xFFE2E8F0);
+    final initialColor = winner
+        ? const Color(0xFF6845D6)
+        : isThird
+        ? const Color(0xFF92400E)
+        : const Color(0xFF334155);
+    final badgeColor = winner
+        ? const Color(0xFF7C4DFF)
+        : isThird
+        ? const Color(0xFFC26A1B)
+        : const Color(0xFF475569);
+    final rankTextColor = winner
+        ? const Color(0xFF7C4DFF)
+        : isThird
+        ? const Color(0xFF9A4A06)
+        : const Color(0xFF475569);
+    final cardBorderColor = winner
+        ? const Color(0xFFC4B5FD)
+        : isThird
+        ? const Color(0xFFFCE3B4)
+        : const Color(0xFFE8ECF2);
+
     final positive = member.totalKarma >= 0;
-    final scoreColor = positive ? const Color(0xFF008568) : colors.error;
+    final karmaTextColor = positive
+        ? const Color(0xFF0D9488)
+        : const Color(0xFFBA1A1A);
+    final karmaBgColor = positive
+        ? const Color(0xFFE6F7F2)
+        : const Color(0xFFFFDAD6);
+    final karmaBorderColor = positive
+        ? const Color(0xFFB2EBE0)
+        : const Color(0xFFFFB4AB);
+
+    final avatarSize = winner ? 74.0 : 60.0;
+    final tasksLabel = member.choresCompleted == 1
+        ? '1 task done'
+        : '${member.choresCompleted} tasks done';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: winner ? 90 : 76,
+          height: winner ? 96 : 74,
           child: Stack(
+            clipBehavior: Clip.none,
             alignment: Alignment.bottomCenter,
             children: [
               if (winner)
-                Positioned(
+                const Positioned(
                   top: 0,
-                  child: Icon(
-                    Icons.workspace_premium_outlined,
-                    size: 22,
-                    color: colors.tertiary,
+                  left: 10,
+                  child: CustomPaint(
+                    size: Size(20, 15),
+                    painter: _CrownPainter(color: Color(0xFF7C4DFF)),
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Container(
-                  width: winner ? 64 : 56,
-                  height: winner ? 64 : 56,
-                  alignment: Alignment.center,
+                  width: avatarSize,
+                  height: avatarSize,
+                  padding: EdgeInsets.all(winner ? 3.0 : 2.5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: winner
-                        ? colors.primaryFixed
-                        : colors.surfaceContainerHighest,
+                    color: Colors.white,
                     border: Border.all(
-                      color: winner
-                          ? AppPageFrame.accent
-                          : colors.surfaceContainerLowest,
-                      width: 2,
+                      color: ringColor,
+                      width: winner ? 2.0 : 1.5,
                     ),
+                    boxShadow: winner
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x227C4DFF),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ]
+                        : null,
                   ),
-                  child: Text(
-                    member.displayName.isEmpty
-                        ? '?'
-                        : member.displayName.characters.first.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: winner ? colors.primary : colors.onSurface,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: avatarFill,
+                      image: bytes != null
+                          ? DecorationImage(
+                              image: MemoryImage(bytes),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
+                    child: bytes == null
+                        ? Text(
+                            member.displayName.isEmpty
+                                ? '?'
+                                : member.displayName.characters.first
+                                      .toUpperCase(),
+                            style: TextStyle(
+                              fontSize: winner ? 22 : 18,
+                              fontWeight: FontWeight.w700,
+                              color: initialColor,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ),
               Positioned(
                 bottom: 0,
-                right: 0,
+                right: 4,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
+                    horizontal: 7,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: winner ? colors.tertiary : colors.onSurfaceVariant,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colors.surfaceContainerLowest,
-                      width: 2,
-                    ),
+                    color: badgeColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white, width: 2),
                   ),
                   child: Text(
-                    '#${member.rank}',
+                    '#$rank',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 10.5,
+                      height: 1.1,
                       color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -295,63 +369,89 @@ class _PodiumPlace extends StatelessWidget {
           member.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: winner ? FontWeight.w700 : FontWeight.w600,
+            color: const Color(0xFF1E293B),
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(
-            horizontal: 8,
+            horizontal: 6,
             vertical: winner ? 14 : 12,
           ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                winner
-                    ? colors.tertiaryFixed.withValues(alpha: .25)
-                    : colors.surfaceContainerLow,
-                colors.surfaceContainerLowest,
-              ],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: winner
+                  ? const [Color(0xFFF3EEFF), Colors.white]
+                  : isThird
+                  ? const [Color(0xFFFFFCF5), Colors.white]
+                  : const [Colors.white, Colors.white],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: winner ? colors.tertiaryFixedDim : colors.outlineVariant,
+              color: cardBorderColor,
+              width: winner ? 1.4 : 1.0,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: winner
+                    ? const Color(0x1F6845D6)
+                    : const Color(0x081E293B),
+                blurRadius: winner ? 16 : 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Column(
             children: [
               Text(
-                '#${member.rank}',
+                '#$rank',
                 style: TextStyle(
-                  fontSize: winner ? 28 : 24,
+                  fontSize: winner ? 24 : 21,
                   height: 1.1,
-                  fontWeight: FontWeight.w600,
-                  color: winner ? colors.tertiary : colors.onSurface,
+                  fontWeight: FontWeight.w800,
+                  color: rankTextColor,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: scoreColor.withValues(alpha: .06),
-                  borderRadius: BorderRadius.circular(16),
+                  color: karmaBgColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: karmaBorderColor, width: 0.8),
                 ),
                 child: Text(
                   '${member.totalKarma > 0 ? '+' : ''}${member.totalKarma} Karma',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: scoreColor,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 10.5,
+                    color: karmaTextColor,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '${member.choresCompleted} tasks done',
-                style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+                tasksLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: winner ? FontWeight.w700 : FontWeight.w500,
+                  color: winner
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFF64748B),
+                ),
               ),
             ],
           ),
@@ -359,4 +459,180 @@ class _PodiumPlace extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ContributionRow extends ConsumerWidget {
+  const _ContributionRow({
+    required this.houseId,
+    required this.member,
+    required this.totalCompleted,
+  });
+
+  final String houseId;
+  final SeasonRanking member;
+  final int totalCompleted;
+
+  String _shortAvatarLabel(String rawName) {
+    final trimmed = rawName.trim();
+    if (trimmed.isEmpty) return '?';
+    final words = trimmed
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.length == 1) {
+      return words.first.characters.take(3).toString();
+    }
+    return words
+        .take(2)
+        .map((w) => w.characters.first.toUpperCase())
+        .join();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final Uint8List? bytes = ref
+        .watch(
+          memberAvatarProvider((
+            house: houseId,
+            user: member.userId,
+            version: '',
+          )),
+        )
+        .asData
+        ?.value;
+
+    final isFirst = member.rank == 1;
+    final hasCompleted = member.choresCompleted > 0;
+    final ratio = totalCompleted == 0
+        ? 0.0
+        : (member.choresCompleted / totalCompleted).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isFirst
+                  ? const Color(0xFFEDE7FF)
+                  : const Color(0xFFF1F5F9),
+              image: bytes != null
+                  ? DecorationImage(
+                      image: MemoryImage(bytes),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: bytes == null
+                ? Text(
+                    _shortAvatarLabel(member.displayName),
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: isFirst
+                          ? const Color(0xFF6845D6)
+                          : const Color(0xFF334155),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Rank #${member.rank}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 108,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${member.choresCompleted} completed',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: hasCompleted
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: hasCompleted
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 6,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF7C4DFF),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CrownPainter extends CustomPainter {
+  const _CrownPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width * 0.08, size.height * 0.25)
+      ..lineTo(size.width * 0.34, size.height * 0.58)
+      ..lineTo(size.width * 0.50, 0)
+      ..lineTo(size.width * 0.66, size.height * 0.58)
+      ..lineTo(size.width * 0.92, size.height * 0.25)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrownPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
