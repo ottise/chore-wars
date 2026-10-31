@@ -48,7 +48,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(GridView), findsOneWidget);
     expect(
-      find.text('Calendar data is not available on this server yet.'),
+      find.text('Calendar is not available on this server yet.'),
       findsOneWidget,
     );
     expect(find.text('No chores for this day.'), findsNothing);
@@ -65,7 +65,7 @@ void main() {
   });
   for (final count in [0, 1, 2, 3, 5]) {
     testWidgets(
-      'calendar shows real previews and correct overflow for $count photos',
+      'day details open completion photos for $count attachments',
       (tester) async {
         tester.view.physicalSize = const Size(354, 950);
         tester.view.devicePixelRatio = 1;
@@ -121,11 +121,16 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        final calendarDayKey = ValueKey(
+          'calendar-day-${day.toIso8601String().substring(0, 10)}',
+        );
+        await tester.tap(find.byKey(calendarDayKey));
+        await tester.pumpAndSettle();
         expect(find.text('Clean kitchen'), findsOneWidget);
-        expect(find.textContaining('Completed by B'), findsOneWidget);
+        expect(find.textContaining('Done by B'), findsOneWidget);
         if (count > 2) {
-          expect(find.text('+${count - 2}'), findsOneWidget);
-          await tester.tap(find.text('+${count - 2}'));
+          expect(find.text('View $count completion photos'), findsOneWidget);
+          await tester.tap(find.text('View $count completion photos'));
           await tester.pumpAndSettle();
           expect(find.text('Clean kitchen · B'), findsOneWidget);
           final lastPhoto = find.byWidgetPredicate(
@@ -142,7 +147,11 @@ void main() {
           await tester.pumpAndSettle();
           expect(lastPhoto, findsOneWidget);
         } else {
-          expect(find.textContaining('+'), findsNothing);
+          if (count == 0) {
+            expect(find.text('View 0 completion photos'), findsNothing);
+          } else {
+            expect(find.text('View $count completion photos'), findsOneWidget);
+          }
         }
         expect(tester.takeException(), isNull);
       },
