@@ -12,8 +12,6 @@ import '../../domain/entities/home_dashboard.dart';
 import '../providers/home_dashboard_provider.dart';
 import '../../../house/presentation/providers/current_house_provider.dart';
 import '../../../notifications/presentation/widgets/notification_bell.dart';
-import '../../../chat/providers/action_proposal_providers.dart';
-import '../../../chat/presentation/widgets/urgent_event_banner.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -48,7 +46,6 @@ class HomeScreen extends ConsumerWidget {
     }
 
     final dashboard = ref.watch(homeDashboardProvider(houseId));
-    final urgentEvent = ref.watch(activeUrgentEventForHouseProvider(houseId));
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chore Wars'),
@@ -80,10 +77,6 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
               _KarmaCard(data: data),
-              if (urgentEvent.asData?.value != null) ...[
-                const SizedBox(height: 16),
-                UrgentEventBanner(proposal: urgentEvent.asData!.value!),
-              ],
               if (data.seasonId == null && data.isOwner) ...[
                 const SizedBox(height: 16),
                 Center(

@@ -4,6 +4,7 @@ import 'package:chore_wars/features/auth/presentation/providers/auth_providers.d
 import 'package:chore_wars/core/storage/secure_storage.dart';
 import 'package:chore_wars/core/widgets/house_shell.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
+import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/presentation/screens/assistant_chat_screen.dart';
 import 'package:chore_wars/features/chat/presentation/screens/chat_room_screen.dart';
 import 'package:chore_wars/features/chat/data/repositories/chat_repository.dart';
@@ -95,6 +96,22 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          activeUrgentEventForHouseProvider.overrideWith(
+            (ref, id) async => ActionProposalModel(
+              id: 'urgent',
+              houseId: id,
+              roomId: 'room',
+              creatorId: 'me',
+              type: ProposalType.urgentEvent,
+              status: ProposalStatus.approved,
+              title: 'Party preparation',
+              description: '',
+              payloadJson: '{"chores": []}',
+              createdAt: DateTime.now(),
+              expiresAt: DateTime.now().add(const Duration(hours: 1)),
+            ),
+          ),
+          houseMembersProvider.overrideWith((ref, id) async => []),
           houseDetailProvider.overrideWith(
             (ref, id) async => House(
               id: id,
@@ -137,6 +154,15 @@ void main() {
         '/houses/house-B${entry.value}',
       );
       expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Urgent tasks'), findsOneWidget);
+      await tester.tap(find.byTooltip('Urgent tasks'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('CAMPAIGN ACTIVATED: Party preparation'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Close urgent tasks'));
+      await tester.pumpAndSettle();
     }
   });
 
