@@ -2,8 +2,6 @@ import '../../../../core/utils/vietnam_time.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../house/domain/entities/house_models.dart';
 import '../../../../core/widgets/app_page_frame.dart';
-import '../../../chat/providers/action_proposal_providers.dart';
-import '../../../chat/presentation/widgets/urgent_event_banner.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,10 +70,6 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
 
   Widget _buildScreen(BuildContext context) {
     final activeSeason = ref.watch(activeSeasonProvider(widget.houseId));
-    final urgent = ref
-        .watch(activeUrgentEventForHouseProvider(widget.houseId))
-        .asData
-        ?.value;
     final house = ref.watch(houseDetailProvider(widget.houseId));
 
     final seasonId = activeSeason.value?['id'] as String?;
@@ -132,13 +126,6 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
       ),
       body: Column(
         children: [
-          if (urgent != null)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 112),
-              child: SingleChildScrollView(
-                child: UrgentEventBanner(proposal: urgent),
-              ),
-            ),
           Expanded(
             child: activeSeason.isLoading || house.isLoading
                 ? const LoadingView()

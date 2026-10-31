@@ -47,23 +47,41 @@ class _UrgentEventBannerState extends State<UrgentEventBanner> {
 
     return Card(
       color: AppTheme.amberContainer,
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: AppTheme.orange,
-          child: Icon(Icons.bolt_outlined, color: Colors.white),
-        ),
-        title: Text(
-          'CAMPAIGN ACTIVATED: ${widget.proposal.title}',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: const Text('Urgent tasks have been added to the schedule.'),
-        trailing: Text(
-          countdown,
-          style: const TextStyle(
-            color: AppTheme.orange,
-            fontWeight: FontWeight.w600,
-            fontSize: 18,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AppTheme.orange,
+                  child: Icon(Icons.bolt_outlined, color: Colors.white),
+                ),
+                Semantics(
+                  label: 'Time remaining',
+                  child: Text(
+                    countdown,
+                    style: const TextStyle(
+                      color: AppTheme.orange,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'CAMPAIGN ACTIVATED: ${widget.proposal.title}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            const Text('Urgent tasks have been added to the schedule.'),
+          ],
         ),
       ),
     );
