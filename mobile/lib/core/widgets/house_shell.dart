@@ -6,6 +6,7 @@ import '../../features/notifications/presentation/providers/notification_provide
 import 'app_page_frame.dart';
 import 'app_bottom_bar.dart';
 import 'assistant_shortcut.dart';
+import '../../features/chat/presentation/widgets/urgent_campaign_notification.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,6 +118,10 @@ class HouseShell extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
+            UrgentCampaignNotification(
+              key: ValueKey(houseId),
+              houseId: houseId,
+            ),
             if (!keyboard && !conversation && !selfContainedHeader)
               Center(
                 child: ConstrainedBox(

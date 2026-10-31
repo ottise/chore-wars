@@ -29,6 +29,11 @@ final activeUrgentEventForHouseProvider = FutureProvider.autoDispose
             proposal.status == ProposalStatus.approved &&
             proposal.expiresAt != null &&
             proposal.expiresAt!.isAfter(now)) {
+          final expiryTimer = Timer(
+            proposal.expiresAt!.difference(now),
+            ref.invalidateSelf,
+          );
+          ref.onDispose(expiryTimer.cancel);
           return proposal;
         }
       }
