@@ -11,6 +11,7 @@ import '../widgets/supplies_ui.dart';
 import '../widgets/debt_action_sheet.dart';
 import '../../../payment/presentation/providers/payment_history_provider.dart';
 import '../../../house/presentation/providers/household_summary_provider.dart';
+import '../../../notifications/presentation/providers/notification_providers.dart';
 
 final purchaseDebtProvider = FutureProvider.autoDispose
     .family<SupplyData, ({String house, String id})>(
@@ -40,7 +41,7 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
   DebtFilter _filter = DebtFilter.all;
 
   Future<void> _actions(Map debt, String? me) async {
-    await showModalBottomSheet<bool>(
+    final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -56,10 +57,39 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
         id: debt['id'].toString(),
       )),
     );
+    ref.invalidate(purchaseDebtsProvider(widget.houseId));
+    ref.invalidate(householdSummaryProvider);
+    ref.invalidate(paymentHistoryProvider);
+    if (mounted) {
+      if (changed == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              debt['debtorUserId'] == me
+                  ? 'Đã gửi thông báo thanh toán. Chờ người nhận xác nhận!'
+                  : 'Đã xác nhận thanh toán thành công!',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      await ref.read(purchaseDebtsProvider(widget.houseId).future);
+      if (mounted) setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      notificationNotifierProvider.select((state) => state.latestArrival),
+      (previous, next) {
+        if (next != null && next.houseId == widget.houseId) {
+          ref.invalidate(purchaseDebtsProvider(widget.houseId));
+          ref.invalidate(householdSummaryProvider);
+          ref.invalidate(paymentHistoryProvider);
+        }
+      },
+    );
     final me = ref.watch(userProfileProvider).asData?.value.id;
     if (me == null) {
       return SuppliesPage(
@@ -649,7 +679,7 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
   }
 }
 
-class _PersonDebtCard extends StatelessWidget {
+class _PersonDebtCard extends ConsumerWidget {
   const _PersonDebtCard({
     required this.houseId,
     required this.isOwe,
@@ -665,7 +695,7 @@ class _PersonDebtCard extends StatelessWidget {
   final void Function(Map debt) onActions;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final total = debts.fold<num>(
       0,
       (sum, d) => sum + (d['remainingAmount'] as num? ?? 0),
@@ -676,6 +706,16 @@ class _PersonDebtCard extends StatelessWidget {
         .expand((d) => (d['repayments'] as List? ?? []).cast<Map>())
         .where((r) => r['status'] == 'CONFIRMED')
         .toList();
+    final reportedRepayments = debts
+        .expand((d) => (d['repayments'] as List? ?? []).cast<Map>())
+        .where((r) => r['status'] == 'REPORTED')
+        .toList();
+    final reportedTotal = reportedRepayments.fold<num>(
+      0,
+      (sum, r) => sum + (r['amount'] as num? ?? 0),
+    );
+    final isFullyReported = isOwe && reportedTotal >= total && total > 0;
+    final hasAnyReported = reportedTotal > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -697,9 +737,11 @@ class _PersonDebtCard extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: isOwe
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFF10B981),
+                color: isFullyReported
+                    ? const Color(0xFFF59E0B)
+                    : isOwe
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF10B981),
                 width: 4,
               ),
             ),
@@ -788,14 +830,20 @@ class _PersonDebtCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          isOwe ? 'DUE TO PAY' : 'RECEIVABLE',
+                          isFullyReported
+                              ? 'CHỜ XÁC NHẬN'
+                              : isOwe
+                                  ? 'DUE TO PAY'
+                                  : 'RECEIVABLE',
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.3,
-                            color: isOwe
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF059669),
+                            color: isFullyReported
+                                ? const Color(0xFFD97706)
+                                : isOwe
+                                    ? const Color(0xFFEF4444)
+                                    : const Color(0xFF059669),
                           ),
                         ),
                         const SizedBox(height: 1),
@@ -806,9 +854,11 @@ class _PersonDebtCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: isOwe
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF059669),
+                            color: isFullyReported
+                                ? const Color(0xFFD97706)
+                                : isOwe
+                                    ? const Color(0xFFE11D48)
+                                    : const Color(0xFF059669),
                           ),
                         ),
                       ],
@@ -822,18 +872,24 @@ class _PersonDebtCard extends StatelessWidget {
                       width: 5,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: isOwe
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF10B981),
+                        color: isFullyReported
+                            ? const Color(0xFFF59E0B)
+                            : isOwe
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF10B981),
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        isOwe
-                            ? 'Unpaid Debts (Chưa trả)'
-                            : 'Pending Debts (Chưa trả)',
+                        isFullyReported
+                            ? 'Đã báo chuyển (Chờ xác nhận)'
+                            : isOwe
+                                ? 'Unpaid Debts (Chưa trả)'
+                                : hasAnyReported
+                                    ? 'Cần xác nhận đã nhận tiền'
+                                    : 'Pending Debts (Chưa trả)',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -850,19 +906,27 @@ class _PersonDebtCard extends StatelessWidget {
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: isOwe
-                            ? const Color(0xFFFEE2E2)
-                            : const Color(0xFFDCFCE7),
+                        color: isFullyReported
+                            ? const Color(0xFFFEF3C7)
+                            : isOwe
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFDCFCE7),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '${debts.length} pending',
+                        isFullyReported
+                            ? '${debts.length} chờ duyệt'
+                            : hasAnyReported && !isOwe
+                                ? '${debts.length} cần xác nhận'
+                                : '${debts.length} pending',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: isOwe
-                              ? const Color(0xFFDC2626)
-                              : const Color(0xFF15803D),
+                          color: isFullyReported
+                              ? const Color(0xFFB45309)
+                              : isOwe
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF15803D),
                         ),
                       ),
                     ),
@@ -993,9 +1057,14 @@ class _PersonDebtCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => context.push(
-                          '/houses/$houseId/account/debts/${primaryDebt['id']}',
-                        ),
+                        onPressed: () async {
+                          await context.push(
+                            '/houses/$houseId/account/debts/${primaryDebt['id']}',
+                          );
+                          ref.invalidate(purchaseDebtsProvider(houseId));
+                          ref.invalidate(householdSummaryProvider);
+                          ref.invalidate(paymentHistoryProvider);
+                        },
                         icon: const Icon(
                           Icons.receipt_long_outlined,
                           size: 14,
@@ -1018,17 +1087,27 @@ class _PersonDebtCard extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: () => onActions(primaryDebt),
                         icon: Icon(
-                          isOwe
-                              ? Icons.payments_outlined
-                              : Icons.check_circle_outline_rounded,
+                          isFullyReported
+                              ? Icons.hourglass_top_rounded
+                              : isOwe
+                                  ? Icons.payments_outlined
+                                  : Icons.check_circle_outline_rounded,
                           size: 14,
                         ),
                         label: Text(
-                          isOwe ? 'Mark as paid' : 'Confirm received',
+                          isFullyReported
+                              ? 'Chờ duyệt'
+                              : isOwe
+                                  ? 'Mark as paid'
+                                  : 'Confirm received',
                         ),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: const Color(0xFF7C4DFF),
+                          backgroundColor: isFullyReported
+                              ? const Color(0xFFD97706)
+                              : isOwe
+                                  ? const Color(0xFF7C4DFF)
+                                  : const Color(0xFF059669),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           shape: RoundedRectangleBorder(
@@ -1049,7 +1128,7 @@ class _PersonDebtCard extends StatelessWidget {
   }
 }
 
-class _DebtItemRow extends StatelessWidget {
+class _DebtItemRow extends ConsumerWidget {
   const _DebtItemRow({
     required this.houseId,
     required this.isOwe,
@@ -1061,16 +1140,23 @@ class _DebtItemRow extends StatelessWidget {
   final Map debt;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final awaiting = debt['status'] == 'AWAITING_COMPLETION';
     final remaining = debt['remainingAmount'] as num? ?? 0;
+    final repayments = (debt['repayments'] as List? ?? []).cast<Map>();
+    final pendingTransfers =
+        repayments.where((r) => r['status'] == 'REPORTED').toList();
+    final pendingReported =
+        pendingTransfers.fold<num>(0, (s, r) => s + (r['amount'] as num? ?? 0));
+    final isReported = pendingReported > 0;
     final otherName = isOwe
         ? (debt['creditorName']?.toString() ?? '')
         : (debt['debtorName']?.toString() ?? '');
 
     final title = isOwe ? 'Pay $otherName' : '$otherName owes you';
-    final subtitle =
-        '${supplyMoney(remaining)} remaining · ${financeSourceLabel(debt['reason'])} · ${awaiting ? 'Awaiting chore completion' : debt['status'] == 'DISPUTED' ? 'Disputed' : 'Pending'}';
+    final subtitle = isReported
+        ? '${supplyMoney(remaining)} · ${financeSourceLabel(debt['reason'])} · Đã báo chuyển ${supplyMoney(pendingReported)}'
+        : '${supplyMoney(remaining)} remaining · ${financeSourceLabel(debt['reason'])} · ${awaiting ? 'Awaiting chore completion' : debt['status'] == 'DISPUTED' ? 'Disputed' : 'Pending'}';
 
     if (awaiting) {
       return Container(
@@ -1165,9 +1251,15 @@ class _DebtItemRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F2),
+        color: isReported
+            ? const Color(0xFFFFFBEB)
+            : const Color(0xFFFFF1F2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFECDD3)),
+        border: Border.all(
+          color: isReported
+              ? const Color(0xFFFDE68A)
+              : const Color(0xFFFECDD3),
+        ),
       ),
       child: Row(
         children: [
@@ -1183,17 +1275,29 @@ class _DebtItemRow extends StatelessWidget {
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFE4E6),
+                        color: isReported
+                            ? const Color(0xFFFEF3C7)
+                            : const Color(0xFFFFE4E6),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        isOwe ? 'Awaiting Pay' : 'Due Receivable',
+                        isReported
+                            ? isOwe
+                                ? '🟡 Chờ xác nhận'
+                                : '🟢 Cần duyệt'
+                            : isOwe
+                                ? 'Awaiting Pay'
+                                : 'Due Receivable',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: isOwe
-                              ? const Color(0xFFBE123C)
-                              : const Color(0xFF047857),
+                          color: isReported
+                              ? isOwe
+                                  ? const Color(0xFFB45309)
+                                  : const Color(0xFF047857)
+                              : isOwe
+                                  ? const Color(0xFFBE123C)
+                                  : const Color(0xFF047857),
                         ),
                       ),
                     ),
@@ -1234,36 +1338,57 @@ class _DebtItemRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: isOwe
-                      ? const Color(0xFFE11D48)
-                      : const Color(0xFF059669),
+                  color: isReported
+                      ? const Color(0xFFB45309)
+                      : isOwe
+                          ? const Color(0xFFE11D48)
+                          : const Color(0xFF059669),
                 ),
               ),
               const SizedBox(height: 1),
               InkWell(
-                onTap: () => context.push(
-                  '/houses/$houseId/account/debts/${debt['id']}',
-                ),
+                onTap: () async {
+                  await context.push(
+                    '/houses/$houseId/account/debts/${debt['id']}',
+                  );
+                  ref.invalidate(purchaseDebtsProvider(houseId));
+                  ref.invalidate(householdSummaryProvider);
+                  ref.invalidate(paymentHistoryProvider);
+                },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isOwe ? 'Pay single' : 'Details',
+                      isReported
+                          ? isOwe
+                              ? 'Đã chuyển ✓'
+                              : 'Xác nhận >'
+                          : isOwe
+                              ? 'Pay single'
+                              : 'Details',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
-                        color: isOwe
-                            ? const Color(0xFFE11D48)
-                            : const Color(0xFF059669),
+                        color: isReported
+                            ? isOwe
+                                ? const Color(0xFFB45309)
+                                : const Color(0xFF047857)
+                            : isOwe
+                                ? const Color(0xFFE11D48)
+                                : const Color(0xFF059669),
                       ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 11,
-                      color: isOwe
-                          ? const Color(0xFFE11D48)
-                          : const Color(0xFF059669),
+                      color: isReported
+                          ? isOwe
+                              ? const Color(0xFFB45309)
+                              : const Color(0xFF047857)
+                          : isOwe
+                              ? const Color(0xFFE11D48)
+                              : const Color(0xFF059669),
                     ),
                   ],
                 ),
