@@ -135,55 +135,61 @@ class HouseShell extends ConsumerWidget {
                             child: TextButton(
                               onPressed: () => context.go('/houses'),
                               style: TextButton.styleFrom(
-                                minimumSize: const Size(0, 40),
+                                minimumSize: const Size(0, 44),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
+                                  horizontal: 12,
+                                  vertical: 6,
                                 ),
                                 backgroundColor: colors.primaryFixed,
                                 foregroundColor: colors.onPrimaryFixedVariant,
                                 shape: const RoundedRectangleBorder(
                                   borderRadius: BorderRadius.all(
-                                    Radius.circular(12),
+                                    Radius.circular(14),
                                   ),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.circle_outlined, size: 7),
-                                  const SizedBox(width: 5),
+                                  const Icon(Icons.circle_outlined, size: 8),
+                                  const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
                                       house?.name ?? 'My House',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
+                                  const SizedBox(width: 4),
                                   const Icon(
                                     Icons.expand_more_outlined,
-                                    size: 15,
+                                    size: 18,
                                   ),
                                 ],
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         IconButton.filledTonal(
                           tooltip: 'House Invite QR Code',
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(38, 38),
-                            maximumSize: const Size(38, 38),
+                            minimumSize: const Size(42, 42),
+                            maximumSize: const Size(42, 42),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             padding: EdgeInsets.zero,
                             backgroundColor: colors.surfaceContainerLowest,
                             foregroundColor: colors.onSurfaceVariant,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(14),
+                              ),
+                            ),
                           ),
                           onPressed: house == null
                               ? null
@@ -191,18 +197,23 @@ class HouseShell extends ConsumerWidget {
                                   '$base/qr-invite',
                                   extra: house,
                                 ),
-                          icon: const Icon(Icons.qr_code_outlined, size: 19),
+                          icon: const Icon(Icons.qr_code_outlined, size: 21),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         IconButton.filledTonal(
                           tooltip: 'Season Ranking',
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(38, 38),
-                            maximumSize: const Size(38, 38),
+                            minimumSize: const Size(42, 42),
+                            maximumSize: const Size(42, 42),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             padding: EdgeInsets.zero,
                             backgroundColor: colors.surfaceContainerLowest,
                             foregroundColor: const Color(0xFFD97706),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(14),
+                              ),
+                            ),
                           ),
                           onPressed: house == null
                               ? null
@@ -232,53 +243,69 @@ class HouseShell extends ConsumerWidget {
                                 },
                           icon: const Icon(
                             Icons.emoji_events_outlined,
-                            size: 19,
+                            size: 21,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         SizedBox(
-                          width: 38,
-                          child: NotificationBell(houseId: houseId),
+                          width: 42,
+                          height: 42,
+                          child: NotificationBell(
+                            houseId: houseId,
+                            iconSize: 21,
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(42, 42),
+                              maximumSize: const Size(42, 42),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: EdgeInsets.zero,
+                              backgroundColor: colors.surfaceContainerLowest,
+                              foregroundColor: colors.onSurfaceVariant,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 5),
                         IconButton.filledTonal(
                           tooltip: 'House Settings',
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(38, 38),
-                            maximumSize: const Size(38, 38),
+                            minimumSize: const Size(42, 42),
+                            maximumSize: const Size(42, 42),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             padding: EdgeInsets.zero,
                             backgroundColor: colors.surfaceContainerLowest,
                             foregroundColor: colors.onSurfaceVariant,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(14),
+                              ),
+                            ),
                           ),
                           onPressed: () => context.push('$base/settings'),
-                          icon: const Icon(Icons.settings_outlined, size: 19),
+                          icon: const Icon(Icons.settings_outlined, size: 21),
                         ),
-                        const SizedBox(width: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 68),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => context.push('$base/account'),
-                              style: TextButton.styleFrom(
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                ),
-                                backgroundColor: colors.surfaceContainerLowest,
-                                foregroundColor: colors.onSurface,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(12),
-                                  ),
-                                ),
+                        const SizedBox(width: 5),
+                        Tooltip(
+                          message: profile?.displayName ?? 'Account',
+                          child: InkWell(
+                            onTap: () => context.push('$base/account'),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              height: 42,
+                              padding: const EdgeInsets.symmetric(horizontal: 5),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceContainerLowest,
+                                borderRadius: BorderRadius.circular(14),
                               ),
+                              alignment: Alignment.center,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   CircleAvatar(
-                                    radius: 12,
+                                    radius: 14,
                                     backgroundColor: colors.primary,
                                     foregroundColor: colors.onPrimary,
                                     backgroundImage: avatar != null
@@ -296,23 +323,31 @@ class HouseShell extends ConsumerWidget {
                                                       .toUpperCase()
                                                 : '?',
                                             style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      profile?.displayName ?? 'Me',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                  if (MediaQuery.sizeOf(context).width > 420 &&
+                                      (profile?.displayName.isNotEmpty ??
+                                          false)) ...[
+                                    const SizedBox(width: 6),
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 72,
+                                      ),
+                                      child: Text(
+                                        profile!.displayName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 4),
+                                  ],
                                 ],
                               ),
                             ),
