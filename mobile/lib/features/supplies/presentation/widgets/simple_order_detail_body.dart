@@ -123,8 +123,6 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
         _invalidateOrderAndDebts();
         return;
       }
-      final url = result['checkoutUrl']?.toString() ?? '';
-      if (url.isNotEmpty) await supplyLaunch(context, Uri.parse(url));
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = apiErrorMessage(e));
@@ -621,8 +619,8 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                   _paymentLinkExpired
                       ? 'This PayOS link expired. Get a fresh checkout link below to pay this saved order.'
                       : qrPayload.isEmpty
-                      ? 'Create a PayOS payment to get its verified QR code and checkout link.'
-                      : 'Scan the PayOS QR code or open the secure PayOS checkout.',
+                      ? 'Create a PayOS payment to show its verified QR code here.'
+                      : 'Scan this PayOS QR code to pay. The order updates automatically after PayOS confirms it.',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
@@ -693,6 +691,16 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                     ),
                   ),
                 ],
+                if (_payment != null &&
+                    qrPayload.isEmpty &&
+                    !_paymentLinkExpired)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'PayOS did not return a QR code. Try refreshing the payment.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -702,9 +710,13 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                     label: Text(
                       _busy
                           ? 'Preparing PayOS…'
+                          : _paymentLinkExpired ||
+                                _payment?['status'] == 'EXPIRED' ||
+                                _payment?['status'] == 'FAILED'
+                          ? 'Get a fresh PayOS QR'
                           : _payment == null
-                          ? 'Create PayOS payment'
-                          : 'Open PayOS to pay',
+                          ? 'Show PayOS QR code'
+                          : 'Refresh payment QR',
                     ),
                   ),
                 ),
@@ -716,12 +728,6 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                     icon: const Icon(Icons.payments_outlined, size: 18),
                     label: const Text('Pay in cash'),
                   ),
-                ),
-                const SizedBox(height: 4),
-                TextButton.icon(
-                  onPressed: _busy ? null : () => _refreshPayment(),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Check payment status'),
                 ),
                 if (_payment != null && _payment!['status'] != null)
                   Text(
