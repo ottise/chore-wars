@@ -305,7 +305,13 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           leading: BackButton(
-            onPressed: () => context.go('/houses/${widget.houseId}'),
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                context.pop();
+              } else {
+                context.go('/houses/${widget.houseId}');
+              }
+            },
           ),
           title: const Text(
             'House Pulse',
@@ -415,7 +421,7 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            if (_reviewing)
+            if (_reviewing) ...[
               FilledButton.icon(
                 onPressed: _busy || me == null || _signed(me)
                     ? null
@@ -427,11 +433,27 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                       : 'Confirm & Approve Schedule',
                 ),
               ),
-            if (_reviewing)
-              TextButton(
-                onPressed: _busy ? null : () => _act('reject'),
-                child: const Text('Request changes'),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _busy ? null : () => _act('reject'),
+                      icon: const Icon(Icons.undo, size: 16),
+                      label: const Text('Request changes'),
+                    ),
+                  ),
+                  if (_owner)
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : () => _act('reset-draft'),
+                        icon: const Icon(Icons.edit_note, size: 18),
+                        label: const Text('Về bản nháp'),
+                      ),
+                    ),
+                ],
               ),
+            ],
             for (final member in members)
               Card(
                 elevation: 0,
@@ -476,23 +498,15 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                 ),
               ),
             if (_draft && _owner) ...[
-              OutlinedButton(
-                onPressed: _busy ? null : () => _act('generate-schedule'),
-                child: const Text('Generate / regenerate draft'),
-              ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed:
-                    _busy ||
-                        _occurrences.isEmpty ||
-                        _occurrences.any(
-                          (o) =>
-                              (o['type'] == 0 || o['type'] == 'NORMAL') &&
-                              o['assignedUserId'] == null,
-                        )
-                    ? null
-                    : () => _act('submit-review'),
-                child: const Text('Submit for everyone to review'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go(
+                    '/houses/${widget.houseId}/chores?tab=team',
+                  ),
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 16),
+                  label: const Text('Chuẩn bị & phân công lịch tại trang Chores'),
+                ),
               ),
             ],
             const SizedBox(height: 12),
@@ -518,12 +532,6 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                   ),
                 ),
             ],
-            OutlinedButton.icon(
-              onPressed: () =>
-                  context.go('/houses/${widget.houseId}/chores?tab=team'),
-              icon: const Icon(Icons.calendar_month),
-              label: const Text('View team schedule'),
-            ),
             TextButton(
               onPressed: () => context.push(
                 '/houses/${widget.houseId}/seasons/${widget.seasonId}/leaderboard',

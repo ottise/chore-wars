@@ -47,6 +47,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api = FastAPI(title="Chore Wars AI", version="1.0.0")
     api.state.store, api.state.config = store, config
 
+    @api.get("/")
+    def root():
+        # Render and external uptime checks commonly probe `/`; expose a small
+        # liveness response instead of logging a misleading 404.
+        return {"service": "chorewars-ai", "status": "live"}
+
     async def scope(
         request: Request,
         x_ai_key: Annotated[str, Header()] = "",

@@ -12,6 +12,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
 import '../../../house/presentation/screens/bonus_chores_screen.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../widgets/schedule_workflow_card.dart';
 import '../providers/chore_providers.dart';
 
 enum _Tab { mine, team, bonus }
@@ -171,8 +173,8 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                 onPressed: () => context.push(
                   '/houses/${widget.houseId}/seasons/$seasonId/review',
                 ),
-                icon: const Icon(Icons.calendar_month),
-                label: const Text('View team schedule'),
+                icon: const Icon(Icons.checklist_rounded),
+                label: const Text('Quy trình duyệt & chốt lịch mùa'),
               ),
             ),
         ],
@@ -347,6 +349,23 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
     if (_loading) return const LoadingView();
     if (_error != null) return ErrorView(error: _error!, onRetry: _fetch);
 
+    final seasonData =
+        ref.watch(activeSeasonProvider(widget.houseId)).asData?.value;
+    final status = seasonData?['status'];
+    final isDraft = status == 0 || status == 'DRAFT';
+    final isReviewing = status == 1 || status == 'REVIEWING';
+    final isWorkflowVisible = isDraft || isReviewing || _occurrences.isEmpty;
+    final myId = ref.watch(userProfileProvider).asData?.value.id;
+    final isOwner = widget.members.any((m) => m.userId == myId && m.isOwner);
+
+    final normalOccurrences =
+        _occurrences.where((o) => o.type == ChoreType.normal).toList();
+    final mandatoryCount = normalOccurrences.length;
+    final unassignedCount =
+        normalOccurrences.where((o) => o.assignedUserId == null).length;
+    final hasOccurrences = normalOccurrences.isNotEmpty;
+    final allAssigned = hasOccurrences && unassignedCount == 0;
+
     final filtered = _filterMemberId == null
         ? _occurrences
         : _occurrences
@@ -407,34 +426,66 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
           const Divider(height: 1),
           Expanded(
             child: grouped.isEmpty
-                ? const EmptyView(
-                    icon: Icons.calendar_month_outlined,
-                    title: 'No occurrences',
-                    message: 'Generate the schedule first.',
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    child: Column(
+                      children: [
+                        if (isWorkflowVisible && _filterMemberId == null)
+                          ScheduleWorkflowCard(
+                            houseId: widget.houseId,
+                            seasonId: widget.seasonId,
+                            isOwner: isOwner,
+                            hasOccurrences: hasOccurrences,
+                            mandatoryCount: mandatoryCount,
+                            unassignedCount: unassignedCount,
+                            allAssigned: allAssigned,
+                            isDraft: isDraft,
+                            isReviewing: isReviewing,
+                            onStateChanged: _fetch,
+                          ),
+                        const SizedBox(height: 24),
+                        const EmptyView(
+                          icon: Icons.calendar_month_outlined,
+                          title: 'Chưa có lịch việc',
+                          message:
+                              'Hãy nhấn nút "1. Sinh lịch việc" ở trên để chuẩn bị lịch mùa.',
+                        ),
+                      ],
+                    ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                    itemCount: grouped.length,
-                    itemBuilder: (ctx, i) {
-                      final entry = grouped.entries.elementAt(i);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _DayHeader(
-                            label: entry.key,
-                            count: entry.value.length,
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    children: [
+                      if (isWorkflowVisible && _filterMemberId == null) ...[
+                        ScheduleWorkflowCard(
+                          houseId: widget.houseId,
+                          seasonId: widget.seasonId,
+                          isOwner: isOwner,
+                          hasOccurrences: hasOccurrences,
+                          mandatoryCount: mandatoryCount,
+                          unassignedCount: unassignedCount,
+                          allAssigned: allAssigned,
+                          isDraft: isDraft,
+                          isReviewing: isReviewing,
+                          onStateChanged: _fetch,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      for (final entry in grouped.entries) ...[
+                        _DayHeader(
+                          label: entry.key,
+                          count: entry.value.length,
+                        ),
+                        ...entry.value.map(
+                          (o) => _TeamOccurrenceTile(
+                            occurrence: o,
+                            houseId: widget.houseId,
+                            members: widget.members,
                           ),
-                          ...entry.value.map(
-                            (o) => _TeamOccurrenceTile(
-                              occurrence: o,
-                              houseId: widget.houseId,
-                              members: widget.members,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                      );
-                    },
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ],
                   ),
           ),
         ],

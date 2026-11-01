@@ -459,11 +459,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
           ),
           _buildPillTabItem(
             tab: _BountyMainTab.postedByMe,
-            title: postedCount > 0 ? 'Posted by Me ($postedCount)' : 'Posted by Me',
+            title: postedCount > 0 ? 'My Posts ($postedCount)' : 'My Posts',
           ),
           _buildPillTabItem(
             tab: _BountyMainTab.completed,
-            title: completedCount > 0 ? 'Completed ($completedCount)' : 'Completed',
+            title: completedCount > 0 ? 'Done ($completedCount)' : 'Done',
           ),
         ],
       ),
@@ -1016,7 +1016,6 @@ class _BountyOpenCard extends StatelessWidget {
     final amountFormatted =
         '${NumberFormat.decimalPattern('en').format(bounty.amount)} VND';
     final dueFormatted = _formatDueText(bounty.expiresAt, bounty.postedByDisplayName);
-    final bountyShortId = _shortBountyId(bounty.id);
     final choreIcon = _getChoreIcon(bounty.choreName);
 
     return Container(
@@ -1164,18 +1163,10 @@ class _BountyOpenCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          'Bounty ID: $bountyShortId',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const Spacer(),
                         OutlinedButton(
                           onPressed: onTap,
                           style: OutlinedButton.styleFrom(
@@ -1221,7 +1212,9 @@ class _BountyOpenCard extends StatelessWidget {
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF7C4DFF),
                               minimumSize: const Size(0, 34),
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -1483,7 +1476,6 @@ class _BountyCompletedCard extends StatelessWidget {
     final amountFormatted =
         '${NumberFormat.decimalPattern('en').format(bounty.amount)} VND';
     final choreIcon = _getChoreIcon(bounty.choreName);
-    final bountyShortId = _shortBountyId(bounty.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -1616,18 +1608,10 @@ class _BountyCompletedCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text(
-                          'Bounty ID: $bountyShortId',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const Spacer(),
                         OutlinedButton(
                           onPressed: onTap,
                           style: OutlinedButton.styleFrom(
@@ -1658,13 +1642,6 @@ class _BountyCompletedCard extends StatelessWidget {
       ),
     );
   }
-}
-
-String _shortBountyId(String id) {
-  if (id.isEmpty) return '#BNT-001';
-  final clean = id.replaceAll('-', '');
-  final suffix = clean.length > 4 ? clean.substring(clean.length - 4).toUpperCase() : clean.toUpperCase();
-  return '#BNT-$suffix';
 }
 
 String _formatDueText(DateTime due, String poster) {
