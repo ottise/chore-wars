@@ -691,7 +691,8 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                     ),
                   ),
                 ],
-                if (_payment != null &&
+                if (_error == null &&
+                    _payment != null &&
                     qrPayload.isEmpty &&
                     !_paymentLinkExpired)
                   const Padding(
