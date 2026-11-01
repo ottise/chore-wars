@@ -1572,49 +1572,175 @@ class _InternalRepaymentScreenState
               );
               final remaining =
                   _localConfirmed ? 0 : rawRemaining.toDouble();
+              final num originalAmount =
+                  d['originalAmount'] as num? ?? d['amount'] as num? ?? 0;
+              final num confirmedAmount = d['confirmedAmount'] as num? ?? 0;
+              final num adjustments = d['adjustments'] as num? ?? 0;
+              final num totalAmount = originalAmount > 0
+                  ? originalAmount + adjustments
+                  : (confirmedAmount + (d['remainingAmount'] as num? ?? 0));
+              final isSettled = remaining <= 0 || d['status'] == 'PAID';
               final availableToReport = debtor
                   ? (remaining - pendingAmount).clamp(0, remaining).toDouble()
                   : remaining;
               final isPayable = d['status'] != 'AWAITING_COMPLETION';
+
               return ListView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 children: [
-                  SupplySurface(
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFEDEAF6)),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFF0F172A).withValues(alpha: 0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${d['debtorName']} → ${d['creditorName']}',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${d['debtorName']} → ${d['creditorName']}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSettled
+                                    ? const Color(0xFFDCFCE7)
+                                    : pendingAmount > 0
+                                        ? const Color(0xFFFEF3C7)
+                                        : const Color(0xFFFFE4E6),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                isSettled
+                                    ? 'Đã thanh toán ✓'
+                                    : pendingAmount > 0
+                                        ? 'Chờ xác nhận'
+                                        : 'Chưa thanh toán',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: isSettled
+                                      ? const Color(0xFF15803D)
+                                      : pendingAmount > 0
+                                          ? const Color(0xFFB45309)
+                                          : const Color(0xFFBE123C),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
-                        Text('Original: ${supplyMoney(d['amount'])}'),
                         Text(
-                          'Adjustments: ${supplyMoney(d['adjustments'])}',
+                          supplyMoney(totalAmount),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
-                        Text(
-                          'Confirmed transfers: ${supplyMoney(d['confirmedAmount'])}',
-                        ),
-                        const Divider(height: 24),
-                        Text(
-                          'Remaining: ${supplyMoney(remaining)}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
+                        if (d['reason'] != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            financeSourceLabel(d['reason']),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                        if (!isSettled &&
+                            remaining > 0 &&
+                            remaining != totalAmount) ...[
+                          const Divider(height: 20),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Còn lại cần thanh toán:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                supplyMoney(remaining),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFE11D48),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (adjustments != 0) ...[
+                          const Divider(height: 20),
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Điều chỉnh:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                supplyMoney(adjustments),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   if (!isPayable) ...[
-                    const SizedBox(height: 16),
-                    const SupplySurface(
-                      child: Text(
-                        'This obligation is awaiting chore completion before payment can be confirmed.',
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: const Text(
+                        'Khoản nợ này đang chờ hoàn thành công việc trước khi thanh toán.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFB45309),
+                        ),
                       ),
                     ),
                   ],
-                  if (debtor && isPayable)
+                  if (debtor && isPayable && !isSettled)
                     ref
                         .watch(
                           repaymentInstructionsProvider(widget.debtId),
@@ -1631,68 +1757,124 @@ class _InternalRepaymentScreenState
                             final bank =
                                 instructions['bankAccount'] as Map?;
                             return Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: SupplySurface(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFEDEAF6),
+                                  ),
+                                ),
                                 child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Pay ${d['creditorName']} directly',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (bank == null)
-                                    const Text(
-                                      'Bank details not added yet. Contact the recipient to arrange a transfer.',
-                                    )
-                                  else ...[
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      '${bank['bankName']} · ${bank['accountHolderName']}',
-                                    ),
-                                    Text(bank['accountNumber'].toString()),
-                                    TextButton(
-                                      onPressed: () => supplyCopy(
-                                        context,
-                                        'Account number',
-                                        bank['accountNumber'].toString(),
-                                      ),
-                                      child: const Text(
-                                        'Copy account number',
+                                      'Chuyển khoản trực tiếp cho ${d['creditorName']}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF1E293B),
                                       ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    if (bank == null)
+                                      const Text(
+                                        'Người nhận chưa thêm tài khoản ngân hàng. Hãy liên hệ người nhận để chuyển khoản.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      )
+                                    else ...[
+                                      Text(
+                                        '${bank['bankName']} · ${bank['accountHolderName']}',
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF334155),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              bank['accountNumber'].toString(),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF1E293B),
+                                                fontFamily: 'monospace',
+                                              ),
+                                            ),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () => supplyCopy(
+                                              context,
+                                              'Account number',
+                                              bank['accountNumber'].toString(),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.copy_rounded,
+                                              size: 13,
+                                            ),
+                                            label: const Text(
+                                              'Sao chép',
+                                              style: TextStyle(fontSize: 11),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (instructions['reference'] != null &&
+                                          instructions['reference']
+                                              .toString()
+                                              .isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Nội dung: ${instructions['reference']}',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: Color(0xFF64748B),
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton.icon(
+                                              onPressed: () => supplyCopy(
+                                                context,
+                                                'Reference',
+                                                instructions['reference']
+                                                    .toString(),
+                                              ),
+                                              icon: const Icon(
+                                                Icons.copy_rounded,
+                                                size: 13,
+                                              ),
+                                              label: const Text(
+                                                'Sao chép',
+                                                style: TextStyle(fontSize: 11),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ],
-                                  TextButton(
-                                    onPressed: () => supplyCopy(
-                                      context,
-                                      'Reference',
-                                      instructions['reference'].toString(),
-                                    ),
-                                    child: Text(
-                                      'Copy reference: ${instructions['reference']}',
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => supplyCopy(
-                                      context,
-                                      'Amount',
-                                      remaining.toStringAsFixed(0),
-                                    ),
-                                    child: const Text(
-                                      'Copy remaining amount',
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          );
+                            );
                           },
                         ),
-                  if (isPayable && (!debtor || availableToReport > 0)) ...[
-                    const SizedBox(height: 20),
-                    FilledButton(
+                  if (isPayable &&
+                      !isSettled &&
+                      (!debtor || availableToReport > 0)) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
                       onPressed: _busy
                           ? null
                           : () => debtor
@@ -1717,14 +1899,61 @@ class _InternalRepaymentScreenState
                                     'reference': '',
                                   },
                                 ),
-                      child: const Text('Confirm'),
+                      icon: Icon(
+                        debtor
+                            ? Icons.payments_outlined
+                            : Icons.check_circle_outline_rounded,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _busy
+                            ? 'Đang lưu…'
+                            : debtor
+                                ? 'Xác nhận đã chuyển khoản'
+                                : 'Xác nhận đã nhận tiền',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: debtor
+                            ? const Color(0xFF7C4DFF)
+                            : const Color(0xFF059669),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ] else if (debtor &&
                       pendingAmount > 0 &&
+                      !isSettled &&
                       !_localConfirmed) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      'Waiting for ${d['creditorName']} to confirm receipt.',
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.hourglass_top_rounded,
+                            size: 16,
+                            color: Color(0xFFB45309),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Đã báo chuyển ${supplyMoney(pendingAmount)}. Đang chờ ${d['creditorName']} xác nhận.',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                   if (_error != null) ...[
@@ -1737,39 +1966,150 @@ class _InternalRepaymentScreenState
                     ),
                   ],
                   if (_busy) const LinearProgressIndicator(),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Transfer history',
-                    style: Theme.of(context).textTheme.titleMedium,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Lịch sử thanh toán',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                    ),
                   ),
-                  if (repayments.isEmpty && !_localConfirmed)
-                    const Text('No transfers reported yet.')
-                  else if (repayments.isEmpty && _localConfirmed)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SupplySurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(supplyMoney(rawRemaining)),
-                            const Text('Debt · CONFIRMED'),
-                          ],
+                  const SizedBox(height: 8),
+                  if (repayments.isEmpty && !isSettled)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Chưa có giao dịch chuyển khoản nào.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF94A3B8),
                         ),
+                      ),
+                    )
+                  else if (repayments.isEmpty && isSettled)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFDCFCE7)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFDCFCE7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Thanh toán hoàn tất',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            supplyMoney(totalAmount),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   for (final r in repayments)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: SupplySurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(supplyMoney(r['amount'])),
-                            Text('Debt · ${r['status']}'),
-                            if (r['responseReason'] != null)
-                              Text(r['responseReason'].toString()),
-                          ],
-                        ),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: r['status'] == 'CONFIRMED'
+                                  ? const Color(0xFFDCFCE7)
+                                  : r['status'] == 'REPORTED'
+                                      ? const Color(0xFFFEF3C7)
+                                      : const Color(0xFFFEE2E2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              r['status'] == 'CONFIRMED'
+                                  ? Icons.check_rounded
+                                  : r['status'] == 'REPORTED'
+                                      ? Icons.hourglass_top_rounded
+                                      : Icons.close_rounded,
+                              size: 15,
+                              color: r['status'] == 'CONFIRMED'
+                                  ? const Color(0xFF15803D)
+                                  : r['status'] == 'REPORTED'
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFFDC2626),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  r['status'] == 'CONFIRMED'
+                                      ? 'Thanh toán hoàn tất'
+                                      : r['status'] == 'REPORTED'
+                                          ? 'Đã báo chuyển khoản'
+                                          : 'Bị từ chối',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  r['source'] == 'CREDITOR_RECORDED'
+                                      ? 'Người nhận ghi nhận'
+                                      : 'Chuyển khoản trực tiếp',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '+${supplyMoney(r['amount'])}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: r['status'] == 'CONFIRMED'
+                                  ? const Color(0xFF15803D)
+                                  : const Color(0xFFB45309),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
