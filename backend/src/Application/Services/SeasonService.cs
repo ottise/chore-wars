@@ -384,14 +384,14 @@ public class SeasonService : ISeasonService
         return _mapper.Map<SeasonResponse>(newSeason);
     }
 
-    public async Task GenerateScheduleAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task GenerateScheduleAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default, bool? autoAllocate = null)
     {
-        if (_mutations == null) { await GenerateScheduleCoreAsync(seasonId, userId, cancellationToken); return; }
+        if (_mutations == null) { await GenerateScheduleCoreAsync(seasonId, userId, cancellationToken, autoAllocate); return; }
         var context = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException("Season not found.");
-        await _mutations.RunAsync(context.HouseId, () => GenerateScheduleCoreAsync(seasonId, userId, cancellationToken), cancellationToken);
+        await _mutations.RunAsync(context.HouseId, () => GenerateScheduleCoreAsync(seasonId, userId, cancellationToken, autoAllocate), cancellationToken);
     }
 
-    private async Task GenerateScheduleCoreAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    private async Task GenerateScheduleCoreAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default, bool? autoAllocate = null)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken);
         if (season == null)
@@ -407,11 +407,48 @@ public class SeasonService : ISeasonService
         if (await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
             await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
         await _generationService.GenerateOccurrencesAsync(seasonId, userId, cancellationToken);
-        if (season.AllocationMethod == AllocationMethod.AUTOMATIC)
+        var shouldAllocate = autoAllocate.HasValue ? autoAllocate.Value : season.AllocationMethod == AllocationMethod.AUTOMATIC;
+        if (shouldAllocate)
             await _allocationService.AllocateSeasonAsync(seasonId, cancellationToken);
         season.ScheduleRevision++;
         _unitOfWork.Seasons.Update(season);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ResetToDraftAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (_mutations == null) { await ResetToDraftCoreAsync(seasonId, userId, cancellationToken); return; }
+        var context = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException("Season not found.");
+        await _mutations.RunAsync(context.HouseId, () => ResetToDraftCoreAsync(seasonId, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task ResetToDraftCoreAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken)
+            ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
+
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can reset a season schedule.");
+
+        if (season.Status != SeasonStatus.REVIEWING)
+            return;
+
+        season.Status = SeasonStatus.DRAFT;
+        season.ScheduleRevision++;
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _unitOfWork.Seasons.Update(season);
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task SubmitReviewAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)

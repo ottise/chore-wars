@@ -29,18 +29,19 @@ public class ChoreAllocationService : IChoreAllocationService
         _logger = logger;
     }
 
-    public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    public async Task AllocateSeasonAsync(Guid seasonId, CancellationToken cancellationToken = default, bool forceAssignFallback = false)
     {
-        if (_mutations == null) { await AllocateSeasonCoreAsync(seasonId, cancellationToken); return; }
+        if (_mutations == null) { await AllocateSeasonCoreAsync(seasonId, cancellationToken, forceAssignFallback); return; }
         var context = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException("Season not found.");
-        await _mutations.RunAsync(context.HouseId, () => AllocateSeasonCoreAsync(seasonId, cancellationToken), cancellationToken);
+        await _mutations.RunAsync(context.HouseId, () => AllocateSeasonCoreAsync(seasonId, cancellationToken, forceAssignFallback), cancellationToken);
     }
 
-    private async Task AllocateSeasonCoreAsync(Guid seasonId, CancellationToken cancellationToken = default)
+    private async Task AllocateSeasonCoreAsync(Guid seasonId, CancellationToken cancellationToken = default, bool forceAssignFallback = false)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
-        if (season.Status != SeasonStatus.DRAFT || season.AllocationMethod != AllocationMethod.AUTOMATIC)
-            throw new ConflictException("Automatic allocation only applies to automatic draft seasons.");
+        if (season.Status != SeasonStatus.DRAFT)
+            throw new ConflictException("Automatic allocation only applies to draft seasons.");
+        season.AllocationMethod = AllocationMethod.AUTOMATIC;
         var occurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL).ToList();
         var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
         var availability = (await _unitOfWork.MemberAvailabilities.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
@@ -56,6 +57,16 @@ public class ChoreAllocationService : IChoreAllocationService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (occurrences.Count > 0 && occurrences.All(o => o.AssignedUserId.HasValue))
+            {
+                foreach (var o in occurrences)
+                {
+                    o.AssignedUserId = null;
+                    o.PlannedStartAt = null;
+                    _unitOfWork.ChoreOccurrences.Update(o);
+                }
+            }
+
             foreach (var occurrence in occurrences.Where(o => !o.AssignedUserId.HasValue).OrderBy(o => o.DueDate).ThenByDescending(o => o.SnapshotKarma).ThenBy(o => o.Id))
             {
                 var date = ScheduleTime.Local(occurrence.DueDate).Date;
@@ -76,12 +87,27 @@ public class ChoreAllocationService : IChoreAllocationService
                     var rotation = assigned.Any(o => o.ChoreId == occurrence.ChoreId && ScheduleTime.Local(o.DueDate).Date >= previousMonday && ScheduleTime.Local(o.DueDate).Date < previousMonday.AddDays(7)) ? 1 : 0;
                     candidates.Add((member.UserId, assigned.Sum(o => o.SnapshotKarma), rotation, pref == PreferenceType.PREFERRED ? -1 : pref == PreferenceType.DISLIKED ? 1 : 0, assigned.Count, start.Value));
                 }
-                if (candidates.Count == 0) continue; // Keep unassigned; never override a hard constraint.
+                if (candidates.Count == 0)
+                {
+                    if (forceAssignFallback && members.Count > 0)
+                    {
+                        var fallbackMember = members
+                            .OrderBy(m => occurrences.Count(o => o.AssignedUserId == m.UserId))
+                            .ThenBy(m => occurrences.Where(o => o.AssignedUserId == m.UserId).Sum(o => o.SnapshotKarma))
+                            .First();
+                        occurrence.AssignedUserId = fallbackMember.UserId;
+                        occurrence.PlannedStartAt = occurrence.DueDate.AddMinutes(-Math.Max(30, occurrence.Chore?.EstimatedMinutes ?? 30));
+                        _unitOfWork.ChoreOccurrences.Update(occurrence);
+                    }
+                    continue;
+                }
                 var selected = candidates.OrderBy(x => x.Karma).ThenBy(x => x.Rotation).ThenBy(x => x.Preference).ThenBy(x => x.Count).ThenBy(x => x.UserId).First();
                 occurrence.AssignedUserId = selected.UserId;
                 occurrence.PlannedStartAt = selected.Start;
                 _unitOfWork.ChoreOccurrences.Update(occurrence);
             }
+            season.ScheduleRevision++;
+            _unitOfWork.Seasons.Update(season);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }

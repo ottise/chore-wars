@@ -100,9 +100,23 @@ public class SeasonController : ControllerBase
     }
 
     [HttpPost("{seasonId}/generate-schedule")]
-    public async Task<IActionResult> GenerateSchedule(Guid seasonId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateSchedule(Guid seasonId, [FromQuery] bool? autoAllocate, CancellationToken cancellationToken)
     {
-        await _seasonService.GenerateScheduleAsync(seasonId, CurrentUserId, cancellationToken);
+        await _seasonService.GenerateScheduleAsync(seasonId, CurrentUserId, cancellationToken, autoAllocate);
+        return Ok();
+    }
+
+    [HttpPost("{seasonId}/auto-assign")]
+    public async Task<IActionResult> AutoAssign(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _choreAllocationService.AllocateSeasonAsync(seasonId, cancellationToken, forceAssignFallback: true);
+        return Ok();
+    }
+
+    [HttpPost("{seasonId}/reset-draft")]
+    public async Task<IActionResult> ResetDraft(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _seasonService.ResetToDraftAsync(seasonId, CurrentUserId, cancellationToken);
         return Ok();
     }
 
