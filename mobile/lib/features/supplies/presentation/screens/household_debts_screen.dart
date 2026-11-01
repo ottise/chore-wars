@@ -988,7 +988,7 @@ class _PersonDebtCard extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  for (final _ in confirmedRepayments.take(1))
+                  for (final r in confirmedRepayments.take(1))
                     Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(
@@ -1021,7 +1021,7 @@ class _PersonDebtCard extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Settlement transfer',
+                                  'Xác nhận bởi: ${primaryDebt['creditorName'] ?? (isOwe ? otherName : 'Bạn')}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -1030,9 +1030,9 @@ class _PersonDebtCard extends ConsumerWidget {
                                     color: Color(0xFF1E293B),
                                   ),
                                 ),
-                                const Text(
-                                  'Paid via VietQR',
-                                  style: TextStyle(
+                                Text(
+                                  'Người chuyển: ${primaryDebt['debtorName'] ?? (isOwe ? 'Bạn' : otherName)} · ${supplyMoney(r['amount'] as num? ?? 0)}',
+                                  style: const TextStyle(
                                     fontSize: 9.5,
                                     color: Color(0xFF64748B),
                                   ),
@@ -1052,7 +1052,57 @@ class _PersonDebtCard extends ConsumerWidget {
                       ),
                     ),
                 ],
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (isOwe ? isFullyReported : hasAnyReported)
+                        ? const Color(0xFFFEF3C7)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isOwe ? isFullyReported : hasAnyReported)
+                          ? const Color(0xFFFDE68A)
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        (isOwe ? isFullyReported : hasAnyReported)
+                            ? Icons.hourglass_top_rounded
+                            : Icons.account_circle_outlined,
+                        size: 13,
+                        color: (isOwe ? isFullyReported : hasAnyReported)
+                            ? const Color(0xFFB45309)
+                            : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          isOwe
+                              ? isFullyReported
+                                  ? 'Đã báo chuyển · Đang chờ $otherName duyệt'
+                                  : 'Người chuyển: ${primaryDebt['debtorName'] ?? 'Bạn'} → Người nhận: $otherName'
+                              : hasAnyReported
+                                  ? '$otherName đã báo chuyển · Xác nhận bởi: ${primaryDebt['creditorName'] ?? 'Bạn'}'
+                                  : 'Chờ $otherName chuyển · Bấm Confirm received nếu đã nhận',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: (isOwe ? isFullyReported : hasAnyReported)
+                                ? const Color(0xFFB45309)
+                                : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Row(
                   children: [
                     Expanded(
@@ -1087,27 +1137,25 @@ class _PersonDebtCard extends ConsumerWidget {
                       child: FilledButton.icon(
                         onPressed: () => onActions(primaryDebt),
                         icon: Icon(
-                          isFullyReported
-                              ? Icons.hourglass_top_rounded
-                              : isOwe
-                                  ? Icons.payments_outlined
-                                  : Icons.check_circle_outline_rounded,
+                          isOwe
+                              ? (isFullyReported
+                                  ? Icons.hourglass_top_rounded
+                                  : Icons.payments_outlined)
+                              : Icons.check_circle_outline_rounded,
                           size: 14,
                         ),
                         label: Text(
-                          isFullyReported
-                              ? 'Chờ duyệt'
-                              : isOwe
-                                  ? 'Mark as paid'
-                                  : 'Confirm received',
+                          isOwe
+                              ? (isFullyReported ? 'Chờ duyệt' : 'Mark as paid')
+                              : 'Confirm received',
                         ),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: isFullyReported
-                              ? const Color(0xFFD97706)
-                              : isOwe
-                                  ? const Color(0xFF7C4DFF)
-                                  : const Color(0xFF059669),
+                          backgroundColor: isOwe
+                              ? (isFullyReported
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF7C4DFF))
+                              : const Color(0xFF059669),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           shape: RoundedRectangleBorder(
@@ -1153,10 +1201,15 @@ class _DebtItemRow extends ConsumerWidget {
         ? (debt['creditorName']?.toString() ?? '')
         : (debt['debtorName']?.toString() ?? '');
 
-    final title = isOwe ? 'Pay $otherName' : '$otherName owes you';
+    final debtorName =
+        debt['debtorName']?.toString() ?? (isOwe ? 'Bạn' : otherName);
+    final creditorName =
+        debt['creditorName']?.toString() ?? (isOwe ? otherName : 'Bạn');
+
+    final title = isOwe ? 'Pay $creditorName' : '$debtorName owes you';
     final subtitle = isReported
-        ? '${supplyMoney(remaining)} · ${financeSourceLabel(debt['reason'])} · Đã báo chuyển ${supplyMoney(pendingReported)}'
-        : '${supplyMoney(remaining)} remaining · ${financeSourceLabel(debt['reason'])} · ${awaiting ? 'Awaiting chore completion' : debt['status'] == 'DISPUTED' ? 'Disputed' : 'Pending'}';
+        ? '$debtorName đã báo chuyển ${supplyMoney(pendingReported)} · Chờ $creditorName xác nhận'
+        : '${supplyMoney(remaining)} remaining · ${financeSourceLabel(debt['reason'])} · Người nhận: $creditorName';
 
     if (awaiting) {
       return Container(
@@ -1669,6 +1722,41 @@ class _InternalRepaymentScreenState
                             ),
                           ),
                         ],
+                        if (isSettled) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFFDCFCE7)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 14,
+                                  color: Color(0xFF15803D),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Xác nhận bởi: ${d['creditorName']} (Người nhận) · Người chuyển: ${d['debtorName']}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (!isSettled &&
                             remaining > 0 &&
                             remaining != totalAmount) ...[
@@ -2012,14 +2100,26 @@ class _InternalRepaymentScreenState
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Thanh toán hoàn tất',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF15803D),
-                              ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Thanh toán hoàn tất',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                                Text(
+                                  'Xác nhận bởi: ${d['creditorName']} · Người chuyển: ${d['debtorName']}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: Color(0xFF15803D),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Text(
@@ -2076,10 +2176,10 @@ class _InternalRepaymentScreenState
                               children: [
                                 Text(
                                   r['status'] == 'CONFIRMED'
-                                      ? 'Thanh toán hoàn tất'
+                                      ? 'Xác nhận bởi: ${d['creditorName']}'
                                       : r['status'] == 'REPORTED'
-                                          ? 'Đã báo chuyển khoản'
-                                          : 'Bị từ chối',
+                                          ? 'Báo chuyển bởi: ${d['debtorName']}'
+                                          : 'Bị từ chối bởi: ${d['creditorName']}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -2088,9 +2188,11 @@ class _InternalRepaymentScreenState
                                 ),
                                 const SizedBox(height: 1),
                                 Text(
-                                  r['source'] == 'CREDITOR_RECORDED'
-                                      ? 'Người nhận ghi nhận'
-                                      : 'Chuyển khoản trực tiếp',
+                                  r['status'] == 'CONFIRMED'
+                                      ? 'Người chuyển: ${d['debtorName']} · ${r['source'] == 'CREDITOR_RECORDED' ? 'Người nhận ghi nhận' : 'Đã duyệt'}'
+                                      : r['status'] == 'REPORTED'
+                                          ? 'Đang chờ ${d['creditorName']} xác nhận'
+                                          : 'Giao dịch không hợp lệ',
                                   style: const TextStyle(
                                     fontSize: 10.5,
                                     color: Color(0xFF64748B),

@@ -67,6 +67,11 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
     final maximum =
         remaining -
         pending.fold<num>(0, (sum, r) => sum + (r['amount'] as num));
+    final debtorName =
+        widget.debt['debtorName']?.toString() ?? 'Người chuyển';
+    final creditorName =
+        widget.debt['creditorName']?.toString() ?? 'Người nhận';
+
     return PopScope(
       canPop: !_busy,
       child: SafeArea(
@@ -84,9 +89,20 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
               children: [
                 Text(
                   widget.debtor
-                      ? 'Pay ${widget.debt['creditorName']}'
-                      : '${widget.debt['debtorName']} owes you',
+                      ? 'Thanh toán cho $creditorName'
+                      : 'Xác nhận nhận tiền từ $debtorName',
                   style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.debtor
+                      ? 'Tài khoản chuyển: $debtorName → Người nhận: $creditorName'
+                      : 'Tài khoản xác nhận: $creditorName (Đã nhận từ $debtorName)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text('Remaining: ${supplyMoney(remaining)}'),
@@ -95,7 +111,7 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: SupplySurface(
                       child: Text(
-                        '${supplyMoney(transfer['amount'])} · Awaiting confirmation',
+                        '${supplyMoney(transfer['amount'])} · $debtorName đã báo chuyển, chờ $creditorName xác nhận',
                       ),
                     ),
                   ),
@@ -103,8 +119,8 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
                   const SizedBox(height: 16),
                   Text(
                     widget.debtor
-                        ? 'Confirm that you transferred ${supplyMoney(maximum)}. The recipient must confirm receipt.'
-                        : 'Confirm that you received ${supplyMoney(pending.isNotEmpty ? (pending.first['amount'] as num) : remaining)}.',
+                        ? '$debtorName xác nhận đã chuyển khoản ${supplyMoney(maximum)} cho $creditorName. Người nhận sẽ xác nhận lại.'
+                        : '$creditorName xác nhận đã nhận đủ số tiền ${supplyMoney(pending.isNotEmpty ? (pending.first['amount'] as num) : remaining)} từ $debtorName.',
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
