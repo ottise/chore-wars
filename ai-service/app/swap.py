@@ -117,6 +117,7 @@ def find_swap(
         "swap_payload": {
             "SourceOccurrenceId": source_key,
             "TargetOccurrenceId": str(target.id),
+            "AIRequested": True,
             "ScheduleWarning": bool(warning_reasons),
             "ScheduleWarningReasons": warning_reasons,
         },

@@ -179,7 +179,7 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
               const LinearProgressIndicator(),
               const SizedBox(height: 8),
               const Text(
-                'Finding a compatible chore and sending it for approval…',
+                'Checking the selected chores and preparing a request for approval…',
               ),
             ],
             for (final task in changedTasks)

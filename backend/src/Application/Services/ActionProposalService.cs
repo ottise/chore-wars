@@ -327,7 +327,7 @@ public class ActionProposalService : IActionProposalService
                     throw new ForbiddenException("The swap occurrences must belong to the creator and target member.");
                 if (source.Status != ChoreOccurrenceStatus.ASSIGNED || target.Status != ChoreOccurrenceStatus.ASSIGNED)
                     throw new ConflictException("Only assigned chores can be swapped.");
-                await ValidateSwapAsync(source, target, cancellationToken);
+                await ValidateSwapAsync(source, target, cancellationToken, swap.AIRequested);
                 break;
 
             case ProposalType.URGENT_EVENT:
@@ -389,9 +389,9 @@ public class ActionProposalService : IActionProposalService
                 if (source.Status != ChoreOccurrenceStatus.ASSIGNED || target.Status != ChoreOccurrenceStatus.ASSIGNED)
                     throw new ConflictException("Only assigned chores can be swapped.");
                 await EnsureActiveMemberAsync(proposal.HouseId, targetUserId, cancellationToken);
-                await ValidateSwapAsync(source, target, cancellationToken);
-                var sourceStart = await SwapStartAsync(source, target, targetUserId, cancellationToken);
-                var targetStart = await SwapStartAsync(target, source, proposal.CreatorId, cancellationToken);
+                await ValidateSwapAsync(source, target, cancellationToken, swap.AIRequested);
+                var sourceStart = await SwapStartAsync(source, target, targetUserId, swap.AIRequested, cancellationToken);
+                var targetStart = await SwapStartAsync(target, source, proposal.CreatorId, swap.AIRequested, cancellationToken);
                 await ChoreResponsibilityService.AssignAsync(_unitOfWork, source, targetUserId, "SWAP", source.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
                 await ChoreResponsibilityService.AssignAsync(_unitOfWork, target, proposal.CreatorId, "SWAP", target.DueDate, _clock.GetUtcNow().UtcDateTime, cancellationToken);
                 source.PlannedStartAt = sourceStart;
@@ -462,7 +462,7 @@ public class ActionProposalService : IActionProposalService
         return occurrence;
     }
 
-    private async Task ValidateSwapAsync(ChoreOccurrence source, ChoreOccurrence target, CancellationToken ct)
+    private async Task ValidateSwapAsync(ChoreOccurrence source, ChoreOccurrence target, CancellationToken ct, bool aiRequest = false)
     {
         var now = _clock.GetUtcNow().UtcDateTime;
         if (source.SeasonId != target.SeasonId || source.Chore.Type != ChoreType.NORMAL || target.Chore.Type != ChoreType.NORMAL ||
@@ -475,19 +475,33 @@ public class ActionProposalService : IActionProposalService
         foreach (var occurrence in new[] { source, target })
             if (await _unitOfWork.ChoreBounties.GetByOccurrenceIdAsync(occurrence.Id, ct) != null || payments.Any(p => p.OccurrenceId == occurrence.Id))
                 throw new ConflictException("Chores linked to a bounty or payment cannot be swapped.");
+        if (!aiRequest) {
+            await SwapStartAsync(source, target, target.AssignedUserId!.Value, false, ct);
+            await SwapStartAsync(target, source, source.AssignedUserId!.Value, false, ct);
+        }
     }
 
-    private async Task<DateTime> SwapStartAsync(ChoreOccurrence incoming, ChoreOccurrence outgoing, Guid assignee, CancellationToken ct)
+    private async Task<DateTime> SwapStartAsync(ChoreOccurrence incoming, ChoreOccurrence outgoing, Guid assignee, bool aiRequest, CancellationToken ct)
     {
         var assigned = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(incoming.SeasonId, ct))
             .Where(o => o.AssignedUserId == assignee && o.Id != outgoing.Id && o.Id != incoming.Id && o.Chore.Type == ChoreType.NORMAL).ToList();
         var day = ScheduleTime.Local(incoming.DueDate);
+        if (!aiRequest) {
+            var limit = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(assignee, incoming.Chore.HouseId, ct);
+            var week = System.Globalization.ISOWeek.GetWeekOfYear(day);
+            var year = System.Globalization.ISOWeek.GetYear(day);
+            if (assigned.Count(o => System.Globalization.ISOWeek.GetYear(ScheduleTime.Local(o.DueDate)) == year && System.Globalization.ISOWeek.GetWeekOfYear(ScheduleTime.Local(o.DueDate)) == week) >= (limit?.MaxChoresPerWeek ?? 20) ||
+                assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == day.Date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(incoming) > (limit?.MaxEffortMinutesPerDay ?? 120))
+                throw new ConflictException("The proposed swap exceeds workload limits.");
+        }
         var available = (await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(incoming.SeasonId, assignee, ct)).FirstOrDefault(a => a.DayOfWeek == day.DayOfWeek);
         var exceptions=await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(incoming.SeasonId,ct) ?? [];
         available=AllocationEligibilityService.Effective(available,assignee,DateOnly.FromDateTime(day),exceptions);
         var notBefore = _clock.GetUtcNow().UtcDateTime;
         var preferredStart = AllocationEligibilityService.FindStart(incoming, available, assigned, notBefore);
         if (preferredStart.HasValue) return preferredStart.Value;
+        if (!aiRequest)
+            throw new ConflictException("The proposed swap does not fit declared availability.");
         var unrestricted = new MemberAvailability
         {
             UserId = assignee,
