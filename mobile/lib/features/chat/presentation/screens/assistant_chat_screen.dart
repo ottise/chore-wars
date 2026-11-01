@@ -68,7 +68,6 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
     if (widget.urgentMode) {
       _input.text = 'Plan an urgent household task. ';
     }
-    _loadHistory();
     if (widget.initialPrompt?.trim().isNotEmpty == true) {
       _input.text = widget.initialPrompt!;
       Future.microtask(_send);
@@ -233,153 +232,6 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
     }
   }
 
-  Future<void> _loadHistory() async {
-    try {
-      final repository = ref.read(aiRepositoryProvider);
-      final response = await repository.get(widget.houseId, 'chat/history');
-      if (!mounted) return;
-      final rawItems = response['items'] as List? ?? [];
-      final loaded = <({
-        bool mine,
-        String text,
-        Map<String, dynamic>? availability,
-        Map<String, dynamic>? urgent,
-        Map<String, dynamic>? supply,
-        Map<String, dynamic>? bounty,
-        String? swapSourceOccurrenceId,
-        String? swapTargetMemberId,
-        String? swapTargetOccurrenceId,
-        String? swapRequestId,
-        String? planningKind,
-        String? planningPrompt,
-        DateTime at,
-      })>[];
-
-      for (final raw in rawItems) {
-        if (raw is! Map) continue;
-        final map = Map<String, dynamic>.from(raw);
-        final role = map['role']?.toString().toLowerCase();
-        final content = map['content']?.toString() ?? '';
-        final at = DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now();
-
-        if (role == 'user') {
-          loaded.add((
-            mine: true,
-            text: content,
-            availability: null,
-            urgent: null,
-            supply: null,
-            bounty: null,
-            swapSourceOccurrenceId: null,
-            swapTargetMemberId: null,
-            swapTargetOccurrenceId: null,
-            swapRequestId: null,
-            planningKind: null,
-            planningPrompt: null,
-            at: at,
-          ));
-        } else {
-          final payload = map['payload'] is Map ? Map<String, dynamic>.from(map['payload'] as Map) : null;
-          final missing = payload?['missing_fields'] as List? ?? [];
-          final entities = payload?['entities'] is Map
-              ? Map<String, dynamic>.from(payload!['entities'] as Map)
-              : <String, dynamic>{};
-          final intent = payload?['intent']?.toString();
-          final bounty = intent == 'bounty_create' && missing.isEmpty && payload?['bounty'] is Map
-              ? Map<String, dynamic>.from(payload!['bounty'] as Map)
-              : null;
-
-          loaded.add((
-            mine: false,
-            at: at,
-            text: content.isNotEmpty
-                ? content
-                : '',
-            planningKind: switch (intent) {
-              'swap' when missing.isEmpty => 'SWAP',
-              'replan' => 'REPLAN',
-              _ => null,
-            },
-            planningPrompt: null,
-            swapSourceOccurrenceId: missing.isEmpty ? entities['occurrence_id']?.toString() : null,
-            swapTargetMemberId: missing.isEmpty ? entities['target_member_id']?.toString() : null,
-            swapTargetOccurrenceId: missing.isEmpty ? entities['target_occurrence_id']?.toString() : null,
-            swapRequestId: intent == 'swap' && missing.isEmpty ? const Uuid().v4() : null,
-            availability: payload?['availability'] is Map
-                ? Map<String, dynamic>.from(payload!['availability'] as Map)
-                : null,
-            supply: missing.isEmpty && payload?['supply'] is Map
-                ? {
-                    ...Map<String, dynamic>.from(payload!['supply'] as Map),
-                    'client_request_id': const Uuid().v4(),
-                  }
-                : null,
-            bounty: bounty,
-            urgent: intent == 'urgent' && missing.isEmpty && payload?['urgent'] is Map
-                ? {
-                    ...Map<String, dynamic>.from(payload!['urgent'] as Map),
-                    'prompt': '',
-                  }
-                : null,
-          ));
-        }
-      }
-
-      if (loaded.isNotEmpty && mounted) {
-        setState(() {
-          _messages.clear();
-          _messages.addAll(loaded.reversed);
-        });
-      }
-    } catch (_) {
-      // Gracefully ignore history fetch errors (e.g. offline, mock test).
-    }
-  }
-
-  Future<void> _clearHistory() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Clear chat history?'),
-        content: const Text(
-          'This will clear your conversation history with the assistant.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final repository = ref.read(aiRepositoryProvider);
-      await repository.delete(widget.houseId, 'chat/history');
-      if (!mounted) return;
-      setState(() {
-        _messages.clear();
-        _pendingRequestPrompt = null;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = apiErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   void dispose() {
     _input.dispose();
@@ -422,14 +274,6 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             ),
           ],
         ),
-        actions: [
-          if (_messages.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              tooltip: 'Clear history',
-              onPressed: _busy ? null : _clearHistory,
-            ),
-        ],
       ),
       body: Column(
         children: [

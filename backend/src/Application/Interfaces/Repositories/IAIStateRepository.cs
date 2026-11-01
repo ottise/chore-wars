@@ -22,7 +22,4 @@ public interface IAIStateRepository
     Task<IReadOnlyList<Guid>> OwnOpenEpisodesAsync(Guid house, Guid actor, DateTime now, CancellationToken ct);
     Task<AIObservation?> ObservationRequestAsync(Guid house, Guid actor, Guid request, CancellationToken ct);
     void AddObservation(AIObservation value);
-    Task<IReadOnlyList<AIAssistantMessage>> AssistantHistoryAsync(Guid house, Guid actor, int limit, CancellationToken ct);
-    void AddAssistantMessage(AIAssistantMessage message);
-    Task ClearAssistantHistoryAsync(Guid house, Guid actor, CancellationToken ct);
 }

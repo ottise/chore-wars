@@ -78,10 +78,6 @@ public sealed class AIHousekeeperController(IAIHousekeeperService service) : Con
     public Task<JsonElement> Interpret(Guid houseId,[FromBody]AITextRequest request,CancellationToken ct)=>service.InterpretAsync(houseId,Actor,request,false,ct);
     [HttpPost("chat/insights")]
     public Task<JsonElement> Chat(Guid houseId,[FromBody]AITextRequest request,CancellationToken ct)=>service.InterpretAsync(houseId,Actor,request,true,ct);
-    [HttpGet("chat/history")]
-    public Task<JsonElement> ChatHistory(Guid houseId, CancellationToken ct, [FromQuery] int limit = 50) => service.ChatHistoryAsync(houseId, Actor, Math.Clamp(limit, 1, 100), ct);
-    [HttpDelete("chat/history")]
-    public Task<JsonElement> ClearChatHistory(Guid houseId, CancellationToken ct) => service.ClearChatHistoryAsync(houseId, Actor, ct);
     [HttpGet("settings")]
     public Task<JsonElement> Settings(Guid houseId,CancellationToken ct)=>service.SettingsAsync(houseId,Actor,null,null,ct);
     [HttpPut("settings")]

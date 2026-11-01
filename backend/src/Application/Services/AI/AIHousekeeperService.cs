@@ -360,31 +360,6 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             if (result.TryGetProperty("intent", out var intent) && intent.GetString() == "bounty_create")
                 finalResult = AIBountyContract.ValidateAndGround(result, await BountyCandidatesAsync(house, actor, ct));
 
-            if (!chat)
-            {
-                var nowUtc = clock.GetUtcNow().UtcDateTime;
-                ai.AddAssistantMessage(new AIAssistantMessage
-                {
-                    Id = Guid.NewGuid(),
-                    HouseId = house,
-                    UserId = actor,
-                    Role = "USER",
-                    Content = request.Text,
-                    PayloadJson = null,
-                    CreatedAt = nowUtc
-                });
-                ai.AddAssistantMessage(new AIAssistantMessage
-                {
-                    Id = Guid.NewGuid(),
-                    HouseId = house,
-                    UserId = actor,
-                    Role = "ASSISTANT",
-                    Content = finalResult.TryGetProperty("summary", out var s) ? (s.GetString() ?? "") : "",
-                    PayloadJson = finalResult.GetRawText(),
-                    CreatedAt = nowUtc.AddMilliseconds(1)
-                });
-            }
-
             return finalResult;
         },ct);
     }
@@ -518,28 +493,4 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         return "time not assigned";
     }
 
-    public async Task<JsonElement> ChatHistoryAsync(Guid house, Guid actor, int limit, CancellationToken ct)
-    {
-        await AuthorizeAsync(house, actor, false, ct);
-        var messages = await ai.AssistantHistoryAsync(house, actor, limit, ct);
-        return JsonSerializer.SerializeToElement(new
-        {
-            items = messages.Select(m => new
-            {
-                id = m.Id,
-                role = m.Role.ToLowerInvariant(),
-                content = m.Content,
-                payload = string.IsNullOrEmpty(m.PayloadJson) ? (JsonElement?)null : JsonSerializer.Deserialize<JsonElement>(m.PayloadJson),
-                created_at = m.CreatedAt
-            })
-        });
-    }
-
-    public Task<JsonElement> ClearChatHistoryAsync(Guid house, Guid actor, CancellationToken ct) =>
-        mutations.RunAsync(house, async () =>
-        {
-            await AuthorizeAsync(house, actor, false, ct);
-            await ai.ClearAssistantHistoryAsync(house, actor, ct);
-            return JsonSerializer.SerializeToElement(new { success = true });
-        }, ct);
 }
