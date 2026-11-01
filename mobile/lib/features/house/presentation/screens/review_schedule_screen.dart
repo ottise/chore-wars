@@ -498,12 +498,15 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                 ),
               ),
             if (_draft && _owner) ...[
-              _buildWorkflowCard(
-                context,
-                hasOccurrences: _occurrences.any((o) => o['type'] == 0 || o['type'] == 'NORMAL'),
-                mandatoryCount: _occurrences.where((o) => o['type'] == 0 || o['type'] == 'NORMAL').length,
-                unassignedCount: _occurrences.where((o) => (o['type'] == 0 || o['type'] == 'NORMAL') && o['assignedUserId'] == null).length,
-                allAssigned: _occurrences.isNotEmpty && !_occurrences.any((o) => (o['type'] == 0 || o['type'] == 'NORMAL') && o['assignedUserId'] == null),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go(
+                    '/houses/${widget.houseId}/chores?tab=team',
+                  ),
+                  icon: const Icon(Icons.cleaning_services_rounded, size: 16),
+                  label: const Text('Chuẩn bị & phân công lịch tại trang Chores'),
+                ),
               ),
             ],
             const SizedBox(height: 12),
@@ -538,192 +541,6 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildWorkflowCard(
-    BuildContext context, {
-    required bool hasOccurrences,
-    required int mandatoryCount,
-    required int unassignedCount,
-    required bool allAssigned,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F4FE),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE0D7FA)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7C4DFF).withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.checklist_rounded,
-                  color: Color(0xFF7C4DFF),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quy trình chuẩn bị lịch mùa',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14.5,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      '3 bước trước khi chốt lịch',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildStepRow(
-            stepNumber: '1',
-            title: 'Sinh lịch việc cho từng ngày',
-            status: hasOccurrences
-                ? 'Đã sinh $mandatoryCount việc nhà'
-                : 'Chưa sinh lịch các ngày',
-            isDone: hasOccurrences,
-            action: OutlinedButton.icon(
-              onPressed: _busy ? null : () => _act('generate-schedule?autoAllocate=false'),
-              icon: const Icon(Icons.calendar_month, size: 16),
-              label: Text(hasOccurrences ? 'Sinh lại lịch việc' : '1. Sinh lịch việc'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
-          const Divider(height: 24, color: Color(0xFFEDEAF6)),
-          _buildStepRow(
-            stepNumber: '2',
-            title: 'AI tự động phân công việc',
-            status: !hasOccurrences
-                ? 'Cần hoàn thành Bước 1 trước'
-                : allAssigned
-                    ? '100% đã được gán ($mandatoryCount việc)'
-                    : 'Còn $unassignedCount việc chưa phân công',
-            isDone: allAssigned,
-            action: FilledButton.tonalIcon(
-              onPressed: _busy || !hasOccurrences ? null : () => _act('auto-assign'),
-              icon: const Icon(Icons.auto_awesome, size: 16),
-              label: Text(allAssigned ? 'AI phân công lại' : '2. AI phân công việc'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-          ),
-          const Divider(height: 24, color: Color(0xFFEDEAF6)),
-          _buildStepRow(
-            stepNumber: '3',
-            title: 'Chốt lịch & Gửi mọi người duyệt',
-            status: !hasOccurrences
-                ? 'Chưa có lịch để gửi'
-                : !allAssigned
-                    ? 'Cần phân công hết việc trước khi chốt'
-                    : 'Sẵn sàng gửi để mọi người cùng duyệt',
-            isDone: false,
-            action: FilledButton.icon(
-              onPressed: _busy || !allAssigned ? null : () => _act('submit-review'),
-              icon: const Icon(Icons.send_rounded, size: 16),
-              label: const Text('3. Chốt lịch & Gửi duyệt'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                backgroundColor: const Color(0xFF7C4DFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepRow({
-    required String stepNumber,
-    required String title,
-    required String status,
-    required bool isDone,
-    required Widget action,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: isDone ? const Color(0xFF10B981) : const Color(0xFF7C4DFF),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: isDone
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
-                    : Text(
-                        stepNumber,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13.5,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 30, top: 4, bottom: 8),
-          child: Text(
-            status,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDone ? const Color(0xFF059669) : const Color(0xFF64748B),
-              fontWeight: isDone ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 30),
-          child: action,
-        ),
-      ],
     );
   }
 }

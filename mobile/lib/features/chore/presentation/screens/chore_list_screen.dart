@@ -12,6 +12,8 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../house/presentation/providers/house_providers.dart';
 import '../../domain/entities/chore_models.dart';
 import '../../../house/presentation/screens/bonus_chores_screen.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../widgets/schedule_workflow_card.dart';
 import '../providers/chore_providers.dart';
 
 enum _Tab { mine, team, bonus }
@@ -299,36 +301,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
   List<ChoreOccurrence> _occurrences = [];
   Object? _error;
   bool _loading = true;
-  bool _assigning = false;
   String? _filterMemberId;
-
-  Future<void> _autoAssign() async {
-    if (_assigning) return;
-    setState(() => _assigning = true);
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.post(
-        '/houses/${widget.houseId}/seasons/${widget.seasonId}/auto-assign',
-      );
-      if (!mounted) return;
-      refreshHouseState(ref, houseId: widget.houseId);
-      refreshChoreState(ref, widget.houseId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('AI đã phân công xong toàn bộ công việc!'),
-        ),
-      );
-      await _fetch();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiErrorMessage(e))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _assigning = false);
-    }
-  }
 
   @override
   void initState() {
@@ -375,6 +348,23 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
     ref.listen(choreRefreshProvider(widget.houseId), (_, _) => _fetch());
     if (_loading) return const LoadingView();
     if (_error != null) return ErrorView(error: _error!, onRetry: _fetch);
+
+    final seasonData =
+        ref.watch(activeSeasonProvider(widget.houseId)).asData?.value;
+    final status = seasonData?['status'];
+    final isDraft = status == 0 || status == 'DRAFT';
+    final isReviewing = status == 1 || status == 'REVIEWING';
+    final isWorkflowVisible = isDraft || isReviewing || _occurrences.isEmpty;
+    final myId = ref.watch(userProfileProvider).asData?.value.id;
+    final isOwner = widget.members.any((m) => m.userId == myId && m.isOwner);
+
+    final normalOccurrences =
+        _occurrences.where((o) => o.type == ChoreType.normal).toList();
+    final mandatoryCount = normalOccurrences.length;
+    final unassignedCount =
+        normalOccurrences.where((o) => o.assignedUserId == null).length;
+    final hasOccurrences = normalOccurrences.isNotEmpty;
+    final allAssigned = hasOccurrences && unassignedCount == 0;
 
     final filtered = _filterMemberId == null
         ? _occurrences
@@ -434,119 +424,68 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
             ),
           ),
           const Divider(height: 1),
-          Builder(
-            builder: (context) {
-              final unassigned =
-                  _occurrences.where((o) => o.assignedUserId == null).toList();
-              if (unassigned.isEmpty) return const SizedBox.shrink();
-              return Container(
-                margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF6F4FE),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE0D7FA)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C4DFF).withOpacity(0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFF7C4DFF),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${unassigned.length} việc chưa có người nhận',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Nhấn để AI tự động phân công cho mọi người',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _assigning ? null : _autoAssign,
-                      icon: _assigning
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.auto_awesome, size: 16),
-                      label: Text(_assigning ? 'Đang gán...' : 'AI phân công'),
-                      style: FilledButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFF7C4DFF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
           Expanded(
             child: grouped.isEmpty
-                ? const EmptyView(
-                    icon: Icons.calendar_month_outlined,
-                    title: 'No occurrences',
-                    message: 'Generate the schedule first.',
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    child: Column(
+                      children: [
+                        if (isWorkflowVisible && _filterMemberId == null)
+                          ScheduleWorkflowCard(
+                            houseId: widget.houseId,
+                            seasonId: widget.seasonId,
+                            isOwner: isOwner,
+                            hasOccurrences: hasOccurrences,
+                            mandatoryCount: mandatoryCount,
+                            unassignedCount: unassignedCount,
+                            allAssigned: allAssigned,
+                            isDraft: isDraft,
+                            isReviewing: isReviewing,
+                            onStateChanged: _fetch,
+                          ),
+                        const SizedBox(height: 24),
+                        const EmptyView(
+                          icon: Icons.calendar_month_outlined,
+                          title: 'Chưa có lịch việc',
+                          message:
+                              'Hãy nhấn nút "1. Sinh lịch việc" ở trên để chuẩn bị lịch mùa.',
+                        ),
+                      ],
+                    ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                    itemCount: grouped.length,
-                    itemBuilder: (ctx, i) {
-                      final entry = grouped.entries.elementAt(i);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _DayHeader(
-                            label: entry.key,
-                            count: entry.value.length,
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    children: [
+                      if (isWorkflowVisible && _filterMemberId == null) ...[
+                        ScheduleWorkflowCard(
+                          houseId: widget.houseId,
+                          seasonId: widget.seasonId,
+                          isOwner: isOwner,
+                          hasOccurrences: hasOccurrences,
+                          mandatoryCount: mandatoryCount,
+                          unassignedCount: unassignedCount,
+                          allAssigned: allAssigned,
+                          isDraft: isDraft,
+                          isReviewing: isReviewing,
+                          onStateChanged: _fetch,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      for (final entry in grouped.entries) ...[
+                        _DayHeader(
+                          label: entry.key,
+                          count: entry.value.length,
+                        ),
+                        ...entry.value.map(
+                          (o) => _TeamOccurrenceTile(
+                            occurrence: o,
+                            houseId: widget.houseId,
+                            members: widget.members,
                           ),
-                          ...entry.value.map(
-                            (o) => _TeamOccurrenceTile(
-                              occurrence: o,
-                              houseId: widget.houseId,
-                              members: widget.members,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                      );
-                    },
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ],
                   ),
           ),
         ],
