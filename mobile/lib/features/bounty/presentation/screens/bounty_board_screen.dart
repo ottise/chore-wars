@@ -459,11 +459,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
           ),
           _buildPillTabItem(
             tab: _BountyMainTab.postedByMe,
-            title: postedCount > 0 ? 'Posted by Me ($postedCount)' : 'Posted by Me',
+            title: postedCount > 0 ? 'My Posts ($postedCount)' : 'My Posts',
           ),
           _buildPillTabItem(
             tab: _BountyMainTab.completed,
-            title: completedCount > 0 ? 'Completed ($completedCount)' : 'Completed',
+            title: completedCount > 0 ? 'Done ($completedCount)' : 'Done',
           ),
         ],
       ),
@@ -1165,7 +1165,11 @@ class _BountyOpenCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Text(
                           'Bounty ID: $bountyShortId',
@@ -1175,76 +1179,86 @@ class _BountyOpenCard extends StatelessWidget {
                             color: Color(0xFF64748B),
                           ),
                         ),
-                        const Spacer(),
-                        OutlinedButton(
-                          onPressed: onTap,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 34),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                          child: const Text(
-                            'Details',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF334155),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (isMine)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Your Bounty',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OutlinedButton(
+                              onPressed: onTap,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 32),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: const Text(
+                                'Details',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF334155),
+                                ),
                               ),
                             ),
-                          )
-                        else
-                          FilledButton(
-                            onPressed: onClaim,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF7C4DFF),
-                              minimumSize: const Size(0, 34),
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Claim Now ',
+                            const SizedBox(width: 8),
+                            if (isMine)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Your Bounty',
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
                                   ),
                                 ),
-                                Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 14,
-                                  color: Colors.white,
+                              )
+                            else
+                              FilledButton(
+                                onPressed: onClaim,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7C4DFF),
+                                  minimumSize: const Size(0, 32),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Claim Now ',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ],
