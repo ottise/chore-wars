@@ -179,7 +179,7 @@ public class SeasonService : ISeasonService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("You must be an active member of the house.");
 
-        if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Availability is locked outside draft.");
+        if (season.Status == SeasonStatus.COMPLETED) throw new ConflictException("Availability cannot be updated for a completed season.");
         if (request.Availabilities.Keys.Concat(request.Slots.Keys).Any(day => day < 0 || day > 6))
             throw new DomainException("Weekday must be between 0 and 6.");
         foreach (var slots in request.Slots.Values)
@@ -195,8 +195,16 @@ public class SeasonService : ISeasonService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
-                await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            if (season.Status is SeasonStatus.DRAFT or SeasonStatus.REVIEWING)
+            {
+                if (season.Status == SeasonStatus.REVIEWING)
+                {
+                    season.Status = SeasonStatus.DRAFT;
+                    await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+                }
+                if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
+                    await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            }
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
             var existingAvailabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
             foreach (var existing in existingAvailabilities)
@@ -421,7 +429,7 @@ public class SeasonService : ISeasonService
         if (member?.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER) throw new ForbiddenException();
         if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Only draft schedules can be submitted.");
         var requiredMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
-        if (requiredMembers.Count < 3) throw new ConflictException("At least three active members are required for review.");
+        if (requiredMembers.Count == 0) throw new ConflictException("At least one active member is required for review.");
         var mandatory = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL).ToList();
         if (mandatory.Count == 0 || mandatory.Any(o => o.AssignedUserId == null || !requiredMembers.Any(m => m.UserId == o.AssignedUserId)))
             throw new ConflictException("Assign all mandatory chores to active members before review.");
@@ -484,7 +492,7 @@ public class SeasonService : ISeasonService
         var activeMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
         var confirmations = (await _unitOfWork.SeasonConfirmations.GetBySeasonIdAsync(seasonId, cancellationToken)).ToList();
         if (!activeMembers.Any(m => m.UserId == userId)) throw new ForbiddenException();
-        if (activeMembers.Count < 3 || confirmations.Count != activeMembers.Count || activeMembers.Any(m => !confirmations.Any(c => c.UserId == m.UserId && c.ScheduleRevision == season.ScheduleRevision)))
+        if (activeMembers.Count == 0 || confirmations.Count != activeMembers.Count || activeMembers.Any(m => !confirmations.Any(c => c.UserId == m.UserId && c.ScheduleRevision == season.ScheduleRevision)))
             throw new ConflictException("Membership or schedule changed. Submit the draft for review again.");
         if (confirmation.ScheduleRevision != season.ScheduleRevision) throw new ConflictException("Schedule revision changed.");
         var mandatory = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL);

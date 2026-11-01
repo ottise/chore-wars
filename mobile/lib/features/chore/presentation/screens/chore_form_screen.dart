@@ -303,7 +303,21 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
                   ),
               ],
             ),
-            if (_days.isEmpty)
+            if (_frequency == ChoreFrequency.xTimesPerWeek)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Select exactly ${int.tryParse(_frequencyValue.text.trim()) ?? 0} days (${_days.length} selected).',
+                  style: TextStyle(
+                    color: _days.length == (int.tryParse(_frequencyValue.text.trim()) ?? 0)
+                        ? const Color(0xFF059669)
+                        : AppTheme.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else if (_days.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
@@ -434,9 +448,19 @@ class _ChoreFormScreenState extends ConsumerState<ChoreFormScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
-    if (!_formKey.currentState!.validate() ||
-        (_frequency == ChoreFrequency.specificDays && _days.isEmpty)) {
+    if (!_formKey.currentState!.validate()) {
       setState(() {});
+      return;
+    }
+    if (_frequency == ChoreFrequency.specificDays && _days.isEmpty) {
+      setState(() => _apiError = 'Choose at least one weekday.');
+      return;
+    }
+    final timesPerWeek = _frequency == ChoreFrequency.xTimesPerWeek
+        ? int.tryParse(_frequencyValue.text.trim()) ?? 0
+        : 0;
+    if (_frequency == ChoreFrequency.xTimesPerWeek && _days.length != timesPerWeek) {
+      setState(() => _apiError = 'Select exactly $timesPerWeek distinct weekdays.');
       return;
     }
     setState(() {

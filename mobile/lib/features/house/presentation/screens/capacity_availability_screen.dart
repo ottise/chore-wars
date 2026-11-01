@@ -140,7 +140,7 @@ class _CapacityAvailabilityScreenState
     }
   }
 
-  Future<void> _saveAll() async {
+  Future<void> _saveAll({bool popOnSuccess = true}) async {
     if (_isSaving) return;
     setState(() {
       _isSaving = true;
@@ -173,6 +173,10 @@ class _CapacityAvailabilityScreenState
         dio.post(
           _availabilityEndpoint,
           data: {
+            'availabilities': {
+              for (var d = 0; d < 7; d++)
+                d.toString(): (_slots[d]?.isNotEmpty ?? false),
+            },
             'slots': _slots.map(
               (key, value) => MapEntry(key.toString(), value),
             ),
@@ -181,8 +185,15 @@ class _CapacityAvailabilityScreenState
       ]);
 
       if (!mounted) return;
-      showAppMessage(context, 'Settings saved successfully');
-      Navigator.pop(context);
+      showAppMessage(
+        context,
+        popOnSuccess
+            ? 'Settings saved successfully'
+            : 'Availability window applied and saved',
+      );
+      if (popOnSuccess) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _error = apiErrorMessage(e));
@@ -419,6 +430,7 @@ class _CapacityAvailabilityScreenState
                             }
                           });
                           Navigator.pop(ctx);
+                          _saveAll(popOnSuccess: false);
                         },
                         child: const Text(
                           'Apply Window',
@@ -1852,7 +1864,7 @@ class _CapacityAvailabilityScreenState
               borderRadius: BorderRadius.circular(14),
             ),
           ),
-          onPressed: _isSaving ? null : _saveAll,
+          onPressed: _isSaving ? null : () => _saveAll(popOnSuccess: true),
           child: _isSaving
               ? const SizedBox(
                   width: 20,
