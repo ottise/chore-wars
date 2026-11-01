@@ -46,6 +46,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
           Map<String, dynamic>? supply,
           String? swapSourceOccurrenceId,
           String? swapTargetMemberId,
+          String? swapTargetOccurrenceId,
           String? swapRequestId,
           String? planningKind,
           String? planningPrompt,
@@ -94,6 +95,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
       }
       _pendingRequestPrompt =
           [
+                'swap',
                 'urgent',
                 'supply_purchase',
                 'supply_reminder',
@@ -109,14 +111,23 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             text:
                 '$summary${missing.isEmpty ? '' : '\nPlease add the missing details and send again.'}',
             planningKind: switch (response['intent']) {
-              'swap' => 'SWAP',
+              'swap' when missing.isEmpty => 'SWAP',
               'replan' => 'REPLAN',
               _ => null,
             },
-            planningPrompt: response['intent'] == 'swap' ? requestText : null,
-            swapSourceOccurrenceId: entities['occurrence_id']?.toString(),
-            swapTargetMemberId: entities['target_member_id']?.toString(),
-            swapRequestId: response['intent'] == 'swap'
+            planningPrompt: response['intent'] == 'swap' && missing.isEmpty
+                ? requestText
+                : null,
+            swapSourceOccurrenceId: missing.isEmpty
+                ? entities['occurrence_id']?.toString()
+                : null,
+            swapTargetMemberId: missing.isEmpty
+                ? entities['target_member_id']?.toString()
+                : null,
+            swapTargetOccurrenceId: missing.isEmpty
+                ? entities['target_occurrence_id']?.toString()
+                : null,
+            swapRequestId: response['intent'] == 'swap' && missing.isEmpty
                 ? const Uuid().v4()
                 : null,
             availability: response['availability'] is Map
@@ -143,6 +154,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             planningPrompt: null,
             swapSourceOccurrenceId: null,
             swapTargetMemberId: null,
+            swapTargetOccurrenceId: null,
             swapRequestId: null,
             urgent: null,
             supply: null,
@@ -426,6 +438,8 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                         .swapSourceOccurrenceId,
                                                     targetMemberId: message
                                                         .swapTargetMemberId,
+                                                    targetOccurrenceId: message
+                                                        .swapTargetOccurrenceId,
                                                     clientRequestId: message
                                                         .swapRequestId!,
                                                   ),

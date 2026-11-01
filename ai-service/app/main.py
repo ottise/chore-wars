@@ -490,6 +490,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 request.source_occurrence_id,
                 auth[1],
                 request.target_member_id,
+                request.target_occurrence_id,
             )
         except ValueError as error:
             raise HTTPException(409, str(error))

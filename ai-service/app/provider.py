@@ -84,8 +84,9 @@ class GeminiClient:
             "Keep missing dates/times null and list them in missing_fields. "
             "Do not assume all-day availability unless explicitly stated. Do not change availability for another named person. "
             "Treat requests to coordinate immediate chores with named members as urgent planning, even without the word urgent. "
-            "For a request to exchange chores, use intent swap. If the request names one of the actor's chores, put its occurrence UUID from occurrence_names in entities.occurrence_id. "
-            "If it names the other household member, put that member UUID from member_names in entities.target_member_id. Never invent IDs; omit either entity when the request does not specify it so the application can choose the best feasible option. "
+            "For a request to exchange chores, use intent swap. If it names the actor's chore, select its exact occurrence UUID from occurrence_names as entities.occurrence_id. "
+            "If it names the other member's chore, select its exact occurrence UUID from target_occurrence_names as entities.target_occurrence_id, and set entities.target_member_id to that occurrence's assignee from member_names. "
+            "Occurrence labels include the due date in Vietnam time. Match requested weekdays/dates to those labels. A weekday without a calendar date means the nearest future occurrence of that weekday; choose it only when both named chores exist on that same date. Never invent IDs or substitute another occurrence. If a named chore/date has multiple possible matches or no exact match, put swap_source_occurrence or swap_target_occurrence in missing_fields and ask which scheduled chore they mean. "
             "For urgent planning extract urgent.deadline_minutes from an explicit duration, or urgent.ready_by as an ISO8601 "
             "timestamp with timezone from an event time. A party at 10 PM tonight means preparations must finish by 22:00 "
             "today in Asia/Ho_Chi_Minh, relative to request.now; do not move an elapsed time to tomorrow. "
@@ -135,6 +136,7 @@ class GeminiClient:
         for key, allowed in (
             ("chore_id", request.chore_names),
             ("occurrence_id", request.occurrence_names),
+            ("target_occurrence_id", request.target_occurrence_names),
         ):
             if result.entities.get(key) and result.entities[key] not in allowed:
                 raise ProviderUnavailable("UNSUPPORTED_CHORE_REFERENCE")

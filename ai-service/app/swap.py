@@ -2,7 +2,13 @@ from app.allocation import find_start, measure, preference
 from app.schemas import Context
 
 
-def find_swap(context: Context, source_id, actor, target_member_id=None):
+def find_swap(
+    context: Context,
+    source_id,
+    actor,
+    target_member_id=None,
+    target_occurrence_id=None,
+):
     if context.status != "ACTIVE":
         raise ValueError("An active schedule is required")
     sources = [
@@ -28,6 +34,7 @@ def find_swap(context: Context, source_id, actor, target_member_id=None):
             and task.status == "ASSIGNED"
             and task.due_at > context.as_of
             and (target_member_id is None or task.assigned_to == target_member_id)
+            and (target_occurrence_id is None or task.id == target_occurrence_id)
         ),
         key=lambda task: str(task.id),
     )
@@ -64,7 +71,13 @@ def find_swap(context: Context, source_id, actor, target_member_id=None):
     if not choices:
         return {
             "tasks": [t.model_dump(mode="json") for t in context.tasks],
-            "reason": "NO_FEASIBLE_SWAP",
+            "reason": "NO_FEASIBLE_SWAP" if targets else "TARGET_NOT_ELIGIBLE",
+            "diagnostic": (
+                "AVAILABILITY_CAPACITY_DEADLINE_OR_OVERLAP"
+                if targets
+                else "SELECTED_TARGET_IS_NOT_AN_UNLOCKED_FUTURE_TASK_OF_THAT_MEMBER"
+            ),
+            "candidate_target_count": len(targets),
             "accepted": False,
             "data_source": context.data_source,
             "inference_source": "RULE",
@@ -75,6 +88,7 @@ def find_swap(context: Context, source_id, actor, target_member_id=None):
     return {
         "tasks": [t.model_dump(mode="json") for t in tasks],
         "reason": "FEASIBLE_SWAP_REQUIRES_CONSENT",
+        "diagnostic": "READY_FOR_TARGET_MEMBER_CONFIRMATION",
         "accepted": True,
         "swap_payload": {
             "SourceOccurrenceId": source_key,

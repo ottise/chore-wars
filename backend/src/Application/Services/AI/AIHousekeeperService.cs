@@ -126,6 +126,11 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                 if (request.SourceOccurrenceId.HasValue && !eligible.Any(t=>t.GetProperty("id").GetGuid()==request.SourceOccurrenceId.Value)) throw new ForbiddenException("Select an unlocked future responsibility assigned to yourself.");
                 if (!request.SourceOccurrenceId.HasValue && eligible.Count==0) throw new ForbiddenException("You have no unlocked future responsibility to swap.");
                 if (request.TargetMemberId.HasValue && (request.TargetMemberId.Value==actor || !context.GetProperty("members").EnumerateArray().Any(m=>m.GetProperty("id").GetGuid()==request.TargetMemberId.Value))) throw new ForbiddenException("Choose another active household member for the swap.");
+                if (request.TargetOccurrenceId.HasValue) {
+                    var target=tasks.FirstOrDefault(t=>t.GetProperty("id").GetGuid()==request.TargetOccurrenceId.Value);
+                    if (target.ValueKind==JsonValueKind.Undefined || target.GetProperty("assigned_to").ValueKind!=JsonValueKind.String || target.GetProperty("assigned_to").GetGuid()==actor || target.GetProperty("locked").GetBoolean() || target.GetProperty("status").GetString()!="ASSIGNED" || target.GetProperty("due_at").GetDateTimeOffset()<=context.GetProperty("as_of").GetDateTimeOffset()) throw new ForbiddenException("The selected other chore is no longer an unlocked future responsibility.");
+                    if (request.TargetMemberId.HasValue && target.GetProperty("assigned_to").GetGuid()!=request.TargetMemberId.Value) throw new ForbiddenException("The selected chore is not assigned to the named member.");
+                }
             }
             if (request.Kind==AIConstants.Evolution) {
                 var previous=request.SourceSeasonId.HasValue?await uow.Seasons.GetByIdAsync(request.SourceSeasonId.Value,ct):null;
@@ -139,7 +144,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         try
         {
             var body=new Dictionary<string,object?>{["context"]=context,["history_enabled"]=true,["mode"]="SERVING_DEADLINE"};
-            if (request.Kind==AIConstants.Swap) { body["source_occurrence_id"]=request.SourceOccurrenceId; body["target_member_id"]=request.TargetMemberId; }
+            if (request.Kind==AIConstants.Swap) { body["source_occurrence_id"]=request.SourceOccurrenceId; body["target_member_id"]=request.TargetMemberId; body["target_occurrence_id"]=request.TargetOccurrenceId; }
             if (request.Kind==AIConstants.Urgent) body=new(){["context"]=context,["text"]=request.Text,["deadline_minutes"]=deadlineMinutes,["ready_by"]=request.ReadyBy,["guest_count"]=request.GuestCount,["participant_ids"]=request.ParticipantIds,["resources"]=request.Resources};
             var path=request.Kind switch { AIConstants.Replan=>"/v1/schedules/replan",AIConstants.Swap=>"/v1/schedules/swap",AIConstants.Evolution=>"/v1/seasons/evolve",AIConstants.Urgent=>"/v1/urgent/plan",_=>"/v1/schedules/propose" };
             var result=await client.PostAsync(house,actor,path,body,ct);
@@ -314,11 +319,23 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         var version=consent?.Version;
         var names=(await uow.HouseMembers.GetByHouseIdAsync(house,ct)).Where(m=>m.Status==HouseMemberStatus.ACTIVE).ToDictionary(m=>m.UserId.ToString(),m=>m.User?.DisplayName ?? "");
         var chores=(await uow.Chores.GetByHouseIdAsync(house,ct)).ToDictionary(c=>c.Id.ToString(),c=>c.Name);
-        var occurrences=(await uow.ChoreOccurrences.GetUnresolvedByHouseIdAsync(house,ct)).Where(o=>o.AssignedUserId==actor).ToDictionary(o=>o.Id.ToString(),o=>o.Chore.Name);
         var activeSeason=await uow.Seasons.GetActiveSeasonByHouseIdAsync(house,ct);
-        if(activeSeason!=null)
-            foreach(var occurrence in (await uow.ChoreOccurrences.GetBySeasonIdAsync(activeSeason.Id,ct)).Where(o=>o.AssignedUserId==actor && o.Status==ChoreOccurrenceStatus.ASSIGNED && o.DueDate>clock.GetUtcNow().UtcDateTime && o.Chore.Type==ChoreType.NORMAL))
-                occurrences.TryAdd(occurrence.Id.ToString(),occurrence.Chore.Name);
+        var occurrenceNames=new Dictionary<string,string>();
+        var targetOccurrenceNames=new Dictionary<string,string>();
+        if(activeSeason?.Status==SeasonStatus.ACTIVE) {
+            var now=clock.GetUtcNow().UtcDateTime;
+            var scheduled=(await uow.ChoreOccurrences.GetBySeasonIdAsync(activeSeason.Id,ct))
+                .Where(o=>o.Chore.Type==ChoreType.NORMAL && o.AssignedUserId.HasValue && o.Status==ChoreOccurrenceStatus.ASSIGNED && o.DueDate>now && o.PenaltyCount==0 && !o.IsForcedReassigned)
+                .ToList();
+            var bountyIds=(await uow.ChoreBounties.GetBountiesByHouseIdAsync(house,ct)).Select(b=>b.ChoreOccurrenceId).ToHashSet();
+            var paymentIds=(await uow.PaymentObligations.GetByHouseIdAsync(house,ct)).Where(p=>p.OccurrenceId.HasValue).Select(p=>p.OccurrenceId!.Value).ToHashSet();
+            foreach(var occurrence in scheduled.Where(o=>!bountyIds.Contains(o.Id) && !paymentIds.Contains(o.Id) && names.ContainsKey(o.AssignedUserId!.Value.ToString()))) {
+                var id=occurrence.Id.ToString();
+                var due=ScheduleTime.Local(occurrence.DueDate).ToString("yyyy-MM-dd HH:mm");
+                if(occurrence.AssignedUserId==actor) occurrenceNames[id]=$"{occurrence.Chore.Name} — due {due} Vietnam time";
+                else targetOccurrenceNames[id]=$"{occurrence.Chore.Name} — assigned to {names[occurrence.AssignedUserId!.Value.ToString()]} — due {due} Vietnam time";
+            }
+        }
         var catalog = new Dictionary<string,object>();
         var allowedProducts = new Dictionary<Guid,SupplyProduct>();
         if (uow.Supplies is { } supplies)
@@ -327,7 +344,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                     allowedProducts[product.Id]=product;
                     catalog[product.Id.ToString()]=new{supplier_id=product.SupplierId,name=product.Name,unit=product.Unit,price=(long)product.Price,available_quantity=product.AvailableQuantity};
                 }
-        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,supply_catalog=catalog,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
+        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrenceNames,target_occurrence_names=targetOccurrenceNames,supply_catalog=catalog,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
         ChoreWars.Application.Services.Supplies.SupplyAIContract.Validate(result,names.Keys.ToHashSet(),allowedProducts);
         return await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,false,ct);

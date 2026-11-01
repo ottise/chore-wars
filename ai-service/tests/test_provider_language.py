@@ -136,3 +136,68 @@ async def test_tomorrow_eight_am_can_be_more_than_24_hours_away(monkeypatch):
     assert result.missing_fields == []
     assert result.urgent.ready_by.isoformat() == "2026-11-01T08:00:00+07:00"
     assert set(result.urgent.participant_ids) == {actor, dat}
+
+
+async def test_swap_interpretation_resolves_exact_chore_occurrences(monkeypatch):
+    actor, alimi = uuid4(), uuid4()
+    source_id, target_id = uuid4(), uuid4()
+    client = GeminiClient(Settings(environment="test", service_key="x" * 32))
+
+    async def generate(model, instruction, parts, schema):
+        assert "nearest future occurrence" in instruction
+        assert "target_occurrence_names" in parts[0]["text"]
+        return {
+            "intent": "swap",
+            "summary": "Swap the Tuesday kitchen chores.",
+            "entities": {
+                "occurrence_id": str(source_id),
+                "target_member_id": str(alimi),
+                "target_occurrence_id": str(target_id),
+            },
+        }
+
+    monkeypatch.setattr(client, "generate", generate)
+    result = await client.interpret(
+        LanguageInput(
+            house_id=uuid4(),
+            actor_id=actor,
+            text="Swap my Tuesday kitchen cleaning with Alimi's Tuesday cooking.",
+            now=datetime(2026, 11, 1, 12, tzinfo=timezone.utc),
+            member_names={str(actor): "Me", str(alimi): "Alimi"},
+            occurrence_names={str(source_id): "Kitchen cleaning — due 2026-11-03 23:59 Vietnam time"},
+            target_occurrence_names={str(target_id): "Cooking — assigned to Alimi — due 2026-11-03 23:59 Vietnam time"},
+            consent_version="ON_DEMAND",
+        )
+    )
+
+    assert result.intent == "swap"
+    assert result.entities["occurrence_id"] == str(source_id)
+    assert result.entities["target_member_id"] == str(alimi)
+    assert result.entities["target_occurrence_id"] == str(target_id)
+    assert result.missing_fields == []
+
+
+async def test_swap_rejects_invented_target_occurrence(monkeypatch):
+    actor, alimi = uuid4(), uuid4()
+    client = GeminiClient(Settings(environment="test", service_key="x" * 32))
+
+    async def generate(*args):
+        return {
+            "intent": "swap",
+            "summary": "Swap Tuesday chores.",
+            "entities": {"target_occurrence_id": str(uuid4()), "target_member_id": str(alimi)},
+        }
+
+    monkeypatch.setattr(client, "generate", generate)
+    with pytest.raises(ProviderUnavailable, match="UNSUPPORTED_CHORE_REFERENCE"):
+        await client.interpret(
+            LanguageInput(
+                house_id=uuid4(),
+                actor_id=actor,
+                text="Swap with Alimi.",
+                now=datetime.now(timezone.utc),
+                member_names={str(actor): "Me", str(alimi): "Alimi"},
+                target_occurrence_names={},
+                consent_version="ON_DEMAND",
+            )
+        )

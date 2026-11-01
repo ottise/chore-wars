@@ -15,6 +15,7 @@ class AiSwapPlanCard extends ConsumerStatefulWidget {
     required this.clientRequestId,
     this.sourceOccurrenceId,
     this.targetMemberId,
+    this.targetOccurrenceId,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class AiSwapPlanCard extends ConsumerStatefulWidget {
   final String clientRequestId;
   final String? sourceOccurrenceId;
   final String? targetMemberId;
+  final String? targetOccurrenceId;
 
   @override
   ConsumerState<AiSwapPlanCard> createState() => _AiSwapPlanCardState();
@@ -74,6 +76,8 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
             'sourceOccurrenceId': widget.sourceOccurrenceId,
           if (widget.targetMemberId != null)
             'targetMemberId': widget.targetMemberId,
+          if (widget.targetOccurrenceId != null)
+            'targetOccurrenceId': widget.targetOccurrenceId,
         },
       );
       if (!mounted) return;
@@ -92,7 +96,7 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
           plan['accepted'] != true ||
           plan['swap_payload'] is! Map) {
         setState(() {
-          _error = 'I could not find a feasible swap in the current schedule.';
+          _error = _reasonMessage(plan);
         });
         return;
       }
@@ -103,6 +107,16 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _reasonMessage(Map<String, dynamic> plan) {
+    return switch (plan['reason']) {
+      'TARGET_NOT_ELIGIBLE' =>
+        'The selected chore is no longer an unlocked future task assigned to that member. No request was sent.',
+      'NO_FEASIBLE_SWAP' =>
+        'Those exact chores cannot be swapped without conflicting with availability, workload limits, deadlines, or another task. No request was sent. Try another chore or date.',
+      _ => 'I could not find a feasible swap in the current schedule. No request was sent.',
+    };
   }
 
   Future<void> _acceptAndSend(String recommendationId) async {
@@ -186,7 +200,7 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
                 _error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
-              if (!_busy)
+              if (!_busy && _plan == null)
                 TextButton(
                   onPressed: () {
                     if (_plan?['accepted'] != true) {
