@@ -81,6 +81,7 @@ public class AppDbContext : DbContext
     public DbSet<SupplySchedule> SupplySchedules { get; set; } = null!;
     public DbSet<SupplyReminderDelivery> SupplyReminderDeliveries { get; set; } = null!;
     public DbSet<UserBankAccount> UserBankAccounts { get; set; } = null!;
+    public DbSet<AIAssistantMessage> AIAssistantMessages { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +131,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ChatMessage>().HasIndex(x => new { x.RoomId, x.SenderId, x.ClientMessageId }).IsUnique().HasFilter("\"ClientMessageId\" IS NOT NULL");
         modelBuilder.Entity<ProcessedMessage>().HasKey(x => new { x.Consumer, x.Id });
         modelBuilder.Entity<OutboxMessage>().HasIndex(x => new { x.PublishedAt, x.CreatedAt });
+        modelBuilder.Entity<AIAssistantMessage>().HasIndex(x=>new{x.HouseId,x.UserId,x.CreatedAt});
+        modelBuilder.Entity<AIAssistantMessage>().Property(x=>x.Role).HasMaxLength(16);
+        modelBuilder.Entity<AIAssistantMessage>().Property(x=>x.PayloadJson).HasColumnType("jsonb");
+        modelBuilder.Entity<AIAssistantMessage>().HasOne<House>().WithMany().HasForeignKey(x=>x.HouseId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AIAssistantMessage>().HasOne<User>().WithMany().HasForeignKey(x=>x.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }

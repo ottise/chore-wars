@@ -32,6 +32,10 @@ class AiRepository {
     await dio.put('/houses/$house/ai/$path', data: body);
   }
 
+  Future<void> delete(String house, String path) async {
+    await dio.delete('/houses/$house/ai/$path');
+  }
+
   Future<bool> observe(
     String house,
     String request,

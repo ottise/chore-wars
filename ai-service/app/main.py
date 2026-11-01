@@ -1,4 +1,5 @@
 import hmac
+import logging
 from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
@@ -39,6 +40,8 @@ from app.stream import stream_status
 from app.swap import find_swap
 from app.urgent import UrgentInput, plan_urgent
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings or Settings()
@@ -73,6 +76,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @api.exception_handler(ProviderUnavailable)
     async def provider_error(request, error):
+        # Keep the safe diagnostic code in Render logs; the client still gets
+        # the stable error response and no provider credentials or body data.
+        logger.warning("AI provider unavailable: path=%s code=%s", request.url.path, error)
         return JSONResponse(
             status_code=503, content={"code": str(error), "manual_available": True}
         )

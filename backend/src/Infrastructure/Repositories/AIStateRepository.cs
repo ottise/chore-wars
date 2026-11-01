@@ -30,4 +30,26 @@ public sealed class AIStateRepository(AppDbContext db) : IAIStateRepository
     public async Task<IReadOnlyList<Guid>> OwnOpenEpisodesAsync(Guid house, Guid actor, DateTime now, CancellationToken ct) => await db.Set<ChoreResponsibility>()
         .Where(e=>e.UserId==actor && e.EndedAt==null && e.Deadline>now && db.ChoreOccurrences.Any(o=>o.Id==e.OccurrenceId && o.Chore.HouseId==house && o.AssignedUserId==actor && o.Season.Status==ChoreWars.Domain.Enums.SeasonStatus.ACTIVE))
         .OrderBy(e=>e.Deadline).Select(e=>e.Id).Take(100).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<AIAssistantMessage>> AssistantHistoryAsync(Guid house, Guid actor, int limit, CancellationToken ct)
+    {
+        var list = await db.AIAssistantMessages
+            .AsNoTracking()
+            .Where(m => m.HouseId == house && m.UserId == actor)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(limit)
+            .ToListAsync(ct);
+        list.Reverse();
+        return list;
+    }
+
+    public void AddAssistantMessage(AIAssistantMessage message) => db.AIAssistantMessages.Add(message);
+
+    public async Task ClearAssistantHistoryAsync(Guid house, Guid actor, CancellationToken ct)
+    {
+        var list = await db.AIAssistantMessages
+            .Where(m => m.HouseId == house && m.UserId == actor)
+            .ToListAsync(ct);
+        db.AIAssistantMessages.RemoveRange(list);
+    }
 }

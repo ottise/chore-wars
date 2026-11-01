@@ -23,6 +23,42 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIAssistantMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("HouseId", "UserId", "CreatedAt");
+
+                    b.ToTable("AIAssistantMessages");
+                });
+
             modelBuilder.Entity("ChoreWars.Domain.Entities.AIChatInsight", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2598,6 +2634,21 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserBankAccounts");
+                });
+
+            modelBuilder.Entity("ChoreWars.Domain.Entities.AIAssistantMessage", b =>
+                {
+                    b.HasOne("ChoreWars.Domain.Entities.House", null)
+                        .WithMany()
+                        .HasForeignKey("HouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ChoreWars.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ChoreWars.Domain.Entities.AIChatInsight", b =>

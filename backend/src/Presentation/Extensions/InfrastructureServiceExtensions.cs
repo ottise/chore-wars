@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using StackExchange.Redis;
 using ChoreWars.Application.Interfaces;
 using ChoreWars.Application.Interfaces.Repositories;
@@ -30,8 +31,18 @@ public static class InfrastructureServiceExtensions
                 "Connection string 'DefaultConnection' is missing. Configure ConnectionStrings__DefaultConnection or appsettings for the current environment.");
         }
 
+        // Npgsql 10 defaults GSSAPI encryption to Prefer. Render PostgreSQL
+        // uses password auth over TLS, so GSSAPI is neither configured nor
+        // needed; explicitly disable its probe to avoid a harmless but noisy
+        // missing-libgssapi_krb5.so.2 message in the Linux runtime container.
+        // This does not change the connection's SSL/TLS mode.
+        var postgresConnection = new NpgsqlConnectionStringBuilder(databaseConnectionString)
+        {
+            GssEncryptionMode = GssEncryptionMode.Disable
+        };
+
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(databaseConnectionString));
+            options.UseNpgsql(postgresConnection.ConnectionString));
 
         services.Configure<ChoreWars.Infrastructure.AI.AIOptions>(configuration.GetSection("AI"));
         services.AddSingleton<IAIServiceStatus, ChoreWars.Infrastructure.AI.AIServiceStatus>();

@@ -21,4 +21,6 @@ public interface IAIHousekeeperService
     Task<JsonElement> OwnRiskAsync(Guid house, Guid actor, CancellationToken ct);
     Task<JsonElement> ConfirmAvailabilityAsync(Guid house, Guid actor, AIAvailabilityChangeRequest request, CancellationToken ct);
     Task<JsonElement> ObserveAsync(Guid house, Guid actor, AIObservationRequest request, CancellationToken ct);
+    Task<JsonElement> ChatHistoryAsync(Guid house, Guid actor, int limit, CancellationToken ct);
+    Task<JsonElement> ClearChatHistoryAsync(Guid house, Guid actor, CancellationToken ct);
 }
