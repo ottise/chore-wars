@@ -45,7 +45,6 @@ def test_swap_honors_exact_source_and_target_occurrences(context):
     active = active.model_copy(update={"tasks": tasks})
     source = next(task for task in tasks if task.assigned_to == actor)
     target = next(task for task in tasks if task.assigned_to == target_member)
-
     result = find_swap(active, source.id, actor, target_member, target.id)
 
     assert result["accepted"] is True
@@ -60,6 +59,9 @@ def test_swap_request_remains_feasible_when_declared_availability_does_not(conte
     active = active.model_copy(update={"tasks": tasks})
     source = next(task for task in tasks if task.assigned_to == actor)
     target = next(task for task in tasks if task.assigned_to == target_member)
+    source.start_at = None
+    target.start_at = None
+    active.tasks = [source, target]
     for member in active.members:
         if member.id in (actor, target_member):
             member.availability = []
