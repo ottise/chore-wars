@@ -17,7 +17,7 @@ final evidencePhotoProvider = FutureProvider.autoDispose
             options: Options(responseType: ResponseType.bytes),
           );
       return Uint8List.fromList(response.data!);
-    });
+    }, retry: (_, _) => null);
 
 class EvidencePhoto extends ConsumerWidget {
   const EvidencePhoto({required this.evidenceId, super.key});
@@ -30,11 +30,17 @@ class EvidencePhoto extends ConsumerWidget {
           height: 180,
           child: Center(child: CircularProgressIndicator()),
         ),
-        error: (_, _) => TextButton.icon(
-          onPressed: () => ref.invalidate(evidencePhotoProvider(evidenceId)),
-          icon: const Icon(Icons.refresh_outlined),
-          label: const Text('Retry saved photo'),
-        ),
+        error: (error, _) =>
+            error is DioException &&
+                (error.response?.statusCode == 404 ||
+                    error.response?.statusCode == 410)
+            ? const Text('Photo evidence is unavailable.')
+            : TextButton.icon(
+                onPressed: () =>
+                    ref.invalidate(evidencePhotoProvider(evidenceId)),
+                icon: const Icon(Icons.refresh_outlined),
+                label: const Text('Retry saved photo'),
+              ),
         data: (bytes) => Semantics(
           label: 'Saved chore photo. Tap to enlarge.',
           image: true,
@@ -47,7 +53,12 @@ class EvidencePhoto extends ConsumerWidget {
                   children: [
                     Flexible(
                       child: InteractiveViewer(
-                        child: Image.memory(bytes, fit: BoxFit.contain),
+                        child: Image.memory(
+                          bytes,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) =>
+                              const Text('Photo evidence is unavailable.'),
+                        ),
                       ),
                     ),
                     TextButton(
@@ -67,6 +78,8 @@ class EvidencePhoto extends ConsumerWidget {
                   height: 220,
                   width: double.infinity,
                   fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) =>
+                      const Text('Photo evidence is unavailable.'),
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import '../../../../core/network/api_client.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -138,10 +139,19 @@ class _ChoreDetailScreenState extends ConsumerState<ChoreDetailScreen> {
       ),
       body: detail.when(
         loading: () => const LoadingView(),
-        error: (error, _) => ErrorView(
-          error: error,
-          onRetry: () => ref.invalidate(choreDetailProvider(key)),
-        ),
+        error: (error, _) =>
+            error is DioException &&
+                (error.response?.statusCode == 404 ||
+                    error.response?.statusCode == 410)
+            ? const EmptyView(
+                icon: Icons.event_busy_outlined,
+                title: 'Chore not found',
+                message: 'This chore is no longer available. There is no chore or photo evidence to show.',
+              )
+            : ErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(choreDetailProvider(key)),
+              ),
         data: (item) => AiObservedView(
           house: widget.houseId,
           entity: widget.occurrenceId,
@@ -768,12 +778,18 @@ class _DetailBody extends StatelessWidget {
   Widget _buildProofWidget(BuildContext context, String proof) {
     Widget imageWidget;
     if (proof.startsWith('data:image')) {
-      final raw = proof.contains(',') ? proof.split(',')[1] : proof;
+      Uint8List bytes;
+      try {
+        bytes = base64Decode(proof.substring(proof.indexOf(',') + 1));
+      } on FormatException {
+        return const Text('Photo evidence is unavailable.');
+      }
       imageWidget = Image.memory(
-        base64Decode(raw),
+        bytes,
         height: 200,
         width: double.infinity,
         fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const Text('Photo evidence is unavailable.'),
       );
     } else {
       imageWidget = Image.network(
@@ -781,13 +797,7 @@ class _DetailBody extends StatelessWidget {
         height: 200,
         width: double.infinity,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          height: 120,
-          color: AppTheme.surfaceHigh,
-          child: const Center(
-            child: Icon(Icons.broken_image_outlined, size: 36),
-          ),
-        ),
+        errorBuilder: (_, _, _) => const Text('Photo evidence is unavailable.'),
       );
     }
 
@@ -826,8 +836,14 @@ class _DetailBody extends StatelessWidget {
                             base64Decode(
                               proof.contains(',') ? proof.split(',')[1] : proof,
                             ),
+                            errorBuilder: (_, _, _) =>
+                                const Text('Photo evidence is unavailable.'),
                           )
-                        : Image.network(proof),
+                        : Image.network(
+                            proof,
+                            errorBuilder: (_, _, _) =>
+                                const Text('Photo evidence is unavailable.'),
+                          ),
                   ),
                 ),
               );
@@ -936,7 +952,7 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ),
-        if (chore.evidenceId != null) ...[
+        if (chore.evidenceId?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 16),
           Text(
             'Photo evidence',
@@ -947,6 +963,11 @@ class _DetailBody extends StatelessWidget {
         if (chore.proofImageUrl != null && chore.proofImageUrl!.isNotEmpty) ...[
           const SizedBox(height: 16),
           _buildProofWidget(context, chore.proofImageUrl!),
+        ],
+        if ((chore.evidenceId?.trim().isEmpty ?? true) &&
+            (chore.proofImageUrl?.trim().isEmpty ?? true)) ...[
+          const SizedBox(height: 16),
+          const Text('No photo evidence yet.'),
         ],
         if (actionable) ...[
           const SizedBox(height: 24),

@@ -40,7 +40,7 @@ final choreDetailProvider = FutureProvider.family<ChoreDetail, ChoreDetailKey>((
     );
   }
   return ChoreDetail(occurrence: occurrence, template: null);
-});
+}, retry: (_, _) => null);
 
 final choreRefreshProvider = Provider.family<Object, String>(
   (ref, houseId) => Object(),

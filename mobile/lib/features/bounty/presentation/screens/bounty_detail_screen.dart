@@ -315,9 +315,21 @@ class _BountyDetailScreenState extends ConsumerState<BountyDetailScreen> {
                   ),
                 ],
                 TextButton.icon(
-                  onPressed: () => context.push(
-                    '/houses/$houseId/chores/${bounty.choreOccurrenceId}',
-                  ),
+                  onPressed: () {
+                    if (bounty.choreOccurrenceId.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'No chore or photo evidence is available.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    context.push(
+                      '/houses/$houseId/chores/${bounty.choreOccurrenceId}',
+                    );
+                  },
                   icon: const Icon(Icons.checklist),
                   label: const Text('Open chore & photo evidence'),
                 ),
