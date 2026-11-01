@@ -31,6 +31,9 @@ def test_public_readiness_and_private_auth_fail_closed_without_schema(tmp_path):
     app = create_app(Settings(environment="test", service_key="x" * 32,
                               database_url=f"sqlite:///{tmp_path / 'missing.db'}"))
     with TestClient(app) as client:
+        root = client.get("/")
+        assert root.status_code == 200
+        assert root.json() == {"service": "chorewars-ai", "status": "live"}
         assert client.get("/health/live").status_code == 200
         assert client.get("/health/ready").status_code == 503
         assert client.get("/health/service-auth").status_code == 401

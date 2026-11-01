@@ -39,8 +39,13 @@ public class ChoreAllocationService : IChoreAllocationService
     private async Task AllocateSeasonCoreAsync(Guid seasonId, CancellationToken cancellationToken = default, bool forceAssignFallback = false)
     {
         var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken) ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
-        if (season.Status != SeasonStatus.DRAFT)
+        if (season.Status is not (SeasonStatus.DRAFT or SeasonStatus.REVIEWING))
             throw new ConflictException("Automatic allocation only applies to draft seasons.");
+        if (season.Status == SeasonStatus.REVIEWING)
+        {
+            season.Status = SeasonStatus.DRAFT;
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(season.Id, cancellationToken);
+        }
         season.AllocationMethod = AllocationMethod.AUTOMATIC;
         var occurrences = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken)).Where(o => o.Chore.Type == ChoreType.NORMAL).ToList();
         var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(season.HouseId, cancellationToken)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();

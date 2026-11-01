@@ -171,8 +171,8 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                 onPressed: () => context.push(
                   '/houses/${widget.houseId}/seasons/$seasonId/review',
                 ),
-                icon: const Icon(Icons.calendar_month),
-                label: const Text('View team schedule'),
+                icon: const Icon(Icons.checklist_rounded),
+                label: const Text('Quy trình duyệt & chốt lịch mùa'),
               ),
             ),
         ],
@@ -299,7 +299,36 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
   List<ChoreOccurrence> _occurrences = [];
   Object? _error;
   bool _loading = true;
+  bool _assigning = false;
   String? _filterMemberId;
+
+  Future<void> _autoAssign() async {
+    if (_assigning) return;
+    setState(() => _assigning = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/houses/${widget.houseId}/seasons/${widget.seasonId}/auto-assign',
+      );
+      if (!mounted) return;
+      refreshHouseState(ref, houseId: widget.houseId);
+      refreshChoreState(ref, widget.houseId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AI đã phân công xong toàn bộ công việc!'),
+        ),
+      );
+      await _fetch();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _assigning = false);
+    }
+  }
 
   @override
   void initState() {
@@ -405,6 +434,89 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
             ),
           ),
           const Divider(height: 1),
+          Builder(
+            builder: (context) {
+              final unassigned =
+                  _occurrences.where((o) => o.assignedUserId == null).toList();
+              if (unassigned.isEmpty) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F4FE),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE0D7FA)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C4DFF).withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        color: Color(0xFF7C4DFF),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${unassigned.length} việc chưa có người nhận',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Nhấn để AI tự động phân công cho mọi người',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _assigning ? null : _autoAssign,
+                      icon: _assigning
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.auto_awesome, size: 16),
+                      label: Text(_assigning ? 'Đang gán...' : 'AI phân công'),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFF7C4DFF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Expanded(
             child: grouped.isEmpty
                 ? const EmptyView(
