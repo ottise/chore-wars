@@ -195,8 +195,16 @@ public class SeasonService : ISeasonService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (season.Status == SeasonStatus.DRAFT && season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
-                await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            if (season.Status is SeasonStatus.DRAFT or SeasonStatus.REVIEWING)
+            {
+                if (season.Status == SeasonStatus.REVIEWING)
+                {
+                    season.Status = SeasonStatus.DRAFT;
+                    await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+                }
+                if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
+                    await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            }
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
             var existingAvailabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
             foreach (var existing in existingAvailabilities)

@@ -5,9 +5,9 @@ namespace ChoreWars.Application.Services;
 public partial class HouseService {
     private async Task InvalidateAllocationInputsAsync(Guid houseId, CancellationToken ct) {
         var season = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId,ct);
-        if (season?.Status == SeasonStatus.REVIEWING)
-            throw new ConflictException("Reject the current review before changing allocation preferences or capacity.");
-        if (season?.Status != SeasonStatus.DRAFT) return;
+        if (season == null) return;
+        if (season.Status is not (SeasonStatus.DRAFT or SeasonStatus.REVIEWING)) return;
+        season.Status = SeasonStatus.DRAFT;
         season.ScheduleRevision++;
         _unitOfWork.Seasons.Update(season);
         await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(season.Id,ct);
