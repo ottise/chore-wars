@@ -179,7 +179,7 @@ public class SeasonService : ISeasonService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("You must be an active member of the house.");
 
-        if (season.Status != SeasonStatus.DRAFT) throw new ConflictException("Availability is locked outside draft.");
+        if (season.Status == SeasonStatus.COMPLETED) throw new ConflictException("Availability cannot be updated for a completed season.");
         if (request.Availabilities.Keys.Concat(request.Slots.Keys).Any(day => day < 0 || day > 6))
             throw new DomainException("Weekday must be between 0 and 6.");
         foreach (var slots in request.Slots.Values)
@@ -195,7 +195,7 @@ public class SeasonService : ISeasonService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
+            if (season.Status == SeasonStatus.DRAFT && season.AllocationMethod == AllocationMethod.AUTOMATIC && await _unitOfWork.ChoreOccurrences.HasOccurrencesForSeasonAsync(seasonId, cancellationToken))
                 await _unitOfWork.ChoreOccurrences.DeleteBySeasonIdAsync(seasonId, cancellationToken);
             season.ScheduleRevision++; _unitOfWork.Seasons.Update(season);
             var existingAvailabilities = await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(seasonId, userId, cancellationToken);
