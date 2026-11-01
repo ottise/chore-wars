@@ -89,6 +89,7 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
                 f"{context.house_id}/{context.season_id}/urgent/{context.as_of.isoformat()}/{key}",
             )
             options = []
+            fallback_options = []
             for actor, member in sorted(members.items(), key=lambda pair: str(pair[0])):
                 if item.assigned_to is not None and actor != item.assigned_to:
                     continue
@@ -104,14 +105,30 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
                 start = find_start(candidate, member, tasks, earliest)
                 if start is not None:
                     options.append((start, loads[actor], str(actor), candidate))
+                else:
+                    fallback = find_start(
+                        candidate,
+                        member,
+                        tasks,
+                        earliest,
+                        ignore_availability=True,
+                    )
+                    if fallback is not None:
+                        fallback_options.append(
+                            (fallback, loads[actor], str(actor), candidate)
+                        )
             waiting.remove(key)
+            availability_overridden = False
             if not options:
-                return {
-                    "status": "INFEASIBLE",
-                    "reason": "CAPACITY_RESOURCE_OR_DEADLINE",
-                    "unplaced": [key, *sorted(waiting)],
-                    "tasks": list(scheduled.values()),
-                }
+                options = fallback_options
+                availability_overridden = bool(options)
+                if not options:
+                    return {
+                        "status": "INFEASIBLE",
+                        "reason": "CAPACITY_RESOURCE_OR_DEADLINE",
+                        "unplaced": [key, *sorted(waiting)],
+                        "tasks": list(scheduled.values()),
+                    }
             start, _, _, candidate = min(options, key=lambda row: row[:3])
             candidate.start_at = start
             tasks.append(candidate)
@@ -128,6 +145,7 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
                 "minutes": minutes,
                 "dependencies": item.dependencies,
                 "resources": item.resources,
+                "outside_declared_availability": availability_overridden,
             }
             for resource in item.resources:
                 resource_until[resource] = end
@@ -140,6 +158,9 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
         "deadline_at": deadline,
         "limitations": decomposition.limitations,
         "duration_source": "STANDARD_EFFORT_ESTIMATE",
+        "availability_overrides": [
+            t["name"] for t in timeline if t["outside_declared_availability"]
+        ],
         "requires_confirmation": True,
         "urgent_payload": {
             "SeasonId": str(context.season_id),
@@ -161,6 +182,7 @@ def plan_urgent(request: UrgentInput, decomposition: Decomposition) -> dict:
                     ),
                     "DependsOn": t["dependencies"],
                     "Resources": t["resources"],
+                    "OutsideDeclaredAvailability": t["outside_declared_availability"],
                 }
                 for t in timeline
             ],

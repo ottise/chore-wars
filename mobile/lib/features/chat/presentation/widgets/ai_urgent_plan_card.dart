@@ -136,7 +136,7 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Text(
-                  '${task['name']} · ${names[task['assigned_to']] ?? 'Household member'} · ${task['minutes']} min${_taskTimes(task as Map)}',
+                  '${task['name']} · ${names[task['assigned_to']] ?? 'Household member'} · ${task['minutes']} min${_taskTimes(task as Map)}${task['outside_declared_availability'] == true ? ' · outside usual availability' : ''}',
                 ),
               ),
             if (result != null && result['status'] != 'READY')
@@ -153,6 +153,11 @@ class _AiUrgentPlanCardState extends ConsumerState<AiUrgentPlanCard> {
             if (_sent)
               const Text(
                 'Requests sent to each participant’s private AI conversation. They can confirm there or in Chore → Bonus. Work starts after everyone confirms.',
+              ),
+            if (result?['availability_overrides'] is List &&
+                (result!['availability_overrides'] as List).isNotEmpty)
+              const Text(
+                'Some suggested times are outside declared availability. Participants can confirm only if the proposed times work for them.',
               ),
             if (!_sent && result?['status'] == 'READY') ...[
               const Text(

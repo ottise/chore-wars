@@ -129,6 +129,7 @@ class ProposalInput(Contract):
 class SwapInput(ProposalInput):
     source_occurrence_id: UUID | None = None
     target_member_id: UUID | None = None
+    target_occurrence_id: UUID | None = None
 
 
 class LanguageInput(Contract):
@@ -139,6 +140,7 @@ class LanguageInput(Contract):
     member_names: dict[str, str] = Field(default_factory=dict)
     chore_names: dict[str, str] = Field(default_factory=dict)
     occurrence_names: dict[str, str] = Field(default_factory=dict)
+    target_occurrence_names: dict[str, str] = Field(default_factory=dict)
     supply_catalog: dict[str, SupplyCatalogItem] = Field(default_factory=dict)
     bounty_chores: dict[str, BountyChore] = Field(default_factory=dict)
     consent_version: str

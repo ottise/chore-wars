@@ -93,8 +93,9 @@ class GeminiClient:
             "Keep missing dates/times null and list them in missing_fields. "
             "Do not assume all-day availability unless explicitly stated. Do not change availability for another named person. "
             "Treat requests to coordinate immediate chores with named members as urgent planning, even without the word urgent. "
-            "For a request to exchange chores, use intent swap. If the request names one of the actor's chores, put its occurrence UUID from occurrence_names in entities.occurrence_id. "
-            "If it names the other household member, put that member UUID from member_names in entities.target_member_id. Never invent IDs; omit either entity when the request does not specify it so the application can choose the best feasible option. "
+            "For a request to exchange chores, use intent swap. If it names the actor's chore, select its exact occurrence UUID from occurrence_names as entities.occurrence_id. "
+            "If it names the other member's chore, select its exact occurrence UUID from target_occurrence_names as entities.target_occurrence_id, and set entities.target_member_id to that occurrence's assignee from member_names. "
+            "Occurrence labels include the due date in Vietnam time. Match requested weekdays/dates to those labels. A weekday without a calendar date means the nearest future occurrence of that weekday; choose it only when both named chores exist on that same date. Never invent IDs or substitute another occurrence. If a named chore/date has multiple possible matches or no exact match, put swap_source_occurrence or swap_target_occurrence in missing_fields and ask which scheduled chore they mean. "
             "For urgent planning extract urgent.deadline_minutes from an explicit duration, or urgent.ready_by as an ISO8601 "
             "timestamp with timezone from an event time. A party at 10 PM tonight means preparations must finish by 22:00 "
             "today in Asia/Ho_Chi_Minh, relative to request.now; do not move an elapsed time to tomorrow. "
@@ -121,12 +122,38 @@ class GeminiClient:
             raise ProviderUnavailable("PROVIDER_SCHEMA_INVALID") from error
         if any(quote not in request.text for quote in result.evidence_quotes):
             raise ProviderUnavailable("UNSUPPORTED_EVIDENCE_QUOTE")
-        for key in ("member_id", "target_member_id"):
+        if result.intent == "swap":
             if (
-                result.entities.get(key)
-                and result.entities[key] not in request.member_names
+                result.entities.get("target_member_id")
+                and result.entities["target_member_id"] not in request.member_names
             ):
-                raise ProviderUnavailable("UNSUPPORTED_MEMBER_REFERENCE")
+                result.entities.pop("target_member_id", None)
+                result.missing_fields.append("swap_target_member")
+            for key, field in (
+                ("occurrence_id", "swap_source_occurrence"),
+                ("target_occurrence_id", "swap_target_occurrence"),
+            ):
+                allowed = (
+                    request.occurrence_names
+                    if key == "occurrence_id"
+                    else request.target_occurrence_names
+                )
+                if result.entities.get(key) and result.entities[key] not in allowed:
+                    result.entities.pop(key, None)
+                    result.missing_fields.append(field)
+            if result.missing_fields:
+                result.missing_fields = list(dict.fromkeys(result.missing_fields))
+                result.summary = (
+                    "I couldn't match both chores to exact scheduled tasks. "
+                    "Please specify each chore and its date (and the other member if needed)."
+                )
+        else:
+            for key in ("member_id", "target_member_id"):
+                if (
+                    result.entities.get(key)
+                    and result.entities[key] not in request.member_names
+                ):
+                    raise ProviderUnavailable("UNSUPPORTED_MEMBER_REFERENCE")
         if result.intent == "urgent":
             if result.urgent is None:
                 result.missing_fields.append("urgent_participants_and_deadline")
@@ -142,10 +169,15 @@ class GeminiClient:
                 if result.urgent.ready_by is not None and not 0 < (result.urgent.ready_by - request.now).total_seconds() <= URGENT_MAX_MINUTES * 60:
                     result.missing_fields.append("future_ready_by_within_48_hours")
                     result.summary = "Please choose a future party time within the next 48 hours."
-        for key, allowed in (
-            ("chore_id", request.chore_names),
-            ("occurrence_id", request.occurrence_names),
-        ):
+        references = [("chore_id", request.chore_names)]
+        if result.intent != "swap":
+            references.extend(
+                [
+                    ("occurrence_id", request.occurrence_names),
+                    ("target_occurrence_id", request.target_occurrence_names),
+                ]
+            )
+        for key, allowed in references:
             if result.entities.get(key) and result.entities[key] not in allowed:
                 raise ProviderUnavailable("UNSUPPORTED_CHORE_REFERENCE")
         if result.availability:

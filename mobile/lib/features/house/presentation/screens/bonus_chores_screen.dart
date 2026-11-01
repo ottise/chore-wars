@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/utils/vietnam_time.dart';
+import '../../../../core/widgets/app_states.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../bounty/presentation/providers/bounty_providers.dart';
 import '../../../chat/presentation/widgets/assistant_requests.dart';
@@ -174,68 +175,269 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
     }
   }
 
+  Map<String, List<Map<String, dynamic>>> _groupByDate(
+    List<Map<String, dynamic>> items,
+  ) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final item in items) {
+      final dueStr = item['dueDate']?.toString();
+      final dt = dueStr != null ? DateTime.tryParse(dueStr) : null;
+      final key = dt != null
+          ? DateFormat('EEEE, dd/MM').format(vietnamTime(dt))
+          : 'Upcoming';
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+    return grouped;
+  }
+
   Widget _chore(Map<String, dynamic> c) {
+    final colors = Theme.of(context).colorScheme;
     final id = c['id'].toString();
     final assignedTo = c['assignedUserId']?.toString();
     final assignedToMe = _userId != null && _sameId(assignedTo, _userId);
     final unassigned = assignedTo == null;
     final owned = assignedToMe || c['bounty'] != null;
-    final due = DateFormat('dd/MM/yyyy HH:mm')
-        .format(vietnamTime(c['dueDate']));
-    final plannedStart = DateTime.tryParse(
-      c['plannedStartAt']?.toString() ?? '',
-    );
     final displayName = c['assignedUserDisplayName']?.toString().trim() ?? '';
-    final assigneeName = assignedTo == null
-        ? null
+    final assigneeName = unassigned
+        ? 'Unassigned'
         : assignedToMe
-        ? 'you'
-        : displayName.isNotEmpty
-        ? displayName
-        : 'another household member';
+            ? 'Assigned to you'
+            : displayName.isNotEmpty
+                ? 'Assigned to $displayName'
+                : 'Assigned';
+    final initial = unassigned
+        ? 'U'
+        : assignedToMe
+            ? 'Y'
+            : displayName.isNotEmpty
+                ? displayName[0].toUpperCase()
+                : '?';
+    final dueDate = DateTime.tryParse(c['dueDate']?.toString() ?? '');
+    final plannedStart =
+        DateTime.tryParse(c['plannedStartAt']?.toString() ?? '');
+    final statusObj = ChoreStatus.fromJson(c['status']);
+    final isOverdue =
+        statusObj == ChoreStatus.overdue ||
+        statusObj == ChoreStatus.criticalOverdue;
+
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              c['choreName']?.toString() ?? 'Bonus chore',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              c['bounty'] != null
-                  ? "Bounty: ${c['bounty']['amount']} VND"
-                  : "Reward: ${c['karmaPoints']} Karma",
-            ),
-            if (plannedStart != null)
-              Text(
-                'Prepare at ${DateFormat('dd/MM/yyyy HH:mm').format(vietnamTime(plannedStart))} (UTC+7)',
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isOverdue
+              ? colors.error.withValues(alpha: .35)
+              : colors.outlineVariant.withValues(alpha: .25),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/houses/${widget.houseId}/chores/$id'),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: isOverdue
+                    ? colors.error
+                    : assignedToMe
+                        ? colors.primaryFixed
+                        : const Color(0xFFF59E0B),
+                width: 3,
               ),
-            Text('Due $due (UTC+7)'),
-            if (assigneeName != null) Text('Assigned to $assigneeName'),
-            if (owned)
-              Text('Status: ${ChoreStatus.fromJson(c['status']).label}'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextButton(
-                  onPressed: () =>
-                      context.push('/houses/${widget.houseId}/chores/$id'),
-                  child: const Text('View chore'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 19,
+                      backgroundColor: assignedToMe
+                          ? colors.primaryFixed
+                          : unassigned
+                              ? const Color(0xFFEDE9FE)
+                              : colors.surfaceContainerHighest,
+                      foregroundColor: assignedToMe
+                          ? colors.onPrimaryFixedVariant
+                          : unassigned
+                              ? const Color(0xFF7C3AED)
+                              : colors.onSurfaceVariant,
+                      child: Text(
+                        initial,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c['choreName']?.toString() ?? 'Bonus chore',
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            assigneeName,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _BonusRewardTag(
+                      karma: c['karmaPoints'] as int? ?? 0,
+                      bountyAmount: c['bounty'] != null
+                          ? c['bounty']['amount'] as num?
+                          : null,
+                    ),
+                  ],
                 ),
-                if (unassigned && !owned)
-                  ElevatedButton(
-                    onPressed: _claiming.contains(id)
-                        ? null
-                        : () => _claimChore(id),
-                    child: Text(_claiming.contains(id) ? 'Claiming…' : 'Claim'),
-                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (dueDate != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 12,
+                            color: isOverdue
+                                ? colors.error
+                                : colors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${isOverdue ? 'Overdue' : 'Due'} ${DateFormat('HH:mm').format(vietnamTime(dueDate))}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isOverdue
+                                  ? colors.error
+                                  : colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (plannedStart != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.play_circle_outline_rounded,
+                            size: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Prep ${DateFormat('HH:mm').format(vietnamTime(plannedStart))}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (owned && statusObj != ChoreStatus.assigned)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isOverdue
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          statusObj.label,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: isOverdue
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF15803D),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (unassigned && !owned) ...[
+                      FilledButton.tonal(
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: _claiming.contains(id)
+                            ? null
+                            : () => _claimChore(id),
+                        child: Text(
+                          _claiming.contains(id) ? 'Claiming…' : 'Claim',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        foregroundColor: colors.primary,
+                      ),
+                      onPressed: () => context.push(
+                        '/houses/${widget.houseId}/chores/$id',
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View chore',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(width: 2),
+                          Icon(Icons.chevron_right, size: 14),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -275,56 +477,55 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
         if (approved) _fetchBonusChores();
       });
     }
+    final grouped = _groupByDate(_chores);
     final body = RefreshIndicator(
       onRefresh: _refresh,
-      child: ListView.builder(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-        itemCount:
-            2 +
-            (_loading || _error != null || _chores.isEmpty
-                ? 1
-                : _chores.length),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return AssistantRequests(
-              houseId: widget.houseId,
-              urgentOnly: true,
-              inline: true,
-            );
-          }
-          if (index == 1) {
-            return Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh bonus'),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+        children: [
+          AssistantRequests(
+            houseId: widget.houseId,
+            urgentOnly: true,
+            inline: true,
+          ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Text(apiErrorMessage(_error!)),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _fetchBonusChores,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry bonus chores'),
+                  ),
+                ],
               ),
-            );
-          }
-          if (_loading) return const Center(child: CircularProgressIndicator());
-          if (_error != null) {
-            return Column(
-              children: [
-                Text(apiErrorMessage(_error!)),
-                TextButton(
-                  onPressed: _fetchBonusChores,
-                  child: const Text('Retry bonus chores'),
-                ),
-              ],
-            );
-          }
-          if (_chores.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'No bonus chores yet. Pending invitations appear above.',
+            )
+          else if (_chores.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: EmptyView(
+                icon: Icons.stars_rounded,
+                title: 'No bonus chores yet',
+                message: 'Pending invitations or urgent tasks will appear here.',
               ),
-            );
-          }
-          return _chore(_chores[index - 2]);
-        },
+            )
+          else ...[
+            for (final entry in grouped.entries) ...[
+              _DayHeader(label: entry.key, count: entry.value.length),
+              ...entry.value.map(_chore),
+              const SizedBox(height: 4),
+            ],
+          ],
+        ],
       ),
     );
     return widget.embedded
@@ -333,5 +534,82 @@ class _BonusChoresScreenState extends ConsumerState<BonusChoresScreen> {
             appBar: AppBar(title: const Text('Bonus Chores')),
             body: body,
           );
+  }
+}
+
+class _BonusRewardTag extends StatelessWidget {
+  const _BonusRewardTag({this.karma, this.bountyAmount});
+  final int? karma;
+  final num? bountyAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    if (bountyAmount != null && bountyAmount! > 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF3C7),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '$bountyAmount VND',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFFB45309),
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.tertiaryFixed,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '${karma ?? 0} Karma',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: colors.onTertiaryFixedVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.label, required this.count});
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_today_outlined, size: 13, color: colors.primary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            '$count ${count == 1 ? 'chore' : 'chores'}',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+          ),
+        ],
+      ),
+    );
   }
 }

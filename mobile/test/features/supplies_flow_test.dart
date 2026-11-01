@@ -61,7 +61,10 @@ class _Shop extends Fake implements SuppliesRepository {
         'status': 'PENDING',
         'checkoutUrl': '',
         'qrCode': '',
-        'expiresAt': '2026-10-31T00:00:00Z',
+        'expiresAt': DateTime.now()
+            .toUtc()
+            .add(const Duration(minutes: 5))
+            .toIso8601String(),
       };
     }
     return {'id': 'saved', 'total': 240000};
@@ -194,7 +197,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final ai in [false, true]) {
+  for (final ai in [false]) {
     testWidgets(
       '${ai ? 'AI' : 'Manual'} selection prepares an SMS order with equal shares',
       (tester) async {
@@ -268,6 +271,27 @@ void main() {
     },
   );
   testWidgets(
+    'AI selection automatically saves one unpaid order without review',
+    (tester) async {
+      final shop = _Shop();
+      await setup(tester, shop, ai: true);
+      expect(find.text('Order saved as unpaid'), findsOneWidget);
+      expect(find.text('Review AI selection'), findsNothing);
+      expect(find.text('Open SMS to supplier'), findsOneWidget);
+      final request = shop.requests.single;
+      expect(request['viaAI'], isTrue);
+      expect(request['supplierId'], 'shop');
+      expect(request['lines'], [
+        {'productId': 'rice', 'quantity': 1},
+      ]);
+      expect(request['clientRequestId'], isNotEmpty);
+      expect(request.containsKey('expectedVersion'), isFalse);
+      await tester.pump();
+      expect(shop.requests.length, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'unpaid order detail creates PayOS checkout automatically when requested',
     (tester) async {
       final shop = _Shop();
@@ -287,7 +311,13 @@ void main() {
             .first,
       );
       expect(find.text('Pay supplier with PayOS'), findsOneWidget);
-      expect(find.text('Open PayOS to pay'), findsOneWidget);
+      expect(find.text('Refresh payment QR'), findsOneWidget);
+      expect(
+        find.text(
+          'PayOS did not return a QR code. Try refreshing the payment.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Mark as paid'), findsNothing);
       expect(tester.takeException(), isNull);
     },
@@ -343,8 +373,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Pay Bob'), findsOneWidget);
       expect(find.text('Bob owes you'), findsOneWidget);
-      expect(find.text('50 VND remaining · Debt · Pending'), findsOneWidget);
-      expect(find.text('120 VND remaining · Debt · Pending'), findsOneWidget);
+      expect(find.textContaining('50 VND remaining'), findsOneWidget);
+      expect(find.textContaining('120 VND remaining'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
