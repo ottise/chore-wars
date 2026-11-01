@@ -475,21 +475,13 @@ public class ActionProposalService : IActionProposalService
         foreach (var occurrence in new[] { source, target })
             if (await _unitOfWork.ChoreBounties.GetByOccurrenceIdAsync(occurrence.Id, ct) != null || payments.Any(p => p.OccurrenceId == occurrence.Id))
                 throw new ConflictException("Chores linked to a bounty or payment cannot be swapped.");
-        await SwapStartAsync(source, target, target.AssignedUserId!.Value, ct);
-        await SwapStartAsync(target, source, source.AssignedUserId!.Value, ct);
     }
 
     private async Task<DateTime> SwapStartAsync(ChoreOccurrence incoming, ChoreOccurrence outgoing, Guid assignee, CancellationToken ct)
     {
         var assigned = (await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(incoming.SeasonId, ct))
             .Where(o => o.AssignedUserId == assignee && o.Id != outgoing.Id && o.Id != incoming.Id && o.Chore.Type == ChoreType.NORMAL).ToList();
-        var limit = await _unitOfWork.MemberConstraints.GetByUserAndHouseIdAsync(assignee, incoming.Chore.HouseId, ct);
         var day = ScheduleTime.Local(incoming.DueDate);
-        var week = System.Globalization.ISOWeek.GetWeekOfYear(day);
-        var year = System.Globalization.ISOWeek.GetYear(day);
-        if (assigned.Count(o => System.Globalization.ISOWeek.GetYear(ScheduleTime.Local(o.DueDate)) == year && System.Globalization.ISOWeek.GetWeekOfYear(ScheduleTime.Local(o.DueDate)) == week) >= (limit?.MaxChoresPerWeek ?? 20) ||
-            assigned.Where(o => ScheduleTime.Local(o.DueDate).Date == day.Date).Sum(AllocationEligibilityService.Minutes) + AllocationEligibilityService.Minutes(incoming) > (limit?.MaxEffortMinutesPerDay ?? 120))
-            throw new ConflictException("The proposed swap exceeds workload limits.");
         var available = (await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(incoming.SeasonId, assignee, ct)).FirstOrDefault(a => a.DayOfWeek == day.DayOfWeek);
         var exceptions=await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(incoming.SeasonId,ct) ?? [];
         available=AllocationEligibilityService.Effective(available,assignee,DateOnly.FromDateTime(day),exceptions);
@@ -504,8 +496,10 @@ public class ActionProposalService : IActionProposalService
             IsAvailable = true,
             Slots = [new MemberAvailabilitySlot { StartMinute = 0, EndMinute = 1440 }]
         };
-        return AllocationEligibilityService.FindStart(incoming, unrestricted, assigned, notBefore)
-            ?? throw new ConflictException("The proposed swap conflicts with another chore, workload limit, or deadline.");
+        var conflictFreeStart = AllocationEligibilityService.FindStart(incoming, unrestricted, assigned, notBefore);
+        if (conflictFreeStart.HasValue) return conflictFreeStart.Value;
+        var dayStart = ScheduleTime.Utc(DateOnly.FromDateTime(day), 0);
+        return dayStart > notBefore ? dayStart : notBefore;
     }
 
     private async Task EnsureActiveMemberAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)

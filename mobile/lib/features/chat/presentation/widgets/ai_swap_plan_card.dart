@@ -191,9 +191,10 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
                   '${names[task['assigned_to']?.toString()] ?? 'Household member'} · ${_time(task['start_at'])}',
                 ),
               ),
-            if (_plan?['availability_overridden'] == true)
+            if (_plan?['schedule_warning'] == true)
               const Text(
-                'A suggested time is outside declared availability. The other member can review it and confirm only if it works for them.',
+                'Schedule warning: this swap may conflict with availability, another chore, workload limits, or a deadline. The request is still sent; the other member can review the warning and confirm or reject.',
+                style: TextStyle(color: Color(0xFF9A6700)),
               ),
             if (_sent)
               const Text(

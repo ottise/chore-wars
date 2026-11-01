@@ -1,4 +1,6 @@
-from app.allocation import find_start, measure, preference
+from datetime import datetime, time, timezone
+
+from app.allocation import LOCAL, find_start, measure, preference
 from app.schemas import Context
 
 
@@ -47,6 +49,7 @@ def find_swap(
             a.start_at = b.start_at = None
             possible = True
             availability_overridden = False
+            forced_time = False
             for task in (a, b):
                 member = members.get(task.assigned_to)
                 if member is None:
@@ -58,11 +61,20 @@ def find_swap(
                         task, member, tasks, context.as_of, ignore_availability=True
                     )
                     availability_overridden |= task.start_at is not None
-                possible &= task.start_at is not None
-            if not possible or measure(
-                context, tasks, ignore_availability_for={a.id, b.id}
-            )["hard_violations"]:
+                if task.start_at is None:
+                    midnight = datetime.combine(
+                        task.due_at.astimezone(LOCAL).date(), time.min, LOCAL
+                    ).astimezone(timezone.utc)
+                    task.start_at = max(context.as_of, midnight)
+                    forced_time = True
+            if not possible:
                 continue
+            metrics = measure(context, tasks, ignore_availability_for={a.id, b.id})
+            warning_reasons = []
+            if availability_overridden:
+                warning_reasons.append("OUTSIDE_DECLARED_AVAILABILITY")
+            if metrics["hard_violations"] or forced_time:
+                warning_reasons.append("SCHEDULE_OVERLAP_CAPACITY_OR_DEADLINE")
             score = preference(a, members[a.assigned_to]) + preference(
                 b, members[b.assigned_to]
             )
@@ -76,6 +88,8 @@ def find_swap(
                     target,
                     tasks,
                     availability_overridden,
+                    warning_reasons,
+                    metrics,
                 )
             )
     if not choices:
@@ -92,23 +106,25 @@ def find_swap(
             "data_source": context.data_source,
             "inference_source": "RULE",
         }
-    _, source_key, _, other_member_id, source, target, tasks, availability_overridden = min(
+    _, source_key, _, other_member_id, source, target, tasks, availability_overridden, warning_reasons, metrics = min(
         choices, key=lambda c: (c[0], c[1], c[2])
     )
     return {
         "tasks": [t.model_dump(mode="json") for t in tasks],
-        "reason": "FEASIBLE_SWAP_REQUIRES_CONSENT",
+        "reason": "SWAP_REQUIRES_CONSENT",
         "diagnostic": "READY_FOR_TARGET_MEMBER_CONFIRMATION",
         "accepted": True,
         "swap_payload": {
             "SourceOccurrenceId": source_key,
             "TargetOccurrenceId": str(target.id),
+            "ScheduleWarning": bool(warning_reasons),
+            "ScheduleWarningReasons": warning_reasons,
         },
         "target_member_id": other_member_id,
         "availability_overridden": availability_overridden,
-        "metrics": measure(
-            context, tasks, ignore_availability_for={source.id, target.id}
-        ),
+        "schedule_warning": bool(warning_reasons),
+        "schedule_warning_reasons": warning_reasons,
+        "metrics": metrics,
         "data_source": context.data_source,
         "inference_source": "RULE",
     }

@@ -54,6 +54,8 @@ public class ChoreSwapPayload
 {
     public Guid SourceOccurrenceId { get; set; }
     public Guid TargetOccurrenceId { get; set; }
+    public bool ScheduleWarning { get; set; }
+    public List<string> ScheduleWarningReasons { get; set; } = [];
 }
 
 public class UrgentEventPayload
