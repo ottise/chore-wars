@@ -493,8 +493,19 @@ public class ActionProposalService : IActionProposalService
         var available = (await _unitOfWork.MemberAvailabilities.GetBySeasonAndUserIdAsync(incoming.SeasonId, assignee, ct)).FirstOrDefault(a => a.DayOfWeek == day.DayOfWeek);
         var exceptions=await _unitOfWork.MemberAvailabilities.GetExceptionsBySeasonAsync(incoming.SeasonId,ct) ?? [];
         available=AllocationEligibilityService.Effective(available,assignee,DateOnly.FromDateTime(day),exceptions);
-        return AllocationEligibilityService.FindStart(incoming, available, assigned, _clock.GetUtcNow().UtcDateTime)
-            ?? throw new ConflictException("The proposed swap does not fit declared availability.");
+        var notBefore = _clock.GetUtcNow().UtcDateTime;
+        var preferredStart = AllocationEligibilityService.FindStart(incoming, available, assigned, notBefore);
+        if (preferredStart.HasValue) return preferredStart.Value;
+        var unrestricted = new MemberAvailability
+        {
+            UserId = assignee,
+            SeasonId = incoming.SeasonId,
+            DayOfWeek = day.DayOfWeek,
+            IsAvailable = true,
+            Slots = [new MemberAvailabilitySlot { StartMinute = 0, EndMinute = 1440 }]
+        };
+        return AllocationEligibilityService.FindStart(incoming, unrestricted, assigned, notBefore)
+            ?? throw new ConflictException("The proposed swap conflicts with another chore, workload limit, or deadline.");
     }
 
     private async Task EnsureActiveMemberAsync(Guid houseId, Guid userId, CancellationToken cancellationToken)

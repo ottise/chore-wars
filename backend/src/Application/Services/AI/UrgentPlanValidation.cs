@@ -33,6 +33,6 @@ public sealed class UrgentPlanValidation(IUnitOfWork uow, IAIContextBuilder cont
         var context=await contexts.BuildAsync(house,payload.SeasonId,ct);
         var occurrences=(await uow.ChoreOccurrences.GetBySeasonIdAsync(payload.SeasonId,ct)).Where(o=>o.Chore.Type==ChoreType.NORMAL).ToList();
         var additions=payload.Chores.Select(item=>new ChoreOccurrence{Id=Guid.NewGuid(),SeasonId=payload.SeasonId,AssignedUserId=item.AssignedUserId,PlannedStartAt=now.AddMinutes(item.PlannedOffsetMinutes),DueDate=deadline,SnapshotMinutes=ScheduleTime.Effort(item.Difficulty),SnapshotKarma=item.KarmaPoints,Chore=new Chore{Difficulty=item.Difficulty}}).ToList();
-        await AIHousekeeperService.ValidateScheduleAsync(context,occurrences.Concat(additions).ToList(),ct,additions.Select(o=>o.Id).ToHashSet());
+        await AIHousekeeperService.ValidateScheduleAsync(context,occurrences.Concat(additions).ToList(),ct,additions.Select(o=>o.Id).ToHashSet(),ignoreAvailabilityForScopedTasks:true);
     }
 }

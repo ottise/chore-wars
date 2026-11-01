@@ -23,7 +23,11 @@ def local_day(due_at: datetime):
 
 
 def find_start(
-    task: Task, member: Member, tasks: list[Task], not_before: datetime | None = None
+    task: Task,
+    member: Member,
+    tasks: list[Task],
+    not_before: datetime | None = None,
+    ignore_availability: bool = False,
 ) -> datetime | None:
     day = local_date(task)
     assigned = [t for t in tasks if t.assigned_to == member.id and t.id != task.id]
@@ -37,7 +41,9 @@ def find_start(
         > member.max_minutes_per_day
     ):
         return None
-    if day.isoformat() in member.date_exceptions:
+    if ignore_availability:
+        windows = [(0, 1440)]
+    elif day.isoformat() in member.date_exceptions:
         windows = [(w.start, w.end) for w in member.date_exceptions[day.isoformat()]]
     else:
         availability = next(
@@ -128,7 +134,12 @@ def baseline(context: Context) -> list[Task]:
     return tasks
 
 
-def measure(context: Context, tasks: list[Task]) -> dict:
+def measure(
+    context: Context,
+    tasks: list[Task],
+    ignore_availability_for: set | None = None,
+) -> dict:
+    ignore_availability_for = ignore_availability_for or set()
     members = {m.id: m for m in context.members}
     assigned = [t for t in tasks if t.assigned_to is not None]
     days = {t.id: local_date(t) for t in tasks}
@@ -202,7 +213,10 @@ def measure(context: Context, tasks: list[Task]) -> dict:
             or actual.date() != day
             or end > task.due_at
             or task.id in overlaps
-            or not any(a <= actual and end <= b for a, b in windows_cache[key])
+            or (
+                task.id not in ignore_availability_for
+                and not any(a <= actual and end <= b for a, b in windows_cache[key])
+            )
         ):
             violations.add(task.id)
     karma = [karma_load[m.id] for m in context.members]

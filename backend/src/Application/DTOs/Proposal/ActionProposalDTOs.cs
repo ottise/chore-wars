@@ -76,6 +76,7 @@ public class UrgentChoreItem
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int KarmaPoints { get; set; }
+    public bool OutsideDeclaredAvailability { get; set; }
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ChoreEffort Difficulty { get; set; } = ChoreEffort.MEDIUM;
     public Guid AssignedUserId { get; set; }

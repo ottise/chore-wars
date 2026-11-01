@@ -207,7 +207,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             var urgent=urgentJson.Deserialize<UrgentEventPayload>() ?? throw new DomainException("Invalid urgent plan.");
             var targets=urgent.Chores.Select(c=>c.AssignedUserId).Append(actor).Distinct().Where(id=>id!=actor).ToList();
             if(targets.Count==0)throw new ConflictException("Use a household participant to review the urgent plan.");
-            var details=$"{(urgent.GuestCount.HasValue?$"Party for {urgent.GuestCount} guests. ":"")}{(urgent.ReadyByUtc.HasValue?$"Ready by {ScheduleTime.Local(urgent.ReadyByUtc.Value):yyyy-MM-dd HH:mm} (Vietnam time). ":"")}Review your assigned tasks and confirm participation.";
+            var details=$"{(urgent.GuestCount.HasValue?$"Party for {urgent.GuestCount} guests. ":"")}{(urgent.ReadyByUtc.HasValue?$"Ready by {ScheduleTime.Local(urgent.ReadyByUtc.Value):yyyy-MM-dd HH:mm} (Vietnam time). ":"")}{(urgent.Chores.Any(c=>c.OutsideDeclaredAvailability)?"Some suggested times are outside declared availability. Confirm only if they work for you. ":"")}Review your assigned tasks and confirm participation.";
             var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.URGENT_EVENT,Title=urgent.Title ?? "AI Urgent Campaign Proposal",Description=details,PayloadJson=urgentJson.GetRawText(),TargetUserIds=targets,ExpiresAt=urgent.ReadyByUtc ?? clock.GetUtcNow().UtcDateTime.AddMinutes(5)},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
@@ -222,7 +222,8 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
             var plannedTasks=payload.RootElement.GetProperty("tasks");
             var sourceStart=PlannedStart(plannedTasks,source.Id);
             var targetStart=PlannedStart(plannedTasks,target.Id);
-            var details=$"AI suggests swapping {source.Chore.Name} (currently assigned to {creatorName}) with {target.Chore.Name} (currently assigned to {targetName}). If confirmed, {source.Chore.Name} moves to {targetName} at {sourceStart}, and {target.Chore.Name} moves to {creatorName} at {targetStart} (Vietnam time). You requested this swap; {targetName} must confirm before the schedule changes.";
+            var availabilityOverride=payload.RootElement.TryGetProperty("availability_overridden",out var overrideValue) && overrideValue.ValueKind==JsonValueKind.True;
+            var details=$"AI suggests swapping {source.Chore.Name} (currently assigned to {creatorName}) with {target.Chore.Name} (currently assigned to {targetName}). If confirmed, {source.Chore.Name} moves to {targetName} at {sourceStart}, and {target.Chore.Name} moves to {creatorName} at {targetStart} (Vietnam time). {(availabilityOverride?"A suggested time is outside declared availability; confirm only if it works for you. ":"")}You requested this swap; {targetName} must confirm before the schedule changes.";
             var linked=await proposals.CreateProposalAsync(house,new CreateProposalRequest{Type=ProposalType.CHORE_SWAP,Title="AI Chore Swap Proposal",Description=details,PayloadJson=swap.GetRawText(),TargetUserIds=[target.AssignedUserId.Value],ExpiresAt=value.ExpiresAt},actor,ct);
             value.ProposalId=linked.Id;value.Status=AIConstants.Accepted;return View(value);
         }
@@ -269,7 +270,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         return View(value);
     },ct);
 
-    public static Task ValidateScheduleAsync(JsonElement context, List<ChoreOccurrence> occurrences, CancellationToken ct, IReadOnlySet<Guid>? scope=null)
+    public static Task ValidateScheduleAsync(JsonElement context, List<ChoreOccurrence> occurrences, CancellationToken ct, IReadOnlySet<Guid>? scope=null, bool ignoreAvailabilityForScopedTasks=false)
     {
         foreach (var member in context.GetProperty("members").EnumerateArray())
         {
@@ -298,7 +299,8 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                     if (!task.PlannedStartAt.HasValue) throw new ConflictException("Assigned task needs a start time.");
                     var start=task.PlannedStartAt.Value;var local=ScheduleTime.Local(start);var minutes=AllocationEligibilityService.Minutes(task);
                     var collision=assigned.Any(other=>other.Id!=task.Id && other.Status is not (ChoreOccurrenceStatus.COMPLETED or ChoreOccurrenceStatus.SKIPPED) && other.PlannedStartAt.HasValue && other.PlannedStartAt.Value<start.AddMinutes(minutes) && other.PlannedStartAt.Value.AddMinutes(AllocationEligibilityService.Minutes(other))>start);
-                    if (local.Date!=day.Key || !slots.Any(s=>ScheduleTime.Utc(DateOnly.FromDateTime(local),s.Start)<=start && start.AddMinutes(minutes)<=ScheduleTime.Utc(DateOnly.FromDateTime(local),s.End)) || start.AddMinutes(minutes)>task.DueDate || collision)
+                    var outsideAvailability=ignoreAvailabilityForScopedTasks && scope?.Contains(task.Id)==true ? false : !slots.Any(s=>ScheduleTime.Utc(DateOnly.FromDateTime(local),s.Start)<=start && start.AddMinutes(minutes)<=ScheduleTime.Utc(DateOnly.FromDateTime(local),s.End));
+                    if (local.Date!=day.Key || outsideAvailability || start.AddMinutes(minutes)>task.DueDate || collision)
                         throw new ConflictException("AI schedule conflicts with availability, deadline, or another task.");
                 }
             }

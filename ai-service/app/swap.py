@@ -46,14 +46,22 @@ def find_swap(
             a.assigned_to, b.assigned_to = b.assigned_to, a.assigned_to
             a.start_at = b.start_at = None
             possible = True
+            availability_overridden = False
             for task in (a, b):
                 member = members.get(task.assigned_to)
                 if member is None:
                     possible = False
                     break
                 task.start_at = find_start(task, member, tasks, context.as_of)
+                if task.start_at is None:
+                    task.start_at = find_start(
+                        task, member, tasks, context.as_of, ignore_availability=True
+                    )
+                    availability_overridden |= task.start_at is not None
                 possible &= task.start_at is not None
-            if not possible or measure(context, tasks)["hard_violations"]:
+            if not possible or measure(
+                context, tasks, ignore_availability_for={a.id, b.id}
+            )["hard_violations"]:
                 continue
             score = preference(a, members[a.assigned_to]) + preference(
                 b, members[b.assigned_to]
@@ -64,8 +72,10 @@ def find_swap(
                     str(source.id),
                     str(target.id),
                     str(target.assigned_to),
+                    source,
                     target,
                     tasks,
+                    availability_overridden,
                 )
             )
     if not choices:
@@ -82,7 +92,7 @@ def find_swap(
             "data_source": context.data_source,
             "inference_source": "RULE",
         }
-    _, source_key, _, other_member_id, target, tasks = min(
+    _, source_key, _, other_member_id, source, target, tasks, availability_overridden = min(
         choices, key=lambda c: (c[0], c[1], c[2])
     )
     return {
@@ -95,7 +105,10 @@ def find_swap(
             "TargetOccurrenceId": str(target.id),
         },
         "target_member_id": other_member_id,
-        "metrics": measure(context, tasks),
+        "availability_overridden": availability_overridden,
+        "metrics": measure(
+            context, tasks, ignore_availability_for={source.id, target.id}
+        ),
         "data_source": context.data_source,
         "inference_source": "RULE",
     }

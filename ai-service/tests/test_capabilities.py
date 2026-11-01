@@ -86,13 +86,16 @@ def test_party_ready_by_stays_absolute_and_guests_are_not_assignees(context):
     assert len(request.participant_ids)==3
 
 
-def test_urgent_does_not_reassign_unavailable_named_member(context):
+def test_urgent_keeps_named_member_and_marks_availability_override(context):
     request = urgent(context)
     member = request.context.members[-1]
     member.availability = []
     chore = micro("named-task").model_copy(update={"assigned_to": member.id})
     result = plan_urgent(request, Decomposition(chores=[chore]))
-    assert result["status"] == "INFEASIBLE"
+    assert result["status"] == "READY"
+    assert result["tasks"][0]["assigned_to"] == str(member.id)
+    assert result["tasks"][0]["outside_declared_availability"] is True
+    assert result["availability_overrides"] == ["named-task"]
 
 
 def test_urgent_cycle_and_budget_are_explained(context):

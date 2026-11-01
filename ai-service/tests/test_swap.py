@@ -53,6 +53,25 @@ def test_swap_honors_exact_source_and_target_occurrences(context):
     assert result["swap_payload"]["TargetOccurrenceId"] == str(target.id)
 
 
+def test_swap_request_remains_feasible_when_declared_availability_does_not(context):
+    actor, target_member = UUID(int=1), UUID(int=2)
+    active = context.model_copy(update={"status": "ACTIVE"})
+    tasks = baseline(active)
+    active = active.model_copy(update={"tasks": tasks})
+    source = next(task for task in tasks if task.assigned_to == actor)
+    target = next(task for task in tasks if task.assigned_to == target_member)
+    for member in active.members:
+        if member.id in (actor, target_member):
+            member.availability = []
+            member.max_chores_per_week = 20
+            member.max_minutes_per_day = 600
+
+    result = find_swap(active, source.id, actor, target_member, target.id)
+
+    assert result["accepted"] is True
+    assert result["availability_overridden"] is True
+
+
 def test_swap_does_not_replace_an_ineligible_named_target_with_another_chore(context):
     actor, target_member = UUID(int=1), UUID(int=2)
     active = context.model_copy(update={"status": "ACTIVE"})

@@ -191,6 +191,10 @@ class _AiSwapPlanCardState extends ConsumerState<AiSwapPlanCard> {
                   '${names[task['assigned_to']?.toString()] ?? 'Household member'} · ${_time(task['start_at'])}',
                 ),
               ),
+            if (_plan?['availability_overridden'] == true)
+              const Text(
+                'A suggested time is outside declared availability. The other member can review it and confirm only if it works for them.',
+              ),
             if (_sent)
               const Text(
                 'Swap request sent to the other member. The schedule changes after they confirm in their AI conversation.',
