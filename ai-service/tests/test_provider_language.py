@@ -177,7 +177,7 @@ async def test_swap_interpretation_resolves_exact_chore_occurrences(monkeypatch)
     assert result.missing_fields == []
 
 
-async def test_swap_rejects_invented_target_occurrence(monkeypatch):
+async def test_swap_asks_for_clarification_for_invented_target_occurrence(monkeypatch):
     actor, alimi = uuid4(), uuid4()
     client = GeminiClient(Settings(environment="test", service_key="x" * 32))
 
@@ -189,15 +189,17 @@ async def test_swap_rejects_invented_target_occurrence(monkeypatch):
         }
 
     monkeypatch.setattr(client, "generate", generate)
-    with pytest.raises(ProviderUnavailable, match="UNSUPPORTED_CHORE_REFERENCE"):
-        await client.interpret(
-            LanguageInput(
-                house_id=uuid4(),
-                actor_id=actor,
-                text="Swap with Alimi.",
-                now=datetime.now(timezone.utc),
-                member_names={str(actor): "Me", str(alimi): "Alimi"},
-                target_occurrence_names={},
-                consent_version="ON_DEMAND",
-            )
+    result = await client.interpret(
+        LanguageInput(
+            house_id=uuid4(),
+            actor_id=actor,
+            text="Swap with Alimi.",
+            now=datetime.now(timezone.utc),
+            member_names={str(actor): "Me", str(alimi): "Alimi"},
+            target_occurrence_names={},
+            consent_version="ON_DEMAND",
         )
+    )
+    assert "target_occurrence_id" not in result.entities
+    assert "swap_target_occurrence" in result.missing_fields
+    assert "exact scheduled tasks" in result.summary

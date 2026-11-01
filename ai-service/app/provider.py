@@ -112,12 +112,38 @@ class GeminiClient:
             raise ProviderUnavailable("PROVIDER_SCHEMA_INVALID") from error
         if any(quote not in request.text for quote in result.evidence_quotes):
             raise ProviderUnavailable("UNSUPPORTED_EVIDENCE_QUOTE")
-        for key in ("member_id", "target_member_id"):
+        if result.intent == "swap":
             if (
-                result.entities.get(key)
-                and result.entities[key] not in request.member_names
+                result.entities.get("target_member_id")
+                and result.entities["target_member_id"] not in request.member_names
             ):
-                raise ProviderUnavailable("UNSUPPORTED_MEMBER_REFERENCE")
+                result.entities.pop("target_member_id", None)
+                result.missing_fields.append("swap_target_member")
+            for key, field in (
+                ("occurrence_id", "swap_source_occurrence"),
+                ("target_occurrence_id", "swap_target_occurrence"),
+            ):
+                allowed = (
+                    request.occurrence_names
+                    if key == "occurrence_id"
+                    else request.target_occurrence_names
+                )
+                if result.entities.get(key) and result.entities[key] not in allowed:
+                    result.entities.pop(key, None)
+                    result.missing_fields.append(field)
+            if result.missing_fields:
+                result.missing_fields = list(dict.fromkeys(result.missing_fields))
+                result.summary = (
+                    "I couldn't match both chores to exact scheduled tasks. "
+                    "Please specify each chore and its date (and the other member if needed)."
+                )
+        else:
+            for key in ("member_id", "target_member_id"):
+                if (
+                    result.entities.get(key)
+                    and result.entities[key] not in request.member_names
+                ):
+                    raise ProviderUnavailable("UNSUPPORTED_MEMBER_REFERENCE")
         if result.intent == "urgent":
             if result.urgent is None:
                 result.missing_fields.append("urgent_participants_and_deadline")
@@ -133,11 +159,15 @@ class GeminiClient:
                 if result.urgent.ready_by is not None and not 0 < (result.urgent.ready_by - request.now).total_seconds() <= URGENT_MAX_MINUTES * 60:
                     result.missing_fields.append("future_ready_by_within_48_hours")
                     result.summary = "Please choose a future party time within the next 48 hours."
-        for key, allowed in (
-            ("chore_id", request.chore_names),
-            ("occurrence_id", request.occurrence_names),
-            ("target_occurrence_id", request.target_occurrence_names),
-        ):
+        references = [("chore_id", request.chore_names)]
+        if result.intent != "swap":
+            references.extend(
+                [
+                    ("occurrence_id", request.occurrence_names),
+                    ("target_occurrence_id", request.target_occurrence_names),
+                ]
+            )
+        for key, allowed in references:
             if result.entities.get(key) and result.entities[key] not in allowed:
                 raise ProviderUnavailable("UNSUPPORTED_CHORE_REFERENCE")
         if result.availability:
