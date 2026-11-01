@@ -97,8 +97,8 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
         {
             await Access(house, actor, ct);
             var order = await OwnedOrder(house, id, actor, ct);
-            var isCashOrQr = request.Reference.Trim().StartsWith("QR:", StringComparison.OrdinalIgnoreCase) ||
-                             request.Reference.Trim().StartsWith("CASH:", StringComparison.OrdinalIgnoreCase);
+            var isCash = request.Reference.Trim().StartsWith("CASH:", StringComparison.OrdinalIgnoreCase);
+            var isCashOrQr = isCash || request.Reference.Trim().StartsWith("QR:", StringComparison.OrdinalIgnoreCase);
             if (!isCashOrQr && order.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT)
                 throw new ConflictException("Payment must be verified by PayOS. Open the order and choose Pay with PayOS.");
             if (order.PaymentRecordRequestId.HasValue)
@@ -107,10 +107,21 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
                     return SupplyOrderService.Map(order);
                 throw new ConflictException("Payment was already recorded. Do not record it again.");
             }
-            if (order.Status != SupplyOrderStatus.DRAFT || (order.Workflow != SupplyOrderWorkflow.SIMPLE_SMS && order.EmailDispatch?.State != OrderEmailState.Sent))
+            if (order.Status != SupplyOrderStatus.DRAFT || (!isCash && order.Workflow != SupplyOrderWorkflow.SIMPLE_SMS && order.EmailDispatch?.State != OrderEmailState.Sent))
                 throw new ConflictException("Send the order successfully before recording payment.");
-            if ((await store.PaymentsAsync(id, ct)).Count != 0) throw new ConflictException("Reconcile the existing online payment first.");
+            var payments = await store.PaymentsAsync(id, ct);
+            if (payments.Count != 0 && (!isCash || payments.Any(p => p.Status is SupplierPaymentStatus.VERIFIED or SupplierPaymentStatus.REFUNDED)))
+                throw new ConflictException("Reconcile the existing online payment first.");
+            if (isCash && request.Amount != order.Total)
+                throw new ConflictException("Cash payment must match the full order total.");
             var now = clock.GetUtcNow().UtcDateTime;
+            // Cash completes the order locally. Keep old online attempts for late-payment review.
+            if (isCash)
+                foreach (var payment in payments.Where(p => p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING))
+                {
+                    payment.Status = SupplierPaymentStatus.EXPIRED;
+                    payment.ExpiresAt = now;
+                }
             order.PaymentRecordRequestId = request.ClientRequestId; order.PaymentRecordedByUserId = actor;
             order.RecordedPaidAmount = request.Amount; order.PaymentConfirmationSource = OrderEmailState.UserReported;
             order.PaymentReference = request.Reference.Trim(); order.PaymentRecordedAt = now; order.PaidAt = now;

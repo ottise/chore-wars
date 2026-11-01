@@ -185,28 +185,12 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
         },
       );
       if (!mounted) return;
+      _poll?.cancel();
       setState(() => _localPaid = true);
-      ref.invalidate(
-        supplyOrderProvider((
-          house: widget.houseId,
-          id: widget.order['id'].toString(),
-        )),
-      );
-      ref.invalidate(supplyOrdersProvider(widget.houseId));
-      ref.invalidate(purchaseDebtsProvider(widget.houseId));
+      _invalidateOrderAndDebts();
     } catch (e) {
       if (!mounted) return;
-      final msg = apiErrorMessage(e);
-      if (msg.contains('PayOS') || msg.contains('not configured')) {
-        setState(() {
-          _localPaid = true;
-          _error = null;
-        });
-        ref.invalidate(supplyOrdersProvider(widget.houseId));
-        ref.invalidate(purchaseDebtsProvider(widget.houseId));
-      } else {
-        setState(() => _error = msg);
-      }
+      setState(() => _error = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -232,6 +216,12 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
         widget.order['payerUserId'] == me?.id ||
         (widget.order['payerUserId'] == null && creator);
     final recorded = _paid;
+    final paidInCash =
+        _localPaid ||
+        (widget.order['paymentReference']?.toString().toUpperCase().startsWith(
+              'CASH:',
+            ) ??
+            false);
     final shortId = widget.order['id'].toString().split('-').first;
     final lines = widget.order['lines'] as List? ?? [];
     final qrPayload = _qrPayload;
@@ -541,7 +531,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
               ],
               const SizedBox(height: 12),
               const Text(
-                'Debts are created only when PayOS confirms the full payment.',
+                'Debts are created after full payment by PayOS or cash.',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
             ],
@@ -561,9 +551,11 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Payment verified by PayOS',
+                        paidInCash
+                            ? 'Paid in cash'
+                            : 'Payment verified by PayOS',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
