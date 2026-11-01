@@ -250,6 +250,24 @@ class ProfileScreen extends ConsumerWidget {
                               children: [
                                 ListTile(
                                   leading: Icon(
+                                    Icons.settings_outlined,
+                                    color: colors.primary,
+                                  ),
+                                  title: const Text('House Settings'),
+                                  subtitle: const Text(
+                                    'Manage members & household preferences',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_outlined,
+                                    size: 18,
+                                  ),
+                                  onTap: () => context.push(
+                                    '/houses/$selectedHouse/settings',
+                                  ),
+                                ),
+                                const Divider(indent: 16, endIndent: 16),
+                                ListTile(
+                                  leading: Icon(
                                     Icons.payments_outlined,
                                     color: colors.primary,
                                   ),
@@ -434,26 +452,50 @@ class _ScheduleSettings extends ConsumerWidget {
                   'A season is needed to edit your availability and preferences.',
                 ),
               ),
-            ListTile(
-              title: const Text('Weekly Availability'),
-              subtitle: const Text(
-                'Choose the days and times you are available',
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outlineVariant
+                      .withValues(alpha: .35),
+                ),
               ),
-              onTap: season == null
-                  ? null
-                  : () => context.push(
-                      '/houses/$houseId/seasons/${season['id']}/availability',
-                    ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Text('Chore Preferences & Capacity'),
-              subtitle: const Text('Your preferred chores and workload limits'),
-              onTap: season == null
-                  ? null
-                  : () => context.push(
-                      '/houses/$houseId/seasons/${season['id']}/member-settings',
-                    ),
+              child: ListTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3E8FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: Color(0xFF7C4DFF),
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Capacity & Availability',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'Set your chore limits, favorite tasks, and weekly free time.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: Color(0xFF94A3B8),
+                ),
+                onTap: season == null
+                    ? null
+                    : () => context.push(
+                        '/houses/$houseId/seasons/${season['id']}/capacity-availability',
+                      ),
+              ),
             ),
           ],
         ),

@@ -350,14 +350,6 @@ class _ReviewScheduleScreenState extends ConsumerState<ReviewScheduleScreen> {
                       me: me,
                     )
                   : null,
-              scheduleFooter: _active
-                  ? _buildScheduleSection(
-                      context,
-                      members: members,
-                      waiting: waiting,
-                      me: me,
-                    )
-                  : null,
             ),
             HouseholdSummarySection(
               houseId: widget.houseId,

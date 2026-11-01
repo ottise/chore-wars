@@ -277,6 +277,7 @@ class _HouseholdCalendarState extends ConsumerState<HouseholdCalendar> {
     required bool hasData,
   }) => showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
@@ -499,6 +500,7 @@ class _HouseholdCalendarState extends ConsumerState<HouseholdCalendar> {
   void _gallery(BuildContext context, HouseCalendarDay day) =>
       showModalBottomSheet<void>(
         context: context,
+        useRootNavigator: true,
         isScrollControlled: true,
         showDragHandle: true,
         builder: (ctx) => SafeArea(

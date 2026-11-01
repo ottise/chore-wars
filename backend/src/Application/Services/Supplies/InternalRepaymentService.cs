@@ -102,8 +102,10 @@ public sealed class InternalRepaymentService(ISupplyRepository store, IUnitOfWor
     }
     private async Task EnsurePayable(PaymentObligation d, CancellationToken ct)
     {
-        if (d.Status == PaymentObligationStatus.AWAITING_COMPLETION || d.Status == PaymentObligationStatus.CANCELLED)
+        if (d.Status == PaymentObligationStatus.CANCELLED)
             throw new ConflictException("This obligation is not payable yet.");
+        if (d.Status == PaymentObligationStatus.AWAITING_COMPLETION)
+            d.Status = PaymentObligationStatus.PENDING;
         if (d.Reason != PaymentObligationReason.FORCED_REASSIGNMENT) return;
         var occurrence = d.OccurrenceId.HasValue ? await uow.ChoreOccurrences.GetByIdAsync(d.OccurrenceId.Value, ct) : null;
         if (occurrence?.Status != ChoreOccurrenceStatus.COMPLETED || occurrence.AssignedUserId != d.CreditorUserId)

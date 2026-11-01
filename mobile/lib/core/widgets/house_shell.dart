@@ -118,17 +118,13 @@ class HouseShell extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            UrgentCampaignNotification(
-              key: ValueKey(houseId),
-              houseId: houseId,
-            ),
             if (!keyboard && !conversation && !selfContainedHeader)
               Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: redesigned ? 480 : 800),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
+                      horizontal: 10,
                       vertical: 6,
                     ),
                     child: Row(
@@ -139,9 +135,10 @@ class HouseShell extends ConsumerWidget {
                             child: TextButton(
                               onPressed: () => context.go('/houses'),
                               style: TextButton.styleFrom(
-                                minimumSize: const Size(0, 44),
+                                minimumSize: const Size(0, 40),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 10,
                                 ),
                                 backgroundColor: colors.primaryFixed,
                                 foregroundColor: colors.onPrimaryFixedVariant,
@@ -155,7 +152,7 @@ class HouseShell extends ConsumerWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.circle_outlined, size: 7),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 5),
                                   Flexible(
                                     child: Text(
                                       house?.name ?? 'My House',
@@ -167,7 +164,7 @@ class HouseShell extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 3),
+                                  const SizedBox(width: 2),
                                   const Icon(
                                     Icons.expand_more_outlined,
                                     size: 15,
@@ -177,12 +174,13 @@ class HouseShell extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         IconButton.filledTonal(
                           tooltip: 'House Invite QR Code',
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(44, 44),
-                            maximumSize: const Size(44, 44),
+                            minimumSize: const Size(38, 38),
+                            maximumSize: const Size(38, 38),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             padding: EdgeInsets.zero,
                             backgroundColor: colors.surfaceContainerLowest,
                             foregroundColor: colors.onSurfaceVariant,
@@ -193,23 +191,80 @@ class HouseShell extends ConsumerWidget {
                                   '$base/qr-invite',
                                   extra: house,
                                 ),
-                          icon: const Icon(Icons.qr_code_outlined, size: 20),
+                          icon: const Icon(Icons.qr_code_outlined, size: 19),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 4),
+                        IconButton.filledTonal(
+                          tooltip: 'Season Ranking',
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(38, 38),
+                            maximumSize: const Size(38, 38),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.zero,
+                            backgroundColor: colors.surfaceContainerLowest,
+                            foregroundColor: const Color(0xFFD97706),
+                          ),
+                          onPressed: house == null
+                              ? null
+                              : () async {
+                                  final cached = ref
+                                      .read(activeSeasonProvider(houseId))
+                                      .asData
+                                      ?.value;
+                                  final season =
+                                      cached ??
+                                      await ref
+                                          .read(
+                                            activeSeasonProvider(
+                                              houseId,
+                                            ).future,
+                                          )
+                                          .catchError((_) => null);
+                                  if (!context.mounted) return;
+                                  final seasonId = season?['id']?.toString();
+                                  if (seasonId != null && seasonId.isNotEmpty) {
+                                    context.push(
+                                      '$base/seasons/$seasonId/leaderboard',
+                                    );
+                                  } else {
+                                    context.push('$base/more');
+                                  }
+                                },
+                          icon: const Icon(
+                            Icons.emoji_events_outlined,
+                            size: 19,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         SizedBox(
-                          width: 44,
+                          width: 38,
                           child: NotificationBell(houseId: houseId),
                         ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 72,
+                        const SizedBox(width: 4),
+                        IconButton.filledTonal(
+                          tooltip: 'House Settings',
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(38, 38),
+                            maximumSize: const Size(38, 38),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.zero,
+                            backgroundColor: colors.surfaceContainerLowest,
+                            foregroundColor: colors.onSurfaceVariant,
+                          ),
+                          onPressed: () => context.push('$base/settings'),
+                          icon: const Icon(Icons.settings_outlined, size: 19),
+                        ),
+                        const SizedBox(width: 4),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 68),
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () => context.push('$base/account'),
                               style: TextButton.styleFrom(
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 7,
                                 ),
                                 backgroundColor: colors.surfaceContainerLowest,
                                 foregroundColor: colors.onSurface,
@@ -265,6 +320,16 @@ class HouseShell extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+            if (!keyboard)
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: redesigned ? 480 : 800),
+                  child: UrgentCampaignNotification(
+                    key: ValueKey(houseId),
+                    houseId: houseId,
                   ),
                 ),
               ),

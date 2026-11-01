@@ -5,5 +5,6 @@ public interface IPurchasePaymentGateway {
  void EnsureConfigured();
  Task<SupplierCheckoutResult> CreateAsync(SupplierCheckoutRequest request, CancellationToken ct);
  Task<SupplierPaymentResult> QueryAsync(long orderCode, CancellationToken ct);
+ Task<SupplierPaymentResult> CancelAsync(long orderCode, string paymentLinkId, string reason, CancellationToken ct);
  Task<SupplierPaymentResult> VerifyAsync(JsonElement webhook, CancellationToken ct);
 }

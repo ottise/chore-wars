@@ -45,15 +45,21 @@ class SuppliesPage extends StatelessWidget {
     required this.title,
     required this.child,
     this.actions,
+    this.centerTitle = false,
     super.key,
   });
   final String title;
   final Widget child;
   final List<Widget>? actions;
+  final bool centerTitle;
   @override
   Widget build(BuildContext context) => AppPageFrame(
     builder: (_) => Scaffold(
-      appBar: AppPageBar(title: title, actions: actions),
+      appBar: AppPageBar(
+        title: title,
+        actions: actions,
+        centerTitle: centerTitle,
+      ),
       body: child,
     ),
   );

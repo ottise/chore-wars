@@ -11,11 +11,18 @@ using Microsoft.Extensions.DependencyInjection;
 namespace IntegrationTests.Infrastructure;
 public sealed class SupplyPurchaseTests
 {
+ private sealed class TestClock(DateTimeOffset utcNow):TimeProvider
+ {
+  public DateTimeOffset UtcNow { get; private set; }=utcNow;
+  public override DateTimeOffset GetUtcNow()=>UtcNow;
+  public void Advance(TimeSpan duration)=>UtcNow=UtcNow.Add(duration);
+ }
  private sealed class Gateway:IPurchasePaymentGateway {
-  public SupplierCheckoutRequest? Request;public bool Paid;
+  public SupplierCheckoutRequest? Request;public bool Paid;public bool Cancelled;public int CreateCount;public int CancelCount;
   public void EnsureConfigured(){}
-  public Task<SupplierCheckoutResult>CreateAsync(SupplierCheckoutRequest r,CancellationToken ct){Request=r;return Task.FromResult(new SupplierCheckoutResult("test-link","https://pay.payos.vn/test","test-qr"));}
-  public Task<SupplierPaymentResult>QueryAsync(long code,CancellationToken ct)=>Task.FromResult(new SupplierPaymentResult(code,Paid?"PAID":"PENDING",Request!.Amount,"test-link","test-bank-reference"));
+  public Task<SupplierCheckoutResult>CreateAsync(SupplierCheckoutRequest r,CancellationToken ct){Request=r;CreateCount++;Cancelled=false;return Task.FromResult(new SupplierCheckoutResult($"test-link-{CreateCount}",$"https://pay.payos.vn/test-{CreateCount}",$"test-qr-{CreateCount}"));}
+  public Task<SupplierPaymentResult>QueryAsync(long code,CancellationToken ct)=>Task.FromResult(new SupplierPaymentResult(code,Paid?"PAID":Cancelled?"CANCELLED":"PENDING",Request!.Amount,$"test-link-{CreateCount}","test-bank-reference"));
+  public Task<SupplierPaymentResult>CancelAsync(long orderCode,string paymentLinkId,string reason,CancellationToken ct){CancelCount++;Cancelled=true;return Task.FromResult(new SupplierPaymentResult(orderCode,"CANCELLED",Request!.Amount,paymentLinkId,$"cancel:{orderCode}"));}
   public Task<SupplierPaymentResult>VerifyAsync(JsonElement payload,CancellationToken ct)=>QueryAsync(Request!.OrderCode,ct);
  }
  private sealed record Seed(Guid House,Guid A,Guid B,Guid C,Guid SupplierActor,Guid Supplier,Guid Product);
@@ -61,13 +68,28 @@ public sealed class SupplyPurchaseTests
   Assert.Equal("SIMPLE_SMS",order.Workflow);Assert.Equal(3,order.Shares.Count);Assert.Equal(360000,order.Shares.Sum(s=>s.Amount));
   await Assert.ThrowsAsync<ConflictException>(()=>Call<ISimpleSupplyOrderService,SupplyOrderResponse>(f,x=>x.RecordPaymentAsync(seed.House,order.Id,seed.A,new(Guid.NewGuid(),360000,"fake"),default)));
   var checkout=await Call<ISupplierPaymentService,SupplierCheckoutResponse>(f,x=>x.CheckoutAsync(seed.House,order.Id,seed.A,order.Version,default));
-  Assert.Equal("PENDING",checkout.Status);Assert.Equal("https://pay.payos.vn/test",checkout.CheckoutUrl);
+  Assert.Equal("PENDING",checkout.Status);Assert.Equal("https://pay.payos.vn/test-1",checkout.CheckoutUrl);
   gateway.Paid=true;
   var verified=await Call<ISupplierPaymentService,SupplierCheckoutResponse?>(f,x=>x.RefreshAsync(seed.House,order.Id,seed.A,default));Assert.Equal("VERIFIED",verified!.Status);
   var paid=await Call<ISupplyOrderService,SupplyOrderResponse>(f,x=>x.ReadAsync(seed.House,order.Id,seed.A,default));Assert.Equal("PAID",paid.Status);Assert.Equal("PAYOS_VERIFIED",paid.PaymentConfirmationSource);
   var debts=await Call<IInternalRepaymentService,PurchaseDebtSummaryResponse>(f,x=>x.SummaryAsync(seed.House,seed.A,default));
   Assert.Equal(2,debts.Debts.Count);Assert.Equal(240000,debts.OwedToMe);Assert.Equal(120000,debts.PersonalCost);
   await using var read=f.Services.CreateAsyncScope();var db=read.ServiceProvider.GetRequiredService<AppDbContext>();Assert.Equal(2,await db.PaymentObligations.CountAsync());
+ }
+ [PostgresFact]public async Task SavedSmsOrderCanGetFreshPayOsLinkAfterTwoDaysWithoutCreatingDebtEarly(){
+  var clock=new TestClock(new DateTimeOffset(2026,10,1,8,0,0,TimeSpan.Zero));var gateway=new Gateway();
+  await using var f=await PostgresFixture.CreateAsync(configure:s=>{s.AddSingleton<IPurchasePaymentGateway>(gateway);s.AddSingleton<TimeProvider>(clock);});var seed=await Data(f);
+  var request=new SendSupplyOrderRequest(Guid.NewGuid(),seed.Supplier,[new(seed.Product,1)],Shares:[new(seed.A),new(seed.B),new(seed.C)]);
+  var order=await Call<ISimpleSupplyOrderService,SupplyOrderResponse>(f,x=>x.SendAsync(seed.House,seed.A,request,default));
+  var first=await Call<ISupplierPaymentService,SupplierCheckoutResponse>(f,x=>x.CheckoutAsync(seed.House,order.Id,seed.A,order.Version,default));
+  Assert.Equal("PENDING",first.Status);Assert.Equal("https://pay.payos.vn/test-1",first.CheckoutUrl);
+  clock.Advance(TimeSpan.FromDays(2));
+  var renewed=await Call<ISupplierPaymentService,SupplierCheckoutResponse>(f,x=>x.CheckoutAsync(seed.House,order.Id,seed.A,order.Version,default));
+  Assert.Equal("PENDING",renewed.Status);Assert.Equal("https://pay.payos.vn/test-2",renewed.CheckoutUrl);Assert.NotEqual(first.PaymentId,renewed.PaymentId);
+  Assert.Equal(1,gateway.CancelCount);Assert.Equal(2,gateway.CreateCount);
+  var saved=await Call<ISupplyOrderService,SupplyOrderResponse>(f,x=>x.ReadAsync(seed.House,order.Id,seed.A,default));Assert.Equal("DRAFT",saved.Status);Assert.Equal(order.Id,saved.Id);
+  var debts=await Call<IInternalRepaymentService,PurchaseDebtSummaryResponse>(f,x=>x.SummaryAsync(seed.House,seed.A,default));Assert.Empty(debts.Debts);
+  await using var verify=f.Services.CreateAsyncScope();var db=verify.ServiceProvider.GetRequiredService<AppDbContext>();var payments=await db.SupplierPayments.OrderBy(x=>x.CreatedAt).ToListAsync();Assert.Equal(2,payments.Count);Assert.Equal(SupplierPaymentStatus.EXPIRED,payments[0].Status);Assert.Equal(SupplierPaymentStatus.PENDING,payments[1].Status);
  }
  [PostgresFact]public async Task SupplierRefundAfterRepaymentCreatesReturnDebtWithoutNetting(){
   var gateway=new Gateway();await using var f=await PostgresFixture.CreateAsync(configure:s=>s.AddSingleton<IPurchasePaymentGateway>(gateway));var seed=await Data(f);var order=await Buy(f,seed,gateway);

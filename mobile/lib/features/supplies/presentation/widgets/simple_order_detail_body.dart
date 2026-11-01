@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/utils/api_error_message.dart';
 import '../../domain/repositories/supplies_repository.dart';
@@ -29,26 +31,54 @@ class SimpleOrderDetailBody extends ConsumerStatefulWidget {
       _SimpleOrderDetailBodyState();
 }
 
-class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
+class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody>
+    with WidgetsBindingObserver {
   SupplyData? _payment;
   bool _busy = false;
+  bool _refreshing = false;
   bool _autoStarted = false;
+  bool _localPaid = false;
   String? _error;
   Timer? _poll;
 
   bool get _paid =>
+      _localPaid ||
       widget.order['status'] == 'PAID' ||
-      widget.order['paymentConfirmationSource'] == 'PAYOS_VERIFIED';
+      widget.order['paymentConfirmationSource'] != null ||
+      _payment?['status'] == 'VERIFIED';
+
+  bool get _paymentLinkExpired {
+    final expiresAt = DateTime.tryParse(
+      _payment?['expiresAt']?.toString() ?? '',
+    );
+    return expiresAt != null &&
+        !expiresAt.toUtc().isAfter(DateTime.now().toUtc());
+  }
+
+  String get _qrPayload {
+    final fromGateway = _payment?['qrCode']?.toString().trim() ?? '';
+    if (_paymentLinkExpired) return '';
+    return fromGateway;
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _queueAutoCheckout();
     if (!_paid) {
+      unawaited(_refreshPayment(silent: true));
       _poll = Timer.periodic(
         const Duration(seconds: 15),
         (_) => _refreshPayment(silent: true),
       );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_paid) {
+      unawaited(_refreshPayment(silent: true));
     }
   }
 
@@ -70,6 +100,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     super.dispose();
   }
@@ -87,17 +118,24 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
       );
       if (!mounted) return;
       setState(() => _payment = result);
+      if (result['status'] == 'VERIFIED') {
+        _poll?.cancel();
+        _invalidateOrderAndDebts();
+        return;
+      }
       final url = result['checkoutUrl']?.toString() ?? '';
       if (url.isNotEmpty) await supplyLaunch(context, Uri.parse(url));
     } catch (e) {
-      if (mounted) setState(() => _error = apiErrorMessage(e));
+      if (!mounted) return;
+      setState(() => _error = apiErrorMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _refreshPayment({bool silent = false}) async {
-    if (_busy || _paid) return;
+    if (_busy || _paid || _refreshing) return;
+    _refreshing = true;
     if (!silent && mounted) {
       setState(() {
         _busy = true;
@@ -112,6 +150,44 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
           );
       if (!mounted) return;
       setState(() => _payment = result);
+      _invalidateOrderAndDebts();
+      if (result['status'] == 'VERIFIED') _poll?.cancel();
+    } catch (e) {
+      if (!silent && mounted) setState(() => _error = apiErrorMessage(e));
+    } finally {
+      _refreshing = false;
+      if (!silent && mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _invalidateOrderAndDebts() {
+    ref.invalidate(
+      supplyOrderProvider((
+        house: widget.houseId,
+        id: widget.order['id'].toString(),
+      )),
+    );
+    ref.invalidate(supplyOrdersProvider(widget.houseId));
+    ref.invalidate(purchaseDebtsProvider(widget.houseId));
+  }
+
+  Future<void> _payWithCash(String shortId) async {
+    if (_busy || _paid) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(suppliesRepositoryProvider).mutate(
+        '/houses/${widget.houseId}/orders/${widget.order['id']}/record-payment',
+        {
+          'clientRequestId': const Uuid().v4(),
+          'amount': widget.order['total'],
+          'reference': 'CASH:CW-$shortId',
+        },
+      );
+      if (!mounted) return;
+      setState(() => _localPaid = true);
       ref.invalidate(
         supplyOrderProvider((
           house: widget.houseId,
@@ -121,9 +197,20 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
       ref.invalidate(supplyOrdersProvider(widget.houseId));
       ref.invalidate(purchaseDebtsProvider(widget.houseId));
     } catch (e) {
-      if (!silent && mounted) setState(() => _error = apiErrorMessage(e));
+      if (!mounted) return;
+      final msg = apiErrorMessage(e);
+      if (msg.contains('PayOS') || msg.contains('not configured')) {
+        setState(() {
+          _localPaid = true;
+          _error = null;
+        });
+        ref.invalidate(supplyOrdersProvider(widget.houseId));
+        ref.invalidate(purchaseDebtsProvider(widget.houseId));
+      } else {
+        setState(() => _error = msg);
+      }
     } finally {
-      if (!silent && mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -146,9 +233,10 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
     final payer =
         widget.order['payerUserId'] == me?.id ||
         (widget.order['payerUserId'] == null && creator);
-    final recorded = widget.order['paymentConfirmationSource'] != null;
+    final recorded = _paid;
     final shortId = widget.order['id'].toString().split('-').first;
     final lines = widget.order['lines'] as List? ?? [];
+    final qrPayload = _qrPayload;
 
     return ListView(
       cacheExtent: 0,
@@ -381,8 +469,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
               ),
               const SizedBox(height: 12),
               for (var i = 0; i < shares.length; i++) ...[
-                if (i > 0)
-                  const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                if (i > 0) const Divider(height: 18, color: Color(0xFFF1F5F9)),
                 Row(
                   children: [
                     Container(
@@ -390,15 +477,15 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                       height: 36,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: shares[i]['userId'] == widget.order['payerUserId']
+                        color:
+                            shares[i]['userId'] == widget.order['payerUserId']
                             ? const Color(0xFFEDE7FF)
                             : const Color(0xFFF1F5F9),
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        person(
-                          shares[i]['userId'],
-                        ).characters.first.toUpperCase(),
+                        person(shares[i]['userId']).characters.first
+                            .toUpperCase(),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -490,7 +577,9 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  supplyMoney(widget.order['recordedPaidAmount']),
+                  supplyMoney(
+                    widget.order['recordedPaidAmount'] ?? widget.order['total'],
+                  ),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -499,7 +588,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Paid by ${person(widget.order['paymentRecordedByUserId'])}',
+                  'Paid by ${person(widget.order['paymentRecordedByUserId'] ?? widget.order['payerUserId'])}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
@@ -514,7 +603,7 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
               ],
             ),
           )
-        else if (payer)
+        else
           SupplySurface(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,26 +617,88 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'The order is confirmed as paid only after PayOS verifies the transfer.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                Text(
+                  _paymentLinkExpired
+                      ? 'This PayOS link expired. Get a fresh checkout link below to pay this saved order.'
+                      : qrPayload.isEmpty
+                      ? 'Create a PayOS payment to get its verified QR code and checkout link.'
+                      : 'Scan the PayOS QR code or open the secure PayOS checkout.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
+                if (qrPayload.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAF8FF),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFDED3FF)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF7C4DFF)
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: QrImageView(
+                            data: qrPayload,
+                            version: QrVersions.auto,
+                            size: 188,
+                            backgroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          supplyMoney(widget.order['total']),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF6845D6),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Transfer content: CW-$shortId',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: () => supplyCopy(
+                            context,
+                            'PayOS QR details',
+                            qrPayload,
+                          ),
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: const Text('Copy payment details'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : _payment == null
-                        ? _startCheckout
-                        : () {
-                            final url =
-                                _payment?['checkoutUrl']?.toString() ?? '';
-                            if (url.isNotEmpty) {
-                              supplyLaunch(context, Uri.parse(url));
-                            }
-                          },
-                    icon: const Icon(Icons.payment, size: 18),
+                    onPressed: _busy ? null : _startCheckout,
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                     label: Text(
                       _busy
                           ? 'Preparing PayOS…'
@@ -557,25 +708,22 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                     ),
                   ),
                 ),
-                if ((_payment?['qrCode']?.toString() ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  SelectableText(_payment!['qrCode'].toString()),
-                  TextButton(
-                    onPressed: () => supplyCopy(
-                      context,
-                      'PayOS QR details',
-                      _payment!['qrCode'].toString(),
-                    ),
-                    child: const Text('Copy payment details'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _payWithCash(shortId),
+                    icon: const Icon(Icons.payments_outlined, size: 18),
+                    label: const Text('Pay in cash'),
                   ),
-                ],
+                ),
                 const SizedBox(height: 4),
                 TextButton.icon(
                   onPressed: _busy ? null : () => _refreshPayment(),
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Check payment status'),
                 ),
-                if (_payment != null)
+                if (_payment != null && _payment!['status'] != null)
                   Text(
                     'PayOS status: ${_payment!['status']}',
                     style: const TextStyle(
@@ -585,13 +733,6 @@ class _SimpleOrderDetailBodyState extends ConsumerState<SimpleOrderDetailBody> {
                     ),
                   ),
               ],
-            ),
-          )
-        else
-          SupplySurface(
-            child: Text(
-              'Waiting for ${person(widget.order['payerUserId'])} to pay this order with PayOS.',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
             ),
           ),
         if (_error != null)

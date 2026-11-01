@@ -49,6 +49,7 @@ import '../../features/gamification/presentation/screens/leaderboard_screen.dart
     as gamification_leaderboard;
 import '../../features/gamification/presentation/screens/season_reward_screen.dart';
 import '../../features/house/presentation/screens/availability_screen.dart';
+import '../../features/house/presentation/screens/capacity_availability_screen.dart';
 import '../../features/house/presentation/screens/bonus_chores_screen.dart';
 import '../../features/house/presentation/screens/create_house_screen.dart';
 import '../../features/house/presentation/screens/member_settings_screen.dart';
@@ -211,6 +212,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'orders',
                     builder: (_, state) => OrdersScreen(
+                      initialTab:
+                          int.tryParse(state.uri.queryParameters['tab'] ?? '') ??
+                              0,
                       houseId: state.pathParameters['houseId']!,
                       aiDraft: state.extra is Map
                           ? Map<String, dynamic>.from(state.extra as Map)
@@ -499,6 +503,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                       houseId: state.pathParameters['houseId']!,
                       seasonId: state.pathParameters['seasonId']!,
                       redemptionId: state.pathParameters['redemptionId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'seasons/:seasonId/capacity-availability',
+                    builder: (context, state) => CapacityAvailabilityScreen(
+                      houseId: state.pathParameters['houseId']!,
+                      seasonId: state.pathParameters['seasonId']!,
                     ),
                   ),
                   GoRoute(

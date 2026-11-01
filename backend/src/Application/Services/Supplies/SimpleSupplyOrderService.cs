@@ -97,7 +97,9 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
         {
             await Access(house, actor, ct);
             var order = await OwnedOrder(house, id, actor, ct);
-            if (order.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT)
+            var isCashOrQr = request.Reference.Trim().StartsWith("QR:", StringComparison.OrdinalIgnoreCase) ||
+                             request.Reference.Trim().StartsWith("CASH:", StringComparison.OrdinalIgnoreCase);
+            if (!isCashOrQr && order.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT)
                 throw new ConflictException("Payment must be verified by PayOS. Open the order and choose Pay with PayOS.");
             if (order.PaymentRecordRequestId.HasValue)
             {
@@ -116,6 +118,21 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
             var activity = new SupplyOrderActivity { Id = Guid.NewGuid(), OrderId = id, ActorUserId = actor, Kind = OrderEmailState.UserReported,
                 Amount = request.Amount, RecordedAt = now, Reference = order.PaymentReference };
             order.Activities.Add(activity); store.Add(activity);
+            foreach (var share in order.Shares.Where(s => s.UserId != order.PayerUserId && s.Amount > 0))
+            {
+                await uow.PaymentObligations.AddAsync(new PaymentObligation
+                {
+                    Id = Guid.NewGuid(),
+                    HouseId = order.HouseId,
+                    SourceOrderId = order.Id,
+                    DebtorUserId = share.UserId,
+                    CreditorUserId = order.PayerUserId,
+                    Amount = share.Amount,
+                    Reason = PaymentObligationReason.HOUSEHOLD_PURCHASE,
+                    Status = PaymentObligationStatus.PENDING,
+                    CreatedAt = now
+                }, ct);
+            }
             return SupplyOrderService.Map(order);
         }, ct);
     }

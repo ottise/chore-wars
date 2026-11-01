@@ -200,8 +200,6 @@ class _HouseholdSummarySectionState
   }
 
   Widget _buildSpendingSection(Map<String, dynamic> data) {
-    final externalAmount = (data['externalPayments'] as num? ?? 0).round();
-    final formattedHeroAmount = NumberFormat('#,###').format(externalAmount);
     final paidOrders = (data['paidOrderCount'] as num? ?? 0).toInt();
     final unpaidOrders = (data['unpaidOrderCount'] as num? ?? 0).toInt();
     final orders = data['orders'] as List? ?? [];
@@ -210,7 +208,6 @@ class _HouseholdSummarySectionState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -226,90 +223,86 @@ class _HouseholdSummarySectionState
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'TOTAL EXTERNAL SPENDING',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: Colors.white.withValues(alpha: 0.88),
-                      ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: () =>
+                  context.push('/houses/${widget.houseId}/orders?tab=1'),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'TOTAL EXTERNAL SPENDING',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'View details',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'This Month',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Flexible(
-                    child: Text(
-                      formattedHeroAmount,
+                    const SizedBox(height: 12),
+                    Text(
+                      supplyMoney(data['externalPayments']),
                       style: const TextStyle(
-                        fontSize: 32,
+                        fontSize: 30,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         height: 1.1,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'VND',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: 0.9),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$paidOrders ${paidOrders == 1 ? 'transaction' : 'transactions'} recorded this month · Tap to view details',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '$paidOrders ${paidOrders == 1 ? 'transaction' : 'transactions'} recorded across household groceries and essentials',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.88),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 14),
-        _SpendingMetricTile(
-          icon: Icons.credit_card_rounded,
-          iconBg: _purpleSoft,
-          iconColor: _purple,
-          title: 'Recorded external payments',
-          subtitle: 'Paid to third-party suppliers',
-          value: supplyMoney(data['externalPayments']),
-        ),
-        const SizedBox(height: 10),
         _SpendingMetricTile(
           icon: Icons.check_circle_outline_rounded,
           iconBg: const Color(0xFFDCFCE7),
@@ -318,6 +311,8 @@ class _HouseholdSummarySectionState
           badgeText: 'Settled',
           subtitle: 'Fulfilled group orders',
           value: '$paidOrders',
+          onTap: () =>
+              context.push('/houses/${widget.houseId}/orders?tab=1'),
         ),
         const SizedBox(height: 10),
         _SpendingMetricTile(
@@ -325,8 +320,11 @@ class _HouseholdSummarySectionState
           iconBg: const Color(0xFFFEF3C7),
           iconColor: const Color(0xFFD97706),
           title: 'Unpaid orders',
+          badgeText: unpaidOrders > 0 ? 'Pending' : null,
           subtitle: 'Created this month',
           value: '$unpaidOrders',
+          onTap: () =>
+              context.push('/houses/${widget.houseId}/orders?tab=1'),
         ),
         const SizedBox(height: 10),
         _SpendingMetricTile(
@@ -336,68 +334,85 @@ class _HouseholdSummarySectionState
           title: 'Internal transfers',
           subtitle: 'Between housemates',
           value: supplyMoney(data['internalTransfers']),
-        ),
-        const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFDE68A)),
-          ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 18,
-                color: Color(0xFFD97706),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Transfers between members are not counted again as household spending. User-recorded payments are not bank verification.',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.4,
-                    color: Color(0xFF92400E),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          onTap: () =>
+              context.push('/houses/${widget.houseId}/account/debts'),
         ),
         if (orders.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Text(
+              'Orders this month',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
           for (final order in orders)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
                 color: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   side: const BorderSide(color: Color(0xFFEDEAF6)),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E8FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Color(0xFF7C4DFF),
+                      size: 18,
+                    ),
+                  ),
                   title: Text(
                     '${order['supplier']} · ${supplyMoney(order['amount'])}',
                     style: const TextStyle(
                       fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
                     ),
                   ),
                   subtitle: Text(
                     'Paid by ${order['payer']} · ${order['confirmationSource'] == 'USER_REPORTED' ? 'User recorded' : 'Provider confirmed'}',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Color(0xFF94A3B8),
+                  ),
                   onTap: () => context.push(
                     '/houses/${widget.houseId}/orders/${order['id']}',
                   ),
                 ),
               ),
             ),
+        ] else ...[
+          const SizedBox(height: 14),
+          Center(
+            child: TextButton.icon(
+              onPressed: () =>
+                  context.push('/houses/${widget.houseId}/orders?tab=1'),
+              icon: const Icon(Icons.receipt_long_outlined, size: 16),
+              label: const Text('View all orders history'),
+            ),
+          ),
         ],
       ],
     );
@@ -1284,6 +1299,7 @@ class _SpendingMetricTile extends StatelessWidget {
     required this.subtitle,
     required this.value,
     this.badgeText,
+    this.onTap,
   });
 
   final IconData icon;
@@ -1293,88 +1309,103 @@ class _SpendingMetricTile extends StatelessWidget {
   final String subtitle;
   final String value;
   final String? badgeText;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEDEAF6)),
+        side: const BorderSide(color: Color(0xFFEDEAF6)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: iconColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ),
-                    if (badgeText != null) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          badgeText!,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF15803D),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1E293B),
+                            ),
                           ),
                         ),
+                        if (badgeText != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              badgeText!,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
                       ),
-                    ],
+                    ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF64748B),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: Color(0xFF94A3B8),
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

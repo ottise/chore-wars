@@ -42,7 +42,17 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
       ref.invalidate(householdSummaryProvider);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) setState(() => _error = apiErrorMessage(e));
+      if (!mounted) return;
+      final msg = apiErrorMessage(e);
+      if (msg.contains('not payable yet') ||
+          msg.contains('awaiting chore completion')) {
+        ref.invalidate(purchaseDebtsProvider(widget.houseId));
+        ref.invalidate(paymentHistoryProvider);
+        ref.invalidate(householdSummaryProvider);
+        Navigator.of(context).pop(true);
+      } else {
+        setState(() => _error = msg);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,51 +92,41 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
                 Text('Remaining: ${supplyMoney(remaining)}'),
                 for (final transfer in pending)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: SupplySurface(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            '${supplyMoney(transfer['amount'])} · Awaiting confirmation',
-                          ),
-                          if (!widget.debtor) ...[
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _run(
-                                      'repayments/${transfer['id']}/respond',
-                                      {'confirm': true},
-                                    ),
-                              child: const Text('Confirm'),
-                            ),
-                          ],
-                        ],
+                      child: Text(
+                        '${supplyMoney(transfer['amount'])} · Awaiting confirmation',
                       ),
                     ),
                   ),
-                if (remaining > 0 &&
-                    (widget.debtor ? maximum > 0 : pending.isEmpty)) ...[
+                if (remaining > 0 && (!widget.debtor || maximum > 0)) ...[
                   const SizedBox(height: 16),
                   Text(
                     widget.debtor
                         ? 'Confirm that you transferred ${supplyMoney(maximum)}. The recipient must confirm receipt.'
-                        : 'Confirm that you received ${supplyMoney(remaining)}.',
+                        : 'Confirm that you received ${supplyMoney(pending.isNotEmpty ? (pending.first['amount'] as num) : remaining)}.',
                   ),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _busy
                         ? null
-                        : () => _run(
-                            widget.debtor ? 'repayments' : 'record-receipt',
-                            {
-                              'clientRequestId': _request,
-                              'amount': (widget.debtor ? maximum : remaining)
-                                  .toInt(),
-                              'reference': '',
-                            },
-                          ),
+                        : () => !widget.debtor && pending.isNotEmpty
+                              ? _run(
+                                  'repayments/${pending.first['id']}/respond',
+                                  {'confirm': true},
+                                )
+                              : _run(
+                                  widget.debtor
+                                      ? 'repayments'
+                                      : 'record-receipt',
+                                  {
+                                    'clientRequestId': _request,
+                                    'amount':
+                                        (widget.debtor ? maximum : remaining)
+                                            .toInt(),
+                                    'reference': '',
+                                  },
+                                ),
                     child: Text(_busy ? 'Saving…' : 'Confirm'),
                   ),
                 ],
@@ -143,10 +143,6 @@ class _DebtActionSheetState extends ConsumerState<DebtActionSheet> {
                       ),
                     ),
                   ),
-                TextButton(
-                  onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                ),
               ],
             ),
           ),

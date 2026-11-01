@@ -19,7 +19,7 @@ public sealed class PayOsPurchasePaymentGateway(HttpClient http, IOptions<PayOsO
     private PayOsOptions Settings()
     {
         var o = options.Value;
-        if (!o.Enabled || o.OperatorUserId == Guid.Empty || string.IsNullOrWhiteSpace(o.ClientId) ||
+        if (!o.Enabled || string.IsNullOrWhiteSpace(o.ClientId) ||
             string.IsNullOrWhiteSpace(o.ApiKey) || string.IsNullOrWhiteSpace(o.ChecksumKey) || string.IsNullOrWhiteSpace(o.AccountNumber))
             throw new ConflictException("Supplier payment is not configured. No payment or purchase debt has been recorded.");
         return o;
@@ -55,6 +55,16 @@ public sealed class PayOsPurchasePaymentGateway(HttpClient http, IOptions<PayOsO
         var status = d.GetProperty("status").GetString() ?? "PENDING";
         var amount = status == "PAID" ? d.GetProperty("amountPaid").GetDecimal() : d.GetProperty("amount").GetDecimal();
         return new(d.GetProperty("orderCode").GetInt64(), status, amount, d.GetProperty("id").GetString()!, $"query:{code}");
+    }
+    public async Task<SupplierPaymentResult> CancelAsync(long orderCode, string paymentLinkId, string reason, CancellationToken ct)
+    {
+        var result = await Send(HttpMethod.Post, $"v2/payment-requests/{Uri.EscapeDataString(paymentLinkId)}/cancel",
+            new { cancellationReason = reason }, ct);
+        var d = result.GetProperty("data");
+        var status = d.GetProperty("status").GetString() ?? "PENDING";
+        var amount = status == "PAID" ? d.GetProperty("amountPaid").GetDecimal() : d.GetProperty("amount").GetDecimal();
+        return new(d.GetProperty("orderCode").GetInt64(), status, amount,
+            d.GetProperty("id").GetString()!, $"cancel:{orderCode}");
     }
     public Task<SupplierPaymentResult> VerifyAsync(JsonElement webhook, CancellationToken ct)
     {

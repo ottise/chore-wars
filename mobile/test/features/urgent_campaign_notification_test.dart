@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:chore_wars/core/theme/app_theme.dart';
+import 'package:chore_wars/features/auth/domain/entities/auth_models.dart';
+import 'package:chore_wars/features/auth/presentation/providers/auth_providers.dart';
 import 'package:chore_wars/features/chat/data/models/action_proposal_model.dart';
 import 'package:chore_wars/features/chat/presentation/widgets/urgent_campaign_notification.dart';
 import 'package:chore_wars/features/chat/providers/action_proposal_providers.dart';
@@ -43,13 +45,23 @@ void main() {
     WidgetTester tester,
     ActionProposalModel? proposal, {
     double scale = 1,
+    String? userId,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
+        key: UniqueKey(),
         overrides: [
           activeUrgentEventForHouseProvider.overrideWith(
             (ref, id) async => proposal,
           ),
+          if (userId != null)
+            userProfileProvider.overrideWith(
+              (ref) async => UserProfile(
+                id: userId,
+                email: '$userId@example.test',
+                displayName: userId,
+              ),
+            ),
           houseMembersProvider.overrideWith(
             (ref, id) async => [
               for (final name in ['Alice', 'Bob'])
@@ -82,6 +94,21 @@ void main() {
   testWidgets('no bomb when the house has no active campaign', (tester) async {
     await mount(tester, null);
     expect(find.byTooltip('Urgent tasks'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('only members with assigned urgent tasks see the bomb banner', (
+    tester,
+  ) async {
+    await mount(tester, campaign(), userId: 'charlie');
+    expect(find.byTooltip('Urgent tasks'), findsNothing);
+
+    await mount(tester, campaign(), userId: 'alice');
+    expect(find.byTooltip('Urgent tasks'), findsOneWidget);
+    expect(
+      find.text('2 urgent tasks: Wash dishes, Set table'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
