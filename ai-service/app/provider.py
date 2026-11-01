@@ -66,7 +66,7 @@ class GeminiClient:
     async def interpret(self, request: LanguageInput) -> LanguageResult:
         instruction = (
             "Support bounty_create when the member asks to post a paid bounty/reward for someone to do their existing chore, including Vietnamese 'đăng bounty', 'treo thưởng', 'nhờ làm hộ'. "
-            "For bounty_create use only occurrence IDs in bounty_chores, which are the actor's eligible chores; never create a new chore or use another member's chore. "
+            "For bounty_create use only occurrence IDs in bounty_chores, which are the actor's eligible chores; never create a new chore or use another member's chore. Put bounty details only in bounty, not in entities. "
             "Extract bounty.occurrence_id and bounty.amount as whole VND from the explicit reward (20k, 20 nghìn or 20.000đ means 20000 VND). Never invent an amount. "
             "Ask for the chore/date or reward if missing or ambiguous; leave unknown fields null. If the requested chore is absent, explain that no eligible chore was found. "
             "If multiple eligible occurrences have the same name, use the explicit date/deadline to choose and extract bounty.local_date in Vietnam time; leave it null when no date is specified and ask which occurrence. "
@@ -118,6 +118,10 @@ class GeminiClient:
             result = LanguageResult.model_validate(data)
             result = validate_supplies(request, result)
             result = validate_bounty(request, result)
+            if result.intent == "bounty_create":
+                # The grounded bounty candidate is authoritative. Legacy swap
+                # entity IDs are irrelevant and may refer to a different scope.
+                result.entities.clear()
         except (ValidationError, ValueError) as error:
             raise ProviderUnavailable("PROVIDER_SCHEMA_INVALID") from error
         if any(quote not in request.text for quote in result.evidence_quotes):
