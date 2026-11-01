@@ -134,7 +134,10 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                 ? Map<String, dynamic>.from(response['availability'] as Map)
                 : null,
             supply: missing.isEmpty && response['supply'] is Map
-                ? Map<String, dynamic>.from(response['supply'] as Map)
+                ? {
+                    ...Map<String, dynamic>.from(response['supply'] as Map),
+                    'client_request_id': const Uuid().v4(),
+                  }
                 : null,
             urgent:
                 response['intent'] == 'urgent' &&
