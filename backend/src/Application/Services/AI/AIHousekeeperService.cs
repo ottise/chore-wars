@@ -319,6 +319,8 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
         if(activeSeason!=null)
             foreach(var occurrence in (await uow.ChoreOccurrences.GetBySeasonIdAsync(activeSeason.Id,ct)).Where(o=>o.AssignedUserId==actor && o.Status==ChoreOccurrenceStatus.ASSIGNED && o.DueDate>clock.GetUtcNow().UtcDateTime && o.Chore.Type==ChoreType.NORMAL))
                 occurrences.TryAdd(occurrence.Id.ToString(),occurrence.Chore.Name);
+        var bountyChores = await BountyCandidatesAsync(house, actor, ct);
+        var bountyContext = bountyChores.ToDictionary(p => p.Key.ToString(), p => new { name = p.Value.Chore.Name, due_at = p.Value.DueDate });
         var catalog = new Dictionary<string,object>();
         var allowedProducts = new Dictionary<Guid,SupplyProduct>();
         if (uow.Supplies is { } supplies)
@@ -327,7 +329,7 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                     allowedProducts[product.Id]=product;
                     catalog[product.Id.ToString()]=new{supplier_id=product.SupplierId,name=product.Name,unit=product.Unit,price=(long)product.Price,available_quantity=product.AvailableQuantity};
                 }
-        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,supply_catalog=catalog,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
+        var result=await client.PostAsync(house,actor,"/v1/interpret",new{house_id=house,actor_id=actor,text=request.Text,now=clock.GetUtcNow(),member_names=names,chore_names=chores,occurrence_names=occurrences,supply_catalog=catalog,bounty_chores=bountyContext,consent_version=chat?$"{version}":"ON_DEMAND",purpose=chat?"chat":"interpret"},ct);
         ChoreWars.Application.Services.Supplies.SupplyAIContract.Validate(result,names.Keys.ToHashSet(),allowedProducts);
         return await mutations.RunAsync(house,async()=> {
             await AuthorizeAsync(house,actor,false,ct);
@@ -336,8 +338,22 @@ public sealed class AIHousekeeperService(IUnitOfWork uow, IAIStateRepository ai,
                 var current=await ai.ConsentAsync(house,actor,ct);
                 if (current?.ChatAnalysisEnabled!=true || current.Version!=version) throw new ConflictException("Consent changed while AI was processing.");
             }
+            if (result.TryGetProperty("intent", out var intent) && intent.GetString() == "bounty_create")
+                return AIBountyContract.ValidateAndGround(result, await BountyCandidatesAsync(house, actor, ct));
             return result;
         },ct);
+    }
+
+    private async Task<Dictionary<Guid, ChoreOccurrence>> BountyCandidatesAsync(Guid house, Guid actor, CancellationToken ct)
+    {
+        var season = await uow.Seasons.GetActiveSeasonByHouseIdAsync(house, ct);
+        var now = clock.GetUtcNow().UtcDateTime;
+        if (season == null || season.StartDate > now) return [];
+        var existing = (await uow.ChoreBounties.GetBountiesByHouseIdAsync(house, ct))
+            .Where(b => b.Status != BountyStatus.CANCELLED).Select(b => b.ChoreOccurrenceId).ToHashSet();
+        return (await uow.ChoreOccurrences.GetBySeasonIdAsync(season.Id, ct))
+            .Where(o => o.Chore.HouseId == house && o.AssignedUserId == actor && o.Status == ChoreOccurrenceStatus.ASSIGNED && o.DueDate > now && !existing.Contains(o.Id))
+            .ToDictionary(o => o.Id);
     }
 
     public async Task<JsonElement> ChatInsightsAsync(Guid house, Guid actor, CancellationToken ct) {

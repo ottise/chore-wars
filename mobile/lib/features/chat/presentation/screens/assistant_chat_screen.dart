@@ -2,6 +2,9 @@ import '../../../ai/presentation/ai_planning_screen.dart';
 import '../../../../core/widgets/app_page_frame.dart';
 import '../../../../core/utils/api_error_message.dart';
 import '../../../supplies/presentation/widgets/ai_supply_draft_card.dart';
+import '../../../bounty/presentation/providers/bounty_providers.dart';
+import '../../../home/presentation/providers/home_dashboard_provider.dart';
+import '../../../chore/presentation/providers/chore_providers.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +18,7 @@ import '../../../house/presentation/providers/house_providers.dart';
 import '../widgets/ai_urgent_plan_card.dart';
 import '../widgets/ai_swap_plan_card.dart';
 import '../widgets/assistant_inbox.dart';
+import '../widgets/ai_bounty_draft_card.dart';
 
 class AssistantChatScreen extends ConsumerStatefulWidget {
   const AssistantChatScreen({
@@ -44,6 +48,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
           Map<String, dynamic>? availability,
           Map<String, dynamic>? urgent,
           Map<String, dynamic>? supply,
+          Map<String, dynamic>? bounty,
           String? swapSourceOccurrenceId,
           String? swapTargetMemberId,
           String? swapRequestId,
@@ -97,9 +102,16 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                 'urgent',
                 'supply_purchase',
                 'supply_reminder',
+                'bounty_create',
               ].contains(response['intent']) &&
               missing.isNotEmpty
           ? requestText
+          : null;
+      final bounty =
+          response['intent'] == 'bounty_create' &&
+              missing.isEmpty &&
+              response['bounty'] is Map
+          ? Map<String, dynamic>.from(response['bounty'] as Map)
           : null;
       setState(() {
         _messages.insertAll(0, [
@@ -125,6 +137,7 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             supply: missing.isEmpty && response['supply'] is Map
                 ? Map<String, dynamic>.from(response['supply'] as Map)
                 : null,
+            bounty: bounty,
             urgent:
                 response['intent'] == 'urgent' &&
                     missing.isEmpty &&
@@ -146,17 +159,61 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
             swapRequestId: null,
             urgent: null,
             supply: null,
+            bounty: null,
             at: DateTime.now(),
           ),
         ]);
         _input.clear();
       });
+      if (bounty != null) await _postBounty(bounty);
     } catch (error) {
       if (mounted) {
         setState(() => _error = apiErrorMessage(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _postBounty(Map<String, dynamic> bounty) async {
+    if (bounty['posted_id'] != null || bounty['posting'] == true) return;
+    final occurrence = bounty['occurrence_id']?.toString();
+    final amount = bounty['amount'];
+    if (occurrence == null ||
+        occurrence.isEmpty ||
+        amount is! num ||
+        !amount.isFinite ||
+        amount <= 0 ||
+        amount.truncateToDouble() != amount) {
+      setState(
+        () => bounty['posting_error'] =
+            'Please specify an eligible chore and a positive reward in VND.',
+      );
+      return;
+    }
+    setState(() {
+      bounty['posting'] = true;
+      bounty.remove('posting_error');
+    });
+    try {
+      final created = await ref
+          .read(bountyRepositoryProvider)
+          .createBounty(
+            houseId: widget.houseId,
+            choreOccurrenceId: occurrence,
+            amount: amount.toDouble(),
+          );
+      if (!mounted) return;
+      setState(() => bounty['posted_id'] = created.id);
+      ref.invalidate(bountyBoardProvider(widget.houseId));
+      ref.invalidate(homeDashboardProvider(widget.houseId));
+      refreshChoreState(ref, widget.houseId, occurrenceId: occurrence);
+    } catch (error) {
+      if (mounted) {
+        setState(() => bounty['posting_error'] = apiErrorMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => bounty['posting'] = false);
     }
   }
 
@@ -420,14 +477,14 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                       message.swapRequestId,
                                                     ),
                                                     houseId: widget.houseId,
-                                                    prompt: message
-                                                        .planningPrompt!,
+                                                    prompt:
+                                                        message.planningPrompt!,
                                                     sourceOccurrenceId: message
                                                         .swapSourceOccurrenceId,
                                                     targetMemberId: message
                                                         .swapTargetMemberId,
-                                                    clientRequestId: message
-                                                        .swapRequestId!,
+                                                    clientRequestId:
+                                                        message.swapRequestId!,
                                                   ),
                                                 if (message.planningKind !=
                                                         null &&
@@ -450,6 +507,14 @@ class _AssistantChatScreenState extends ConsumerState<AssistantChatScreen> {
                                                         ),
                                                     child: const Text(
                                                       'Review schedule changes',
+                                                    ),
+                                                  ),
+                                                if (message.bounty != null)
+                                                  AiBountyDraftCard(
+                                                    houseId: widget.houseId,
+                                                    candidate: message.bounty!,
+                                                    onRetry: () => _postBounty(
+                                                      message.bounty!,
                                                     ),
                                                   ),
                                                 if (message.supply != null)

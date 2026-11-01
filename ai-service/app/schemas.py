@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 from app.supplies import SupplyCatalogItem, SupplyCandidate
+from app.bounty_draft import BountyChore, BountyCandidate
 
 
 URGENT_MAX_MINUTES = 48 * 60
@@ -139,6 +140,7 @@ class LanguageInput(Contract):
     chore_names: dict[str, str] = Field(default_factory=dict)
     occurrence_names: dict[str, str] = Field(default_factory=dict)
     supply_catalog: dict[str, SupplyCatalogItem] = Field(default_factory=dict)
+    bounty_chores: dict[str, BountyChore] = Field(default_factory=dict)
     consent_version: str
     purpose: Literal["interpret", "chat", "urgent"] = "interpret"
 
@@ -179,6 +181,7 @@ class LanguageResult(Contract):
         "urgent",
         "supply_purchase",
         "supply_reminder",
+        "bounty_create",
         "help",
         "unknown",
     ]
@@ -186,10 +189,11 @@ class LanguageResult(Contract):
     entities: dict[str, str] = Field(default_factory=dict)
     missing_fields: list[str] = Field(default_factory=list)
     evidence_quotes: list[str] = Field(default_factory=list)
-    requires_confirmation: Literal[True] = True
+    requires_confirmation: bool = True
     availability: AvailabilityCandidate | None = None
     urgent: UrgentCandidate | None = None
     supply: SupplyCandidate | None = None
+    bounty: BountyCandidate | None = None
 
 
 class VisionInput(Contract):
