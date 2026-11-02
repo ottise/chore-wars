@@ -204,6 +204,80 @@ class _CapacityAvailabilityScreenState
     }
   }
 
+  Map<String, dynamic> _availabilityPayload(
+    Map<int, List<Map<String, int>>> slots,
+  ) => {
+    'availabilities': {
+      for (var day = 0; day < 7; day++)
+        day.toString(): (slots[day]?.isNotEmpty ?? false),
+    },
+    'slots': {
+      for (final entry in slots.entries) entry.key.toString(): entry.value,
+    },
+  };
+
+  Future<void> _saveAvailabilityWindow({
+    required Map<int, List<Map<String, int>>> updatedSlots,
+    required Map<int, List<Map<String, int>>> previousSlots,
+  }) async {
+    if (_isSaving) return;
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        _availabilityEndpoint,
+        data: _availabilityPayload(updatedSlots),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final day in updatedSlots.keys) {
+          _slots[day] = updatedSlots[day]!
+              .map((slot) => Map<String, int>.from(slot))
+              .toList();
+        }
+      });
+      showAppMessage(context, 'Availability window applied and saved');
+      try {
+        final response = await dio.get(_availabilityEndpoint);
+        final savedSlots = Map<String, dynamic>.from(
+          (response.data as Map<String, dynamic>?)?['slots'] ?? {},
+        );
+        if (mounted) {
+          setState(() {
+            for (var day = 0; day < 7; day++) {
+              _slots[day] = (savedSlots[day.toString()] as List? ?? [])
+                  .map(
+                    (slot) => {
+                      'startMinute': (slot['startMinute'] as num).toInt(),
+                      'endMinute': (slot['endMinute'] as num).toInt(),
+                    },
+                  )
+                  .toList();
+            }
+          });
+        }
+      } catch (_) {
+        // The save already succeeded; keep the submitted values if refresh fails.
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          for (var day = 0; day < 7; day++) {
+            _slots[day] = previousSlots[day] ?? [];
+          }
+          _error = apiErrorMessage(error);
+        });
+        showAppMessage(context, apiErrorMessage(error), error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   int _dayMinutes(int day) {
     final list = _slots[day] ?? [];
     if (list.isEmpty) return 0;
@@ -318,7 +392,8 @@ class _CapacityAvailabilityScreenState
                               if (picked != null) {
                                 setModalState(() {
                                   startMin = picked.hour * 60 + picked.minute;
-                                  if (startMin >= endMin) endMin = startMin + 60;
+                                  if (startMin >= endMin)
+                                    endMin = startMin + 60;
                                   if (endMin > 1440) endMin = 1440;
                                 });
                               }
@@ -370,7 +445,8 @@ class _CapacityAvailabilityScreenState
                               if (picked != null) {
                                 setModalState(() {
                                   endMin = picked.hour * 60 + picked.minute;
-                                  if (endMin <= startMin) startMin = endMin - 60;
+                                  if (endMin <= startMin)
+                                    startMin = endMin - 60;
                                   if (startMin < 0) startMin = 0;
                                 });
                               }
@@ -421,16 +497,35 @@ class _CapacityAvailabilityScreenState
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () {
+                        onPressed: () async {
+                          if (_isSaving) return;
+                          final previousSlots = {
+                            for (final entry in _slots.entries)
+                              entry.key: entry.value
+                                  .map((slot) => Map<String, int>.from(slot))
+                                  .toList(),
+                          };
+                          final updatedSlots = {
+                            for (final entry in previousSlots.entries)
+                              entry.key: entry.value
+                                  .map((slot) => Map<String, int>.from(slot))
+                                  .toList(),
+                          };
+                          for (final day in days) {
+                            updatedSlots[day] = [
+                              {'startMinute': startMin, 'endMinute': endMin},
+                            ];
+                          }
                           setState(() {
                             for (final d in days) {
-                              _slots[d] = [
-                                {'startMinute': startMin, 'endMinute': endMin},
-                              ];
+                              _slots[d] = updatedSlots[d]!;
                             }
                           });
                           Navigator.pop(ctx);
-                          _saveAll(popOnSuccess: false);
+                          await _saveAvailabilityWindow(
+                            updatedSlots: updatedSlots,
+                            previousSlots: previousSlots,
+                          );
                         },
                         child: const Text(
                           'Apply Window',
@@ -494,16 +589,16 @@ class _CapacityAvailabilityScreenState
                   'Preferred',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text('Algorithm gives you priority for this task'),
-                trailing:
-                    (_preferences[chore.id] == PreferenceType.preferred)
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: Color(0xFF059669),
-                          )
-                        : null,
+                subtitle: const Text(
+                  'Algorithm gives you priority for this task',
+                ),
+                trailing: (_preferences[chore.id] == PreferenceType.preferred)
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF059669))
+                    : null,
                 onTap: () {
-                  setState(() => _preferences[chore.id] = PreferenceType.preferred);
+                  setState(
+                    () => _preferences[chore.id] = PreferenceType.preferred,
+                  );
                   Navigator.pop(ctx);
                 },
               ),
@@ -528,14 +623,13 @@ class _CapacityAvailabilityScreenState
                 subtitle: const Text('Standard rotation among roommates'),
                 trailing:
                     (_preferences[chore.id] == PreferenceType.neutral ||
-                            _preferences[chore.id] == null)
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: Color(0xFF475569),
-                          )
-                        : null,
+                        _preferences[chore.id] == null)
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF475569))
+                    : null,
                 onTap: () {
-                  setState(() => _preferences[chore.id] = PreferenceType.neutral);
+                  setState(
+                    () => _preferences[chore.id] = PreferenceType.neutral,
+                  );
                   Navigator.pop(ctx);
                 },
               ),
@@ -558,15 +652,13 @@ class _CapacityAvailabilityScreenState
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 subtitle: const Text('Assigned only when nobody else is free'),
-                trailing:
-                    (_preferences[chore.id] == PreferenceType.disliked)
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: Color(0xFFDC2626),
-                          )
-                        : null,
+                trailing: (_preferences[chore.id] == PreferenceType.disliked)
+                    ? const Icon(Icons.check_rounded, color: Color(0xFFDC2626))
+                    : null,
                 onTap: () {
-                  setState(() => _preferences[chore.id] = PreferenceType.disliked);
+                  setState(
+                    () => _preferences[chore.id] = PreferenceType.disliked,
+                  );
                   Navigator.pop(ctx);
                 },
               ),
@@ -617,10 +709,8 @@ class _CapacityAvailabilityScreenState
                   shrinkWrap: true,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: _chores.length,
-                  separatorBuilder: (_, _) => const Divider(
-                    height: 1,
-                    color: Color(0xFFF1ECE7),
-                  ),
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 1, color: Color(0xFFF1ECE7)),
                   itemBuilder: (ctx, idx) {
                     final c = _chores[idx];
                     final currentPref =
@@ -706,7 +796,9 @@ class _CapacityAvailabilityScreenState
     final house = ref.watch(houseDetailProvider(widget.houseId)).value;
     final user = ref.watch(userProfileProvider).value;
     final houseName = house?.name.isNotEmpty == true ? house!.name : 'The Gang';
-    final memberName = user?.displayName.isNotEmpty == true ? user!.displayName : 'Me';
+    final memberName = user?.displayName.isNotEmpty == true
+        ? user!.displayName
+        : 'Me';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAF8F5),
@@ -718,8 +810,8 @@ class _CapacityAvailabilityScreenState
               child: _isLoading
                   ? const LoadingWidget()
                   : _error != null && _chores.isEmpty
-                      ? ErrorState(error: _error!, onRetry: _loadAll)
-                      : _buildMainContent(),
+                  ? ErrorState(error: _error!, onRetry: _loadAll)
+                  : _buildMainContent(),
             ),
             _buildBottomActionBar(),
           ],
@@ -764,8 +856,10 @@ class _CapacityAvailabilityScreenState
               const Spacer(),
               Flexible(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1ECE7),
                     borderRadius: BorderRadius.circular(999),
@@ -845,10 +939,7 @@ class _CapacityAvailabilityScreenState
           const SizedBox(height: 3),
           const Text(
             'Set your chore limits, favorite tasks, and weekly free time.',
-            style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF64748B),
-            ),
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 10),
           Row(
@@ -876,7 +967,10 @@ class _CapacityAvailabilityScreenState
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEDE9FE),
                   borderRadius: BorderRadius.circular(999),
@@ -971,10 +1065,7 @@ class _CapacityAvailabilityScreenState
                     ),
                     Text(
                       'Target chore distribution per week',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -1341,10 +1432,7 @@ class _CapacityAvailabilityScreenState
                     ),
                     Text(
                       'Prioritize your favorite and avoid disliked tasks',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -1548,15 +1636,17 @@ class _CapacityAvailabilityScreenState
     final weekdayMinutesDaily = _dayMinutes(1);
     final weekdayHours = (weekdayMinutesDaily / 60).toStringAsFixed(0);
     final weekdaySlot = _slots[1]?.firstOrNull;
-    final weekdayRangeStr =
-        weekdaySlot != null ? _formatSlot(weekdaySlot) : '06:00 – 20:00';
+    final weekdayRangeStr = weekdaySlot != null
+        ? _formatSlot(weekdaySlot)
+        : '06:00 – 20:00';
 
     // Weekend hours (Sat-Sun = 6, 0)
     final weekendMinutesDaily = _dayMinutes(6);
     final weekendHours = (weekendMinutesDaily / 60).toStringAsFixed(0);
     final weekendSlot = _slots[6]?.firstOrNull;
-    final weekendRangeStr =
-        weekendSlot != null ? _formatSlot(weekendSlot) : '08:00 – 16:00';
+    final weekendRangeStr = weekendSlot != null
+        ? _formatSlot(weekendSlot)
+        : '08:00 – 16:00';
 
     return Container(
       decoration: BoxDecoration(
@@ -1618,10 +1708,7 @@ class _CapacityAvailabilityScreenState
                     ),
                     const Text(
                       'Your available time windows for chores',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
