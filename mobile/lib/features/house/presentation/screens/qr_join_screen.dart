@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,7 +37,6 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
       TargetPlatform.macOS => CameraFacing.front,
       _ => CameraFacing.back,
     },
-    cameraResolution: const Size(1280, 720),
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.normal,
   );
@@ -130,29 +130,43 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                     ),
                   ),
                 ),
-                errorBuilder: (context, error, child) => ColoredBox(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Camera access is unavailable. Allow camera access for this app or browser.',
-                            textAlign: TextAlign.center,
-                          ),
-                          TextButton(
-                            onPressed: _processing
-                                ? null
-                                : () => _camera(() => _controller.start()),
-                            child: const Text('Retry'),
-                          ),
-                        ],
+                errorBuilder: (context, error, child) {
+                  final details = error.errorDetails?.message;
+                  final message = switch (error.errorCode) {
+                    MobileScannerErrorCode.permissionDenied => 'Camera permission is denied. Allow it in app settings, then retry.',
+                    MobileScannerErrorCode.unsupported =>
+                      'No available camera was detected on this device.',
+                    _ =>
+                      'Camera could not start (${error.errorCode.name}).${details == null ? '' : ' $details'}',
+                  };
+                  return ColoredBox(
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(message, textAlign: TextAlign.center),
+                            TextButton(
+                              onPressed: _processing
+                                  ? null
+                                  : () => _camera(() => _controller.start()),
+                              child: const Text('Retry'),
+                            ),
+                            if (defaultTargetPlatform == TargetPlatform.android)
+                              TextButton(
+                                onPressed: _processing
+                                    ? null
+                                    : _openAppSettings,
+                                child: const Text('Open app settings'),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
                 overlayBuilder: (context, constraints) =>
                     IgnorePointer(child: _ScanOverlay()),
               ),
@@ -237,6 +251,21 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
     if (raw == _lastDetectedValue) return;
     _lastDetectedValue = raw;
     await _processQr(() async => raw);
+  }
+
+  Future<void> _openAppSettings() async {
+    try {
+      await const MethodChannel('com.chorewars/app_settings')
+          .invokeMethod<void>('open');
+    } on PlatformException catch (error) {
+      if (mounted) {
+        showAppMessage(
+          context,
+          'Could not open app settings: ${error.message ?? error.code}',
+          error: true,
+        );
+      }
+    }
   }
 
   Future<void> _pickQrImage() {
