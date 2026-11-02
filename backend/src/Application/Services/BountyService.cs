@@ -109,7 +109,7 @@ public class BountyService : IBountyService
                     houseId,
                     "New bounty posted",
                     $"{occurrence.Chore.Name} is available for {request.Amount:N0} VND.",
-                    "BOUNTY_POSTED",
+                    nameof(NotificationType.BOUNTY_CREATED),
                     "BOUNTY",
                     bounty.Id,
                     cancellationToken);
