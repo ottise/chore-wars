@@ -78,9 +78,6 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IChoreBountyRepository, ChoreBountyRepository>();
         services.AddScoped<IPaymentObligationRepository, PaymentObligationRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
-        services.AddScoped<IPushDeviceTokenRepository, PushDeviceTokenRepository>();
-        services.AddHttpClient("firebase-cloud-messaging", client => client.Timeout = TimeSpan.FromSeconds(15));
-        services.AddScoped<IPushNotificationPublisher, ChoreWars.Infrastructure.Messaging.FirebasePushNotificationPublisher>();
         services.AddScoped<IChatRepository, ChatRepository>();
         services.AddScoped<IActionProposalRepository, ActionProposalRepository>();
 
