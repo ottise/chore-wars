@@ -68,11 +68,11 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
    await access.EnsureActiveAsync(house,actor,ct);await access.EnsureWritableAsync(house,ct);
    var o=await store.OrderAsync(order,ct)??throw new NotFoundException("Order not found.");
    if(o.HouseId!=house)throw new NotFoundException("Order not found.");
-   if(o.PayerUserId!=actor)throw new ForbiddenException("Only the designated payer can checkout.");
+   var simple=o.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT;
+   if(!simple&&o.PayerUserId!=actor)throw new ForbiddenException("Only the designated payer can checkout.");
    var active=(await store.PaymentsAsync(order,ct)).FirstOrDefault(p=>p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING or SupplierPaymentStatus.VERIFIED);
    if(active!=null)return active;
    if(o.Status==SupplyOrderStatus.PAID)throw new ConflictException("This order has already been paid.");
-   var simple=simpleOrder;
    if(simple){if(o.Version!=version)throw new ConflictException("This order changed. Refresh and try again.");if(o.Status!=SupplyOrderStatus.DRAFT)throw new ConflictException("Only an unpaid order can start PayOS checkout.");}
    else {SupplyOrderService.CheckVersion(o,version);if(o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved||!o.Shares.All(s=>s.ApprovedAt.HasValue))throw new ConflictException("Every participant must approve before checkout.");}
    // A saved simple order retains its agreed amount after the catalog quote expires.
