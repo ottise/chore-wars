@@ -153,30 +153,57 @@ public partial class HouseService : IHouseService
         var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, userId, cancellationToken);
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new NotFoundException(nameof(HouseMember), userId);
-
-        if (member.Role == HouseRole.OWNER)
-        {
-            // Simplified logic: An owner cannot leave unless they transfer ownership or disband.
-            throw new ConflictException("Owner cannot leave the house.");
-        }
-
-        var userOccurrences = await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(userId, cancellationToken);
-        var activeHouseOccurrences = userOccurrences.Where(o => o.Chore?.HouseId == houseId &&
-            (o.Status == ChoreOccurrenceStatus.ASSIGNED || o.Status == ChoreOccurrenceStatus.OVERDUE || o.Status == ChoreOccurrenceStatus.CRITICAL_OVERDUE)).ToList();
-
-        if (activeHouseOccurrences.Any())
-        {
-            throw new ConflictException("Cannot leave house with active chore occurrences. Please complete or reassign them.");
-        }
-
-        await EnsureNoOpenObligationsAsync(houseId, userId, cancellationToken);
-        await InvalidateReviewAsync(houseId, cancellationToken);
-        member.Status = HouseMemberStatus.LEFT;
-        await RevokeRoomAsync(houseId, userId, cancellationToken);
+        var house = await _unitOfWork.Houses.GetByIdAsync(houseId, cancellationToken)
+            ?? throw new NotFoundException("Household not found.");
+        var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId, cancellationToken))
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != userId)
+            .OrderBy(m => m.JoinedAt)
+            .ThenBy(m => m.UserId)
+            .ToList();
+        var assigned = (await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(userId, cancellationToken))
+            .Where(o => o.Chore?.HouseId == houseId && o.Status is ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE)
+            .ToList();
+        var season = await _unitOfWork.Seasons.GetCurrentSeasonByHouseIdAsync(houseId, cancellationToken);
+        var now = _clock.GetUtcNow().UtcDateTime;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (season?.Status == SeasonStatus.REVIEWING)
+            {
+                season.Status = SeasonStatus.DRAFT;
+                season.ScheduleRevision++;
+                _unitOfWork.Seasons.Update(season);
+                await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(season.Id, cancellationToken);
+            }
+
+            await ReassignOpenOccurrencesAsync(assigned, members, now, cancellationToken);
+
+            if (member.Role == HouseRole.OWNER)
+            {
+                if (members.Count > 0)
+                {
+                    member.Role = HouseRole.MEMBER;
+                    members[0].Role = HouseRole.OWNER;
+                    _unitOfWork.HouseMembers.Update(members[0]);
+                }
+                else
+                {
+                    house.IsArchived = true;
+                    house.InviteVersion++;
+                    _unitOfWork.Houses.Update(house);
+                    foreach (var archivedSeason in await _unitOfWork.Seasons.GetByHouseIdAsync(houseId, cancellationToken))
+                    {
+                        if (archivedSeason.Status is SeasonStatus.COMPLETED or SeasonStatus.CANCELLED) continue;
+                        archivedSeason.Status = SeasonStatus.CANCELLED;
+                        archivedSeason.ScheduleRevision++;
+                        _unitOfWork.Seasons.Update(archivedSeason);
+                        await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(archivedSeason.Id, cancellationToken);
+                    }
+                }
+            }
+
+            member.Status = HouseMemberStatus.LEFT;
             _unitOfWork.HouseMembers.Update(member);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -185,6 +212,48 @@ public partial class HouseService : IHouseService
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
+        }
+        await RevokeRoomAsync(houseId, userId, cancellationToken);
+    }
+
+    private async Task ReassignOpenOccurrencesAsync(
+        List<ChoreOccurrence> occurrences,
+        IReadOnlyCollection<HouseMember> members,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        if (occurrences.Count == 0 || members.Count == 0) return;
+        var loads = new Dictionary<Guid, int>();
+        foreach (var seasonId in occurrences.Select(o => o.SeasonId).Distinct())
+        {
+            var seasonOccurrences = await _unitOfWork.ChoreOccurrences.GetBySeasonIdAsync(seasonId, cancellationToken);
+            foreach (var group in seasonOccurrences
+                .Where(o => o.AssignedUserId.HasValue && o.Status is not (ChoreOccurrenceStatus.COMPLETED or ChoreOccurrenceStatus.SKIPPED))
+                .GroupBy(o => o.AssignedUserId!.Value))
+                loads[group.Key] = group.Sum(o => Math.Max(1, o.SnapshotKarma));
+        }
+
+        foreach (var occurrence in occurrences.OrderBy(o => o.DueDate))
+        {
+            var recipient = members.OrderBy(m => loads.GetValueOrDefault(m.UserId))
+                .ThenBy(m => m.JoinedAt).ThenBy(m => m.UserId).First();
+            var previous = await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, now, cancellationToken);
+            previous.EndedAt = now;
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.ChoreOccurrences.AddResponsibilityAsync(new ChoreResponsibility
+            {
+                Id = Guid.NewGuid(),
+                OccurrenceId = occurrence.Id,
+                UserId = recipient.UserId,
+                Reason = "MEMBER_LEFT",
+                StartedAt = now,
+                Deadline = occurrence.DueDate,
+                PenaltiesApplied = occurrence.PenaltyCount
+            }, cancellationToken);
+            occurrence.AssignedUserId = recipient.UserId;
+            occurrence.PlannedStartAt = null;
+            _unitOfWork.ChoreOccurrences.Update(occurrence);
+            loads[recipient.UserId] = loads.GetValueOrDefault(recipient.UserId) + Math.Max(1, occurrence.SnapshotKarma);
         }
     }
 
@@ -202,23 +271,26 @@ public partial class HouseService : IHouseService
             throw new ForbiddenException("Only the house owner can kick members.");
 
         var memberToKick = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId, memberId, cancellationToken);
-        if (memberToKick == null)
+        if (memberToKick == null || memberToKick.Status != HouseMemberStatus.ACTIVE)
             throw new NotFoundException(nameof(HouseMember), memberId);
 
         if (memberToKick.Role == HouseRole.OWNER)
             throw new ConflictException("Cannot kick the owner.");
 
-        await EnsureNoOpenObligationsAsync(houseId, memberId, cancellationToken);
         var assigned = await _unitOfWork.ChoreOccurrences.GetByAssignedUserIdAsync(memberId, cancellationToken);
-        if (assigned.Any(o => o.Chore.HouseId == houseId && o.Status is ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE))
-            throw new ConflictException("Resolve outstanding chores before removing a member.");
-        await InvalidateReviewAsync(houseId, cancellationToken);
-        memberToKick.Status = HouseMemberStatus.BANNED;
-        await RevokeRoomAsync(houseId, memberId, cancellationToken);
+        var activeHouseOccurrences = assigned.Where(o => o.Chore?.HouseId == houseId &&
+            o.Status is ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE).ToList();
+        var remainingMembers = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId, cancellationToken))
+            .Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != memberId)
+            .OrderBy(m => m.JoinedAt).ThenBy(m => m.UserId).ToList();
+        var now = _clock.GetUtcNow().UtcDateTime;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            await InvalidateReviewAsync(houseId, cancellationToken);
+            await ReassignOpenOccurrencesAsync(activeHouseOccurrences, remainingMembers, now, cancellationToken);
+            memberToKick.Status = HouseMemberStatus.BANNED;
             _unitOfWork.HouseMembers.Update(memberToKick);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -228,6 +300,7 @@ public partial class HouseService : IHouseService
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
+        await RevokeRoomAsync(houseId, memberId, cancellationToken);
     }
 
     public async Task<IEnumerable<HouseMemberResponse>> GetMembersAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default)
@@ -272,6 +345,8 @@ public partial class HouseService : IHouseService
         var house = await _unitOfWork.Houses.GetByIdAsync(houseId, cancellationToken);
         if (house == null)
             throw new NotFoundException(nameof(House), houseId);
+        if (house.IsArchived)
+            throw new NotFoundException(nameof(House), houseId);
 
         var response = _mapper.Map<HouseResponse>(house);
         response.CurrentUserRole = member.Role.ToString();
@@ -287,7 +362,7 @@ public partial class HouseService : IHouseService
         foreach (var houseId in activeHouseIds)
         {
             var house = await _unitOfWork.Houses.GetByIdAsync(houseId, cancellationToken);
-            if (house != null)
+            if (house != null && !house.IsArchived)
                 houses.Add(house);
         }
 

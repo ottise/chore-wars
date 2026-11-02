@@ -99,6 +99,22 @@ public class BountyService : IBountyService
         }
 
         await _eventPublisher.PublishAsync(new BountyCreatedEvent(bounty.Id, houseId), cancellationToken);
+        if (_notifications != null)
+        {
+            var members = await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId, cancellationToken);
+            foreach (var member in members.Where(m => m.Status == HouseMemberStatus.ACTIVE && m.UserId != userId))
+            {
+                await _notifications.CreateNotificationAsync(
+                    member.UserId,
+                    houseId,
+                    "New bounty posted",
+                    $"{occurrence.Chore.Name} is available for {request.Amount:N0} VND.",
+                    "BOUNTY_POSTED",
+                    "BOUNTY",
+                    bounty.Id,
+                    cancellationToken);
+            }
+        }
         await NotifyHouseBountyBoardChangedAsync(houseId, cancellationToken);
 
         var response = _mapper.Map<BountyResponse>(bounty);

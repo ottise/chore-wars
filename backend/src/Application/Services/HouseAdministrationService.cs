@@ -60,4 +60,47 @@ public partial class HouseService {
         }
         if (_mutations != null) await _mutations.RunAsync(houseId,Apply,ct); else await Apply();
     }
+    public async Task DeleteHouseAsync(Guid houseId, Guid userId, CancellationToken ct = default) {
+        async Task Apply() {
+            await OwnerAsync(houseId,userId,ct);
+            var house = await _unitOfWork.Houses.GetByIdAsync(houseId,ct) ?? throw new NotFoundException("Household not found.");
+            if (house.IsArchived) return;
+            var members = (await _unitOfWork.HouseMembers.GetByHouseIdAsync(houseId,ct)).Where(m => m.Status == HouseMemberStatus.ACTIVE).ToList();
+            await _unitOfWork.BeginTransactionAsync(ct);
+            try {
+                foreach (var season in await _unitOfWork.Seasons.GetByHouseIdAsync(houseId,ct)) {
+                    if (season.Status is SeasonStatus.COMPLETED or SeasonStatus.CANCELLED) continue;
+                    season.Status = SeasonStatus.CANCELLED;
+                    season.ScheduleRevision++;
+                    _unitOfWork.Seasons.Update(season);
+                    await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(season.Id,ct);
+                }
+                house.IsArchived = true;
+                house.InviteVersion++;
+                _unitOfWork.Houses.Update(house);
+                await _unitOfWork.SaveChangesAsync(ct);
+                await _unitOfWork.CommitTransactionAsync(ct);
+            } catch {
+                await _unitOfWork.RollbackTransactionAsync(ct);
+                throw;
+            }
+            foreach (var member in members) await RevokeRoomAsync(houseId,member.UserId,ct);
+        }
+        if (_mutations != null) await _mutations.RunAsync(houseId,Apply,ct); else await Apply();
+    }
+    public async Task UpdateHouseNameAsync(Guid houseId, UpdateHouseNameRequest request, Guid userId, CancellationToken ct = default) {
+        async Task Apply() {
+            var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(houseId,userId,ct);
+            if (member?.Status != HouseMemberStatus.ACTIVE) throw new ForbiddenException("Only active household members can rename the household.");
+            var house = await _unitOfWork.Houses.GetByIdAsync(houseId,ct) ?? throw new NotFoundException("Household not found.");
+            if (house.IsArchived) throw new ConflictException("Archived households are read-only.");
+            var name = request.Name.Trim();
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 100) throw new DomainException("Household name must be between 1 and 100 characters.");
+            if (house.Name == name) return;
+            house.Name = name;
+            _unitOfWork.Houses.Update(house);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        if (_mutations != null) await _mutations.RunAsync(houseId,Apply,ct); else await Apply();
+    }
 }

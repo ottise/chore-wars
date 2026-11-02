@@ -415,10 +415,22 @@ public partial class ChoreService : IChoreService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
             throw new ForbiddenException("Only active house owners can delete chores.");
 
-        await EnsureDraftChoreAsync(chore, cancellationToken);
+        ChoreSeason? season = null;
+        if (chore.SeasonId.HasValue)
+        {
+            season = await _unitOfWork.Seasons.GetByIdAsync(chore.SeasonId.Value, cancellationToken);
+            if (season?.Status != SeasonStatus.DRAFT)
+                throw new ConflictException("Chore definitions are locked outside draft.");
+        }
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (season != null)
+            {
+                await _unitOfWork.ChoreOccurrences.DeleteDraftOccurrencesByChoreIdAsync(choreId, cancellationToken);
+                season.ScheduleRevision++;
+                _unitOfWork.Seasons.Update(season);
+            }
             await _unitOfWork.ChoreFrequencyDays.DeleteByChoreIdAsync(choreId, cancellationToken);
             _unitOfWork.Chores.Delete(chore);
             await _unitOfWork.SaveChangesAsync(cancellationToken);

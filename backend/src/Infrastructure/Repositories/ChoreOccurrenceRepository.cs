@@ -120,6 +120,24 @@ public class ChoreOccurrenceRepository : IChoreOccurrenceRepository
         await draft.ExecuteDeleteAsync(cancellationToken);
     }
 
+    public async Task DeleteDraftOccurrencesByChoreIdAsync(Guid choreId, CancellationToken cancellationToken = default)
+    {
+        var chore = await _context.Chores.Include(c => c.Season)
+            .FirstOrDefaultAsync(c => c.Id == choreId, cancellationToken);
+        if (chore?.SeasonId == null || chore.Season?.Status != SeasonStatus.DRAFT)
+            throw new ChoreWars.Domain.Exceptions.ConflictException("Only a chore in an unpublished draft can be deleted.");
+
+        var occurrences = _context.ChoreOccurrences.Where(o => o.ChoreId == choreId);
+        if (await occurrences.AnyAsync(o => o.Status != ChoreOccurrenceStatus.ASSIGNED || o.CompletedAt != null || o.EvidenceId != null || o.ProofImageUrl != null || o.PenaltyCount > 0
+            || _context.PaymentObligations.Any(p => p.OccurrenceId == o.Id)
+            || _context.ChoreBounties.Any(b => b.ChoreOccurrenceId == o.Id), cancellationToken))
+            throw new ChoreWars.Domain.Exceptions.ConflictException("This chore has recorded work or financial history and cannot be deleted.");
+
+        var ids = occurrences.Select(o => o.Id);
+        await _context.Set<ChoreResponsibility>().Where(r => ids.Contains(r.OccurrenceId)).ExecuteDeleteAsync(cancellationToken);
+        await occurrences.ExecuteDeleteAsync(cancellationToken);
+    }
+
     public void Update(ChoreOccurrence occurrence)
     {
         _context.ChoreOccurrences.Update(occurrence);

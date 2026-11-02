@@ -36,6 +36,10 @@ To use a local backend explicitly:
 flutter run -d chrome --web-hostname localhost --web-port 7357 --dart-define-from-file=config/google.json --dart-define=API_BASE_URL=http://localhost:5297/api --dart-define=SIGNALR_BASE_URL=http://localhost:5297/hubs
 ```
 
+That command stores data in the local backend database, so it will not match the
+Android app or other devices using Render. For shared household data, launch the
+web app without the local `API_BASE_URL` and `SIGNALR_BASE_URL` overrides.
+
 For an Android emulator, replace `localhost` with `10.0.2.2`. Web deployments
 using `USE_SAME_ORIGIN=true` still route through their own `/api` and `/hubs` proxy.
 

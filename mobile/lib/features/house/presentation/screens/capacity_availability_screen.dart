@@ -184,6 +184,21 @@ class _CapacityAvailabilityScreenState
         ),
       ]);
 
+      final savedAvailability = await dio.get(_availabilityEndpoint);
+      final savedSlots = Map<String, dynamic>.from(
+        (savedAvailability.data as Map<String, dynamic>?)?['slots'] ?? {},
+      );
+      for (var day = 0; day < 7; day++) {
+        if (!_availabilitySlotsMatch(
+          _slots[day] ?? [],
+          _decodeAvailabilitySlots(savedSlots[day.toString()]),
+        )) {
+          throw FormatException(
+            'Availability did not persist. Reload the page and try again.',
+          );
+        }
+      }
+
       if (!mounted) return;
       showAppMessage(
         context,
@@ -196,8 +211,9 @@ class _CapacityAvailabilityScreenState
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = apiErrorMessage(e));
-        showAppMessage(context, apiErrorMessage(e), error: true);
+        final message = e is FormatException ? e.message : apiErrorMessage(e);
+        setState(() => _error = message);
+        showAppMessage(context, message, error: true);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -216,11 +232,39 @@ class _CapacityAvailabilityScreenState
     },
   };
 
-  Future<void> _saveAvailabilityWindow({
+  List<Map<String, int>> _decodeAvailabilitySlots(dynamic rawSlots) =>
+      (rawSlots as List? ?? [])
+          .map(
+            (slot) => {
+              'startMinute': (slot['startMinute'] as num).toInt(),
+              'endMinute': (slot['endMinute'] as num).toInt(),
+            },
+          )
+          .toList();
+
+  bool _availabilitySlotsMatch(
+    List<Map<String, int>> expectedSlots,
+    List<Map<String, int>> actualSlots,
+  ) {
+    final expected = [...expectedSlots]
+      ..sort((a, b) => a['startMinute']!.compareTo(b['startMinute']!));
+    final actual = [...actualSlots]
+      ..sort((a, b) => a['startMinute']!.compareTo(b['startMinute']!));
+    if (expected.length != actual.length) return false;
+    for (var index = 0; index < expected.length; index++) {
+      if (expected[index]['startMinute'] != actual[index]['startMinute'] ||
+          expected[index]['endMinute'] != actual[index]['endMinute']) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> _saveAvailabilityWindow({
     required Map<int, List<Map<String, int>>> updatedSlots,
     required Map<int, List<Map<String, int>>> previousSlots,
   }) async {
-    if (_isSaving) return;
+    if (_isSaving) return false;
     setState(() {
       _isSaving = true;
       _error = null;
@@ -232,47 +276,49 @@ class _CapacityAvailabilityScreenState
         _availabilityEndpoint,
         data: _availabilityPayload(updatedSlots),
       );
-      if (!mounted) return;
+      final response = await dio.get(_availabilityEndpoint);
+      final savedSlots = Map<String, dynamic>.from(
+        (response.data as Map<String, dynamic>?)?['slots'] ?? {},
+      );
+      final decodedSlots = {
+        for (var day = 0; day < 7; day++)
+          day: _decodeAvailabilitySlots(savedSlots[day.toString()]),
+      };
+      for (final day in updatedSlots.keys) {
+        if (!_availabilitySlotsMatch(
+          updatedSlots[day] ?? [],
+          decodedSlots[day] ?? [],
+        )) {
+          throw FormatException(
+            'The server returned different availability times after saving.',
+          );
+        }
+      }
+      if (!mounted) return false;
       setState(() {
-        for (final day in updatedSlots.keys) {
-          _slots[day] = updatedSlots[day]!
-              .map((slot) => Map<String, int>.from(slot))
-              .toList();
+        for (final day in decodedSlots.keys) {
+          _slots[day] = decodedSlots[day]!;
         }
       });
       showAppMessage(context, 'Availability window applied and saved');
-      try {
-        final response = await dio.get(_availabilityEndpoint);
-        final savedSlots = Map<String, dynamic>.from(
-          (response.data as Map<String, dynamic>?)?['slots'] ?? {},
-        );
-        if (mounted) {
-          setState(() {
-            for (var day = 0; day < 7; day++) {
-              _slots[day] = (savedSlots[day.toString()] as List? ?? [])
-                  .map(
-                    (slot) => {
-                      'startMinute': (slot['startMinute'] as num).toInt(),
-                      'endMinute': (slot['endMinute'] as num).toInt(),
-                    },
-                  )
-                  .toList();
-            }
-          });
-        }
-      } catch (_) {
-        // The save already succeeded; keep the submitted values if refresh fails.
-      }
+      return true;
     } catch (error) {
       if (mounted) {
         setState(() {
           for (var day = 0; day < 7; day++) {
             _slots[day] = previousSlots[day] ?? [];
           }
-          _error = apiErrorMessage(error);
+          _error = error is FormatException
+              ? error.message
+              : apiErrorMessage(error);
         });
-        showAppMessage(context, apiErrorMessage(error), error: true);
+        showAppMessage(
+          context,
+          error is FormatException ? error.message : apiErrorMessage(error),
+          error: true,
+        );
       }
+      return false;
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -324,6 +370,11 @@ class _CapacityAvailabilityScreenState
     required int defaultStartMinute,
     required int defaultEndMinute,
   }) {
+    // Keep the selected values outside the route builder. Android can rebuild
+    // the bottom-sheet route while the time-picker dialog is opening/closing.
+    var startMin = defaultStartMinute;
+    var endMin = defaultEndMinute;
+    var applying = false;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -332,8 +383,6 @@ class _CapacityAvailabilityScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        var startMin = defaultStartMinute;
-        var endMin = defaultEndMinute;
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             final sH = (startMin ~/ 60).toString().padLeft(2, '0');
@@ -383,17 +432,18 @@ class _CapacityAvailabilityScreenState
                           child: InkWell(
                             onTap: () async {
                               final picked = await showTimePicker(
-                                context: context,
+                                context: ctx,
                                 initialTime: TimeOfDay(
                                   hour: startMin ~/ 60,
                                   minute: startMin % 60,
                                 ),
                               );
-                              if (picked != null) {
+                              if (picked != null && ctx.mounted) {
                                 setModalState(() {
                                   startMin = picked.hour * 60 + picked.minute;
-                                  if (startMin >= endMin)
+                                  if (startMin >= endMin) {
                                     endMin = startMin + 60;
+                                  }
                                   if (endMin > 1440) endMin = 1440;
                                 });
                               }
@@ -436,18 +486,21 @@ class _CapacityAvailabilityScreenState
                           child: InkWell(
                             onTap: () async {
                               final picked = await showTimePicker(
-                                context: context,
+                                context: ctx,
                                 initialTime: TimeOfDay(
                                   hour: endMin ~/ 60,
                                   minute: endMin % 60,
                                 ),
                               );
-                              if (picked != null) {
+                              if (picked != null && ctx.mounted) {
                                 setModalState(() {
                                   endMin = picked.hour * 60 + picked.minute;
-                                  if (endMin <= startMin)
+                                  if (endMin <= startMin) {
                                     startMin = endMin - 60;
-                                  if (startMin < 0) startMin = 0;
+                                  }
+                                  if (startMin < 0) {
+                                    startMin = 0;
+                                  }
                                 });
                               }
                             },
@@ -497,39 +550,48 @@ class _CapacityAvailabilityScreenState
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () async {
-                          if (_isSaving) return;
-                          final previousSlots = {
-                            for (final entry in _slots.entries)
-                              entry.key: entry.value
-                                  .map((slot) => Map<String, int>.from(slot))
-                                  .toList(),
-                          };
-                          final updatedSlots = {
-                            for (final entry in previousSlots.entries)
-                              entry.key: entry.value
-                                  .map((slot) => Map<String, int>.from(slot))
-                                  .toList(),
-                          };
-                          for (final day in days) {
-                            updatedSlots[day] = [
-                              {'startMinute': startMin, 'endMinute': endMin},
-                            ];
-                          }
-                          setState(() {
-                            for (final d in days) {
-                              _slots[d] = updatedSlots[d]!;
-                            }
-                          });
-                          Navigator.pop(ctx);
-                          await _saveAvailabilityWindow(
-                            updatedSlots: updatedSlots,
-                            previousSlots: previousSlots,
-                          );
-                        },
-                        child: const Text(
-                          'Apply Window',
-                          style: TextStyle(
+                        onPressed: applying || _isSaving
+                            ? null
+                            : () async {
+                                final previousSlots = {
+                                  for (final entry in _slots.entries)
+                                    entry.key: entry.value
+                                        .map(
+                                          (slot) => Map<String, int>.from(slot),
+                                        )
+                                        .toList(),
+                                };
+                                final updatedSlots = {
+                                  for (final entry in previousSlots.entries)
+                                    entry.key: entry.value
+                                        .map(
+                                          (slot) => Map<String, int>.from(slot),
+                                        )
+                                        .toList(),
+                                };
+                                for (final day in days) {
+                                  updatedSlots[day] = [
+                                    {
+                                      'startMinute': startMin,
+                                      'endMinute': endMin,
+                                    },
+                                  ];
+                                }
+                                setModalState(() => applying = true);
+                                final saved = await _saveAvailabilityWindow(
+                                  updatedSlots: updatedSlots,
+                                  previousSlots: previousSlots,
+                                );
+                                if (!ctx.mounted) return;
+                                if (saved) {
+                                  Navigator.pop(ctx);
+                                } else {
+                                  setModalState(() => applying = false);
+                                }
+                              },
+                        child: Text(
+                          applying ? 'Saving…' : 'Apply Window',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1935,7 +1997,7 @@ class _CapacityAvailabilityScreenState
                     Icon(Icons.check_rounded, color: Colors.white, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'Save Changes',
+                      'Save All Settings',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,

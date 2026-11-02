@@ -226,9 +226,8 @@ class HouseShell extends ConsumerWidget {
                                       cached ??
                                       await ref
                                           .read(
-                                            activeSeasonProvider(
-                                              houseId,
-                                            ).future,
+                                            activeSeasonProvider(houseId)
+                                                .future,
                                           )
                                           .catchError((_) => null);
                                   if (!context.mounted) return;
@@ -386,6 +385,7 @@ class HouseShell extends ConsumerWidget {
               chatUnread:
                   ref.watch(unreadChatCountProvider(houseId)) +
                   ref.watch(unreadAssistantCountProvider(houseId)),
+              bountyUnread: ref.watch(unreadBountyCountProvider(houseId)),
               paths: paths,
               selected: selected,
             ),

@@ -8,11 +8,13 @@ class AppBottomBar extends StatelessWidget {
     required this.paths,
     required this.selected,
     this.chatUnread = 0,
+    this.bountyUnread = 0,
     super.key,
   });
   final List<String> paths;
   final int? selected;
   final int chatUnread;
+  final int bountyUnread;
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +71,17 @@ class AppBottomBar extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Badge(
-                                  isLabelVisible: i == 2 && chatUnread > 0,
+                                  isLabelVisible:
+                                      (i == 2 && chatUnread > 0) ||
+                                      (i == 4 && bountyUnread > 0),
                                   label: Text(
-                                    chatUnread > 10 ? '10+' : '$chatUnread',
+                                    i == 2
+                                        ? (chatUnread > 10
+                                              ? '10+'
+                                              : '$chatUnread')
+                                        : (bountyUnread > 10
+                                              ? '10+'
+                                              : '$bountyUnread'),
                                   ),
                                   child: Icon(
                                     icons[i],

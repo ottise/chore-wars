@@ -40,7 +40,9 @@ class HouseholdDebtsScreen extends ConsumerStatefulWidget {
 class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
   DebtFilter _filter = DebtFilter.all;
 
-  Future<void> _actions(Map debt, String? me) async {
+  Future<void> _actions(List<Map> debts, String? me) async {
+    if (debts.isEmpty) return;
+    final debt = debts.first;
     final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -48,6 +50,7 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
       builder: (_) => DebtActionSheet(
         houseId: widget.houseId,
         debt: Map<String, dynamic>.from(debt),
+        debts: debts.map((d) => Map<String, dynamic>.from(d)).toList(),
         debtor: debt['debtorUserId'] == me,
       ),
     );
@@ -216,7 +219,7 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
                           entry.value.first['creditorName']?.toString() ??
                               'Member',
                       debts: entry.value,
-                      onActions: (d) => _actions(d, me),
+                      onActions: (ds) => _actions(ds, me),
                     ),
                   if (oweByCreditor.isEmpty && _filter == DebtFilter.owe)
                     const _SettledNoticeCard(
@@ -235,7 +238,7 @@ class _HouseholdDebtsScreenState extends ConsumerState<HouseholdDebtsScreen> {
                           entry.value.first['debtorName']?.toString() ??
                               'Member',
                       debts: entry.value,
-                      onActions: (d) => _actions(d, me),
+                      onActions: (ds) => _actions(ds, me),
                     ),
                   if (owedByDebtor.isEmpty || _filter == DebtFilter.owe)
                     const _SettledNoticeCard(
@@ -692,7 +695,7 @@ class _PersonDebtCard extends ConsumerWidget {
   final bool isOwe;
   final String otherName;
   final List<Map> debts;
-  final void Function(Map debt) onActions;
+  final void Function(List<Map> debts) onActions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -702,6 +705,14 @@ class _PersonDebtCard extends ConsumerWidget {
     );
     final initial = otherName.isNotEmpty ? otherName[0].toUpperCase() : 'M';
     final primaryDebt = debts.first;
+    final orderDebts = debts
+        .where(
+          (d) =>
+              d['reason'] == 'HOUSEHOLD_PURCHASE' &&
+              d['sourceOrderId'] != null &&
+              (d['remainingAmount'] as num? ?? 0) > 0,
+        )
+        .toList();
     final confirmedRepayments = debts
         .expand((d) => (d['repayments'] as List? ?? []).cast<Map>())
         .where((r) => r['status'] == 'CONFIRMED')
@@ -1135,7 +1146,9 @@ class _PersonDebtCard extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => onActions(primaryDebt),
+                        onPressed: () => onActions(
+                          orderDebts.isNotEmpty ? orderDebts : [primaryDebt],
+                        ),
                         icon: Icon(
                           isOwe
                               ? (isFullyReported

@@ -21,6 +21,7 @@ public interface IChoreOccurrenceRepository
     Task AddAsync(ChoreOccurrence occurrence, CancellationToken cancellationToken = default);
     Task AddRangeAsync(IEnumerable<ChoreOccurrence> occurrences, CancellationToken cancellationToken = default);
     Task DeleteBySeasonIdAsync(Guid seasonId, CancellationToken cancellationToken = default);
+    Task DeleteDraftOccurrencesByChoreIdAsync(Guid choreId, CancellationToken cancellationToken = default);
     void Update(ChoreOccurrence occurrence);
     void Delete(ChoreOccurrence occurrence);
 }

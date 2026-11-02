@@ -203,6 +203,29 @@ class HouseMoreScreen extends ConsumerWidget {
                             Icons.auto_awesome_outlined,
                             '$base/seasons/${s['id']}/rewards',
                           ),
+                          if (h.myRole == HouseRole.owner) ...[
+                            const Divider(indent: 18, endIndent: 18),
+                            ListTile(
+                              leading: Icon(
+                                Icons.delete_outline,
+                                color: colors.error,
+                              ),
+                              title: Text(
+                                'Delete season',
+                                style: TextStyle(color: colors.error),
+                              ),
+                              subtitle: const Text(
+                                'Hide it from season history; keep records',
+                              ),
+                              onTap: () => _deleteSeason(
+                                context,
+                                ref,
+                                houseId,
+                                s['id'].toString(),
+                                s['name']?.toString() ?? 'this season',
+                              ),
+                            ),
+                          ],
                         ],
                       ),
               ),
@@ -238,15 +261,37 @@ class HouseMoreScreen extends ConsumerWidget {
                             child: Text('No seasons yet.'),
                           ),
                         for (final row in response.data as List)
-                          SimpleDialogOption(
-                            onPressed: () =>
+                          ListTile(
+                            title: Text(row['name'].toString()),
+                            onTap: () =>
                                 Navigator.pop(context, row['id'].toString()),
-                            child: Text(row['name'].toString()),
+                            trailing: h.myRole == HouseRole.owner
+                                ? IconButton(
+                                    tooltip: 'Delete season',
+                                    color: colors.error,
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: () async {
+                                      final deleted = await _deleteSeason(
+                                        context,
+                                        ref,
+                                        houseId,
+                                        row['id'].toString(),
+                                        row['name']?.toString() ??
+                                            'this season',
+                                      );
+                                      if (deleted && context.mounted) {
+                                        Navigator.pop(context, '__deleted__');
+                                      }
+                                    },
+                                  )
+                                : null,
                           ),
                       ],
                     ),
                   );
-                  if (selected != null && context.mounted) {
+                  if (selected != null &&
+                      selected != '__deleted__' &&
+                      context.mounted) {
                     context.push('$base/seasons/$selected/leaderboard');
                   }
                 } catch (e) {
@@ -321,5 +366,49 @@ class HouseMoreScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+Future<bool> _deleteSeason(
+  BuildContext context,
+  WidgetRef ref,
+  String houseId,
+  String seasonId,
+  String name,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Delete season?'),
+      content: Text(
+        '"$name" will be removed from season history. Existing chores, payments, and audit records are retained but the season can no longer be resumed.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Delete season'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return false;
+  try {
+    await ref.read(dioProvider).delete('/houses/$houseId/seasons/$seasonId');
+    if (!context.mounted) return true;
+    ref.invalidate(activeSeasonProvider(houseId));
+    showAppMessage(context, 'Season deleted');
+    return true;
+  } catch (error) {
+    if (!context.mounted) return false;
+    showAppMessage(context, apiErrorMessage(error), error: true);
+    return false;
   }
 }

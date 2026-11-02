@@ -64,7 +64,13 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
         _loaded = true;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = apiErrorMessage(error));
+      if (mounted) {
+        setState(
+          () => _error = error is FormatException
+              ? error.message
+              : apiErrorMessage(error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -113,17 +119,53 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       _error = null;
     });
     try {
-      await ref
-          .read(dioProvider)
-          .post(
-            _endpoint,
-            data: {
-              'slots': _slots.map(
-                (key, value) => MapEntry(key.toString(), value),
-              ),
-            },
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        _endpoint,
+        data: {
+          'availabilities': {
+            for (var day = 0; day < 7; day++)
+              day.toString(): _slots[day]!.isNotEmpty,
+          },
+          'slots': _slots.map((key, value) => MapEntry(key.toString(), value)),
+        },
+      );
+      final response = await dio.get(_endpoint);
+      final savedSlots = Map<String, dynamic>.from(
+        (response.data as Map<String, dynamic>?)?['slots'] ?? {},
+      );
+      for (var day = 0; day < 7; day++) {
+        final expected = [..._slots[day]!]
+          ..sort((a, b) => a['startMinute']!.compareTo(b['startMinute']!));
+        final actual =
+            (savedSlots[day.toString()] as List? ?? [])
+                .map(
+                  (slot) => {
+                    'startMinute': (slot['startMinute'] as num).toInt(),
+                    'endMinute': (slot['endMinute'] as num).toInt(),
+                  },
+                )
+                .toList()
+              ..sort((a, b) => a['startMinute']!.compareTo(b['startMinute']!));
+        final matches =
+            expected.length == actual.length &&
+            List.generate(expected.length, (index) {
+              return expected[index]['startMinute'] ==
+                      actual[index]['startMinute'] &&
+                  expected[index]['endMinute'] == actual[index]['endMinute'];
+            }).every((matches) => matches);
+        if (!matches) {
+          throw const FormatException(
+            'The server returned different availability times. Reload and try again.',
           );
-      if (mounted) Navigator.pop(context);
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Availability saved successfully.')),
+        );
+        Navigator.pop(context);
+      }
     } catch (error) {
       if (mounted) setState(() => _error = apiErrorMessage(error));
     } finally {
@@ -399,7 +441,9 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                   FilledButton.icon(
                     onPressed: _busy || !_loaded ? null : _save,
                     icon: const Icon(Icons.check_rounded, size: 18),
-                    label: Text(_busy && _loaded ? 'Saving…' : 'Save Changes'),
+                    label: Text(
+                      _busy && _loaded ? 'Saving…' : 'Save Weekly Availability',
+                    ),
                   ),
                 ],
               ),

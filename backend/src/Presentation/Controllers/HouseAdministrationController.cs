@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ChoreWars.Application.DTOs.House;
 using ChoreWars.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,5 +11,7 @@ public class HouseAdministrationController(IHouseService houses) : ControllerBas
     [HttpPost("houses/{houseId:guid}/transfer-ownership")] public async Task<IActionResult> Transfer(Guid houseId,TransferOwnerRequest request,CancellationToken ct) { await houses.TransferOwnershipAsync(houseId,request.TargetUserId,UserId,ct); return Ok(); }
     [HttpPost("houses/{houseId:guid}/rotate-invite")] public async Task<IActionResult> Rotate(Guid houseId,CancellationToken ct) => Ok(new { inviteCode = await houses.RotateInviteAsync(houseId,UserId,ct) });
     [HttpPost("houses/{houseId:guid}/archive")] public async Task<IActionResult> Archive(Guid houseId,CancellationToken ct) { await houses.ArchiveAsync(houseId,UserId,ct); return Ok(); }
+    [HttpDelete("houses/{houseId:guid}")] public async Task<IActionResult> Delete(Guid houseId,CancellationToken ct) { await houses.DeleteHouseAsync(houseId,UserId,ct); return NoContent(); }
+    [HttpPut("houses/{houseId:guid}/name")] public async Task<IActionResult> Rename(Guid houseId,UpdateHouseNameRequest request,CancellationToken ct) { await houses.UpdateHouseNameAsync(houseId,request,UserId,ct); return NoContent(); }
 }
 public record TransferOwnerRequest(Guid TargetUserId);

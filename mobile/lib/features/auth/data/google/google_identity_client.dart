@@ -4,9 +4,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 class GoogleIdentityClient {
   static const webClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
-    defaultValue: kIsWeb
-        ? '940096350136-2k6sarq4ii63t5pm5uicgoenmdb6qvpa.apps.googleusercontent.com'
-        : '',
+    // Keep Android APK builds working even when the caller does not pass
+    // --dart-define-from-file=config/google.json. A deployment may still
+    // override this public OAuth client ID at build time.
+    defaultValue:
+        '940096350136-2k6sarq4ii63t5pm5uicgoenmdb6qvpa.apps.googleusercontent.com',
   );
   static const iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
   static Future<void>? _initialization;

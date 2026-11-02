@@ -44,14 +44,27 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
   bool _processing = false;
   bool _inForeground = true;
   String? _error;
+  String? _cameraError;
   String? _lastDetectedValue;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _camera(() => _controller.start()),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startCamera());
+  }
+
+  Future<void> _startCamera() async {
+    if (mounted) setState(() => _cameraError = null);
+    await _camera(() => _controller.start());
+    if (!mounted) return;
+    final error = _controller.value.error;
+    if (error == null) return;
+    final details = error.errorDetails?.message;
+    setState(() {
+      _cameraError = error.errorCode == MobileScannerErrorCode.permissionDenied
+          ? 'Android denied camera access for the QR scanner. Reopen Chore Wars app permissions and allow Camera, then retry.'
+          : 'QR camera failed (${error.errorCode.name}).${details == null ? '' : ' $details'}';
+    });
   }
 
   Future<void> _camera(Future<void> Function() action) {
@@ -59,11 +72,15 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
       if (!mounted) return;
       try {
         await action();
-      } catch (_) {
+      } catch (error) {
         if (mounted) {
+          setState(
+            () => _cameraError =
+                'Camera could not start ($error). Retry, check Chore Wars camera permission, or choose a QR image.',
+          );
           showAppMessage(
             context,
-            'Unable to open camera. Check camera permissions or enter an invite code.',
+            'Unable to open camera. Check camera permissions or choose a QR image.',
             error: true,
           );
         }
@@ -81,7 +98,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
       unawaited(_camera(() => _controller.stop()));
     } else if (state == AppLifecycleState.resumed) {
       _inForeground = true;
-      if (!_processing) unawaited(_camera(() => _controller.start()));
+      if (!_processing) unawaited(_startCamera());
     }
   }
 
@@ -149,9 +166,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                           children: [
                             Text(message, textAlign: TextAlign.center),
                             TextButton(
-                              onPressed: _processing
-                                  ? null
-                                  : () => _camera(() => _controller.start()),
+                              onPressed: _processing ? null : _startCamera,
                               child: const Text('Retry'),
                             ),
                             if (defaultTargetPlatform == TargetPlatform.android)
@@ -186,6 +201,24 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                   'Show the entire QR code to your camera. On a computer, you can also choose a saved QR image.',
                   textAlign: TextAlign.center,
                 ),
+                if (_cameraError != null) ...[
+                  const SizedBox(height: 8),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _cameraError!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _processing ? null : _startCamera,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry camera'),
+                  ),
+                ],
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Semantics(
@@ -203,11 +236,20 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
+                    onPressed: _processing ? null : _takeQrPhoto,
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: Text(
+                      _processing ? 'Reading QR code…' : 'Take QR photo',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
                     onPressed: _processing ? null : _pickQrImage,
                     icon: const Icon(Icons.image_outlined),
-                    label: Text(
-                      _processing ? 'Reading QR code…' : 'Choose QR image',
-                    ),
+                    label: const Text('Choose QR image'),
                   ),
                 ),
                 if (_lastDetectedValue != null)
@@ -219,7 +261,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
                               _lastDetectedValue = null;
                               _error = null;
                             });
-                            unawaited(_camera(() => _controller.start()));
+                            unawaited(_startCamera());
                           },
                     child: const Text('Scan again'),
                   ),
@@ -274,6 +316,18 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
     final selected = ref
         .read(houseQrImagePickerProvider)
         .pickImage(source: ImageSource.gallery, requestFullMetadata: false);
+    return _readQrImage(selected);
+  }
+
+  Future<void> _takeQrPhoto() {
+    if (_processing) return Future.value();
+    final selected = ref
+        .read(houseQrImagePickerProvider)
+        .pickImage(source: ImageSource.camera, requestFullMetadata: false);
+    return _readQrImage(selected);
+  }
+
+  Future<void> _readQrImage(Future<XFile?> selected) {
     return _processQr(() async {
       final image = await selected;
       if (image == null) return null;
@@ -351,7 +405,7 @@ class _QrJoinScreenState extends ConsumerState<QrJoinScreen>
     } finally {
       if (mounted && !joined) {
         setState(() => _processing = false);
-        if (_inForeground) await _camera(() => _controller.start());
+        if (_inForeground) await _startCamera();
       }
     }
   }

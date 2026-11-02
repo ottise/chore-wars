@@ -12,7 +12,6 @@ import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/loading_widget.dart';
-import '../../../ai/presentation/ai_insights_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chore/presentation/providers/chore_providers.dart';
 import '../../../house/presentation/providers/house_providers.dart';
@@ -111,10 +110,8 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
                   shrinkWrap: true,
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                   itemCount: occurrences.length,
-                  separatorBuilder: (_, _) => const Divider(
-                    height: 1,
-                    color: Color(0xFFF1ECE7),
-                  ),
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 1, color: Color(0xFFF1ECE7)),
                   itemBuilder: (context, index) {
                     final occurrence = occurrences[index];
                     final dueDate = DateTime.tryParse(
@@ -193,13 +190,16 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
 
     final formattedAmount =
         '${NumberFormat.decimalPattern('en').format(bounty.amount)} VND';
-    final formattedDeadline = DateFormat('dd/MM HH:mm').format(vietnamTime(bounty.expiresAt));
+    final formattedDeadline = DateFormat('dd/MM HH:mm')
+        .format(vietnamTime(bounty.expiresAt));
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Text(
             'Accept This Bounty?',
             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
@@ -213,12 +213,17 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF7C4DFF),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Confirm Acceptance'),
@@ -257,6 +262,23 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      notificationNotifierProvider.select((state) => state.notifications),
+      (_, notifications) {
+        final houseId = widget.houseId;
+        if (houseId == null || houseId.isEmpty) return;
+        for (final notification in notifications.where(
+          (item) =>
+              item.isBountyPosted && item.houseId == houseId && !item.isRead,
+        )) {
+          unawaited(
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .markAsRead(notification.id),
+          );
+        }
+      },
+    );
     final houseId = widget.houseId;
     if (houseId == null || houseId.isEmpty) {
       return const Scaffold(
@@ -349,30 +371,6 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
               ),
             ),
           ),
-          Container(
-            width: 38,
-            height: 38,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              tooltip: 'AI suggestions',
-              icon: const Icon(
-                Icons.auto_awesome_outlined,
-                color: Color(0xFF7C4DFF),
-                size: 19,
-              ),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => AiInsightsScreen(houseId: houseId),
-                ),
-              ),
-            ),
-          ),
           GestureDetector(
             onTap: () => _openCreateBounty(context),
             child: Container(
@@ -414,10 +412,18 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
   }
 
   Widget _buildContent(List<Bounty> items, String myUserId, String houseId) {
-    final openItems = items.where((b) => b.status == BountyStatus.open).toList();
-    final claimedItems = items.where((b) => b.status == BountyStatus.claimed).toList();
-    final completedItems = items.where((b) => b.status == BountyStatus.completed).toList();
-    final postedByMeItems = items.where((b) => b.postedByUserId.toLowerCase() == myUserId).toList();
+    final openItems = items
+        .where((b) => b.status == BountyStatus.open)
+        .toList();
+    final claimedItems = items
+        .where((b) => b.status == BountyStatus.claimed)
+        .toList();
+    final completedItems = items
+        .where((b) => b.status == BountyStatus.completed)
+        .toList();
+    final postedByMeItems = items
+        .where((b) => b.postedByUserId.toLowerCase() == myUserId)
+        .toList();
 
     final availableCount = openItems.length + claimedItems.length;
     final postedCount = postedByMeItems.length;
@@ -430,10 +436,19 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
         children: [
           _buildPillTabSwitcher(availableCount, postedCount, completedCount),
           const SizedBox(height: 14),
-          _buildFilterChips(openItems.length, claimedItems.length, availableCount),
+          _buildFilterChips(
+            openItems.length,
+            claimedItems.length,
+            availableCount,
+          ),
           const SizedBox(height: 18),
           if (_currentTab == _BountyMainTab.available)
-            ..._buildAvailableSection(openItems, claimedItems, myUserId, houseId)
+            ..._buildAvailableSection(
+              openItems,
+              claimedItems,
+              myUserId,
+              houseId,
+            )
           else if (_currentTab == _BountyMainTab.postedByMe)
             ..._buildPostedByMeSection(postedByMeItems, myUserId, houseId)
           else
@@ -443,7 +458,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
     );
   }
 
-  Widget _buildPillTabSwitcher(int availableCount, int postedCount, int completedCount) {
+  Widget _buildPillTabSwitcher(
+    int availableCount,
+    int postedCount,
+    int completedCount,
+  ) {
     return Container(
       height: 48,
       padding: const EdgeInsets.all(4),
@@ -516,7 +535,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
     );
   }
 
-  Widget _buildFilterChips(int openCount, int claimedCount, int availableTotal) {
+  Widget _buildFilterChips(
+    int openCount,
+    int claimedCount,
+    int availableTotal,
+  ) {
     if (_currentTab == _BountyMainTab.available) {
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -723,9 +746,11 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
     String myUserId,
     String houseId,
   ) {
-    final showOpen = _statusFilter == _BountyStatusFilter.all ||
+    final showOpen =
+        _statusFilter == _BountyStatusFilter.all ||
         _statusFilter == _BountyStatusFilter.open;
-    final showClaimed = _statusFilter == _BountyStatusFilter.all ||
+    final showClaimed =
+        _statusFilter == _BountyStatusFilter.all ||
         _statusFilter == _BountyStatusFilter.claimed;
 
     final widgets = <Widget>[];
@@ -828,11 +853,17 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
   ) {
     var filtered = postedItems;
     if (_statusFilter == _BountyStatusFilter.open) {
-      filtered = postedItems.where((b) => b.status == BountyStatus.open).toList();
+      filtered = postedItems
+          .where((b) => b.status == BountyStatus.open)
+          .toList();
     } else if (_statusFilter == _BountyStatusFilter.claimed) {
-      filtered = postedItems.where((b) => b.status == BountyStatus.claimed).toList();
+      filtered = postedItems
+          .where((b) => b.status == BountyStatus.claimed)
+          .toList();
     } else if (_statusFilter == _BountyStatusFilter.completed) {
-      filtered = postedItems.where((b) => b.status == BountyStatus.completed).toList();
+      filtered = postedItems
+          .where((b) => b.status == BountyStatus.completed)
+          .toList();
     }
 
     if (filtered.isEmpty) {
@@ -842,11 +873,7 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
           child: Center(
             child: Column(
               children: [
-                Icon(
-                  Icons.outbox_outlined,
-                  size: 56,
-                  color: Color(0xFFCBD5E1),
-                ),
+                Icon(Icons.outbox_outlined, size: 56, color: Color(0xFFCBD5E1)),
                 SizedBox(height: 12),
                 Text(
                   'No posted bounties here',
@@ -904,7 +931,10 @@ class _BountyBoardScreenState extends ConsumerState<BountyBoardScreen> {
     ];
   }
 
-  List<Widget> _buildCompletedSection(List<Bounty> completedItems, String houseId) {
+  List<Widget> _buildCompletedSection(
+    List<Bounty> completedItems,
+    String houseId,
+  ) {
     if (completedItems.isEmpty) {
       return [
         const Padding(
@@ -1015,7 +1045,10 @@ class _BountyOpenCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final amountFormatted =
         '${NumberFormat.decimalPattern('en').format(bounty.amount)} VND';
-    final dueFormatted = _formatDueText(bounty.expiresAt, bounty.postedByDisplayName);
+    final dueFormatted = _formatDueText(
+      bounty.expiresAt,
+      bounty.postedByDisplayName,
+    );
     final choreIcon = _getChoreIcon(bounty.choreName);
 
     return Container(
@@ -1647,9 +1680,13 @@ class _BountyCompletedCard extends StatelessWidget {
 String _formatDueText(DateTime due, String poster) {
   final vn = vietnamTime(due);
   final now = vietnamTime(DateTime.now());
-  final isToday = vn.year == now.year && vn.month == now.month && vn.day == now.day;
+  final isToday =
+      vn.year == now.year && vn.month == now.month && vn.day == now.day;
   final tomorrow = now.add(const Duration(days: 1));
-  final isTomorrow = vn.year == tomorrow.year && vn.month == tomorrow.month && vn.day == tomorrow.day;
+  final isTomorrow =
+      vn.year == tomorrow.year &&
+      vn.month == tomorrow.month &&
+      vn.day == tomorrow.day;
   final timeStr = DateFormat('HH:mm').format(vn);
 
   String duePrefix;
@@ -1669,13 +1706,21 @@ String _formatDueText(DateTime due, String poster) {
 
 IconData _getChoreIcon(String choreName) {
   final lower = choreName.toLowerCase();
-  if (lower.contains('dish') || lower.contains('kitchen') || lower.contains('sink')) {
+  if (lower.contains('dish') ||
+      lower.contains('kitchen') ||
+      lower.contains('sink')) {
     return Icons.assignment_outlined;
   }
-  if (lower.contains('room') || lower.contains('house') || lower.contains('floor') || lower.contains('living')) {
+  if (lower.contains('room') ||
+      lower.contains('house') ||
+      lower.contains('floor') ||
+      lower.contains('living')) {
     return Icons.home_outlined;
   }
-  if (lower.contains('grocer') || lower.contains('buy') || lower.contains('shop') || lower.contains('market')) {
+  if (lower.contains('grocer') ||
+      lower.contains('buy') ||
+      lower.contains('shop') ||
+      lower.contains('market')) {
     return Icons.shopping_bag_outlined;
   }
   return Icons.cleaning_services_outlined;

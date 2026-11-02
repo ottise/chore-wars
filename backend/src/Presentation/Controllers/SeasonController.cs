@@ -50,6 +50,13 @@ public class SeasonController : ControllerBase
         return Ok(seasons);
     }
 
+    [HttpDelete("{seasonId:guid}")]
+    public async Task<IActionResult> DeleteSeason(Guid seasonId, CancellationToken cancellationToken)
+    {
+        await _seasonService.DeleteSeasonAsync(seasonId, CurrentUserId, cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateSeason(Guid houseId, [FromBody] CreateSeasonRequest request, CancellationToken cancellationToken)
     {

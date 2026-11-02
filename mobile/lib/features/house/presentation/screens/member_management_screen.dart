@@ -71,7 +71,9 @@ class MemberManagementScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
-        content: Text('${member.displayName} will be removed from this house.'),
+        content: Text(
+          '${member.displayName} will lose access. Open chores will be reassigned, while debt and payment records stay in the household history.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

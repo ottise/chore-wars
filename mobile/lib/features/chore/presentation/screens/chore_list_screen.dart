@@ -1,4 +1,5 @@
 import '../../../../core/utils/vietnam_time.dart';
+import '../../../../core/utils/api_error_message.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../house/domain/entities/house_models.dart';
 import '../../../../core/widgets/app_page_frame.dart';
@@ -174,7 +175,7 @@ class _ChoreListScreenState extends ConsumerState<ChoreListScreen>
                   '/houses/${widget.houseId}/seasons/$seasonId/review',
                 ),
                 icon: const Icon(Icons.checklist_rounded),
-                label: const Text('Quy trình duyệt & chốt lịch mùa'),
+                label: const Text('Season Schedule Review & Confirmation'),
               ),
             ),
         ],
@@ -349,8 +350,10 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
     if (_loading) return const LoadingView();
     if (_error != null) return ErrorView(error: _error!, onRetry: _fetch);
 
-    final seasonData =
-        ref.watch(activeSeasonProvider(widget.houseId)).asData?.value;
+    final seasonData = ref
+        .watch(activeSeasonProvider(widget.houseId))
+        .asData
+        ?.value;
     final status = seasonData?['status'];
     final isDraft = status == 0 || status == 'DRAFT';
     final isReviewing = status == 1 || status == 'REVIEWING';
@@ -358,11 +361,13 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
     final myId = ref.watch(userProfileProvider).asData?.value.id;
     final isOwner = widget.members.any((m) => m.userId == myId && m.isOwner);
 
-    final normalOccurrences =
-        _occurrences.where((o) => o.type == ChoreType.normal).toList();
+    final normalOccurrences = _occurrences
+        .where((o) => o.type == ChoreType.normal)
+        .toList();
     final mandatoryCount = normalOccurrences.length;
-    final unassignedCount =
-        normalOccurrences.where((o) => o.assignedUserId == null).length;
+    final unassignedCount = normalOccurrences
+        .where((o) => o.assignedUserId == null)
+        .length;
     final hasOccurrences = normalOccurrences.isNotEmpty;
     final allAssigned = hasOccurrences && unassignedCount == 0;
 
@@ -447,8 +452,7 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                         const EmptyView(
                           icon: Icons.calendar_month_outlined,
                           title: 'Chưa có lịch việc',
-                          message:
-                              'Hãy nhấn nút "1. Sinh lịch việc" ở trên để chuẩn bị lịch mùa.',
+                          message: 'Hãy nhấn nút "1. Sinh lịch việc" ở trên để chuẩn bị lịch mùa.',
                         ),
                       ],
                     ),
@@ -472,15 +476,15 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
                         const SizedBox(height: 8),
                       ],
                       for (final entry in grouped.entries) ...[
-                        _DayHeader(
-                          label: entry.key,
-                          count: entry.value.length,
-                        ),
+                        _DayHeader(label: entry.key, count: entry.value.length),
                         ...entry.value.map(
                           (o) => _TeamOccurrenceTile(
                             occurrence: o,
                             houseId: widget.houseId,
                             members: widget.members,
+                            onDelete: isOwner && isDraft
+                                ? () => _deleteChore(o.choreId, o.choreName)
+                                : null,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -492,6 +496,40 @@ class _TeamScheduleBodyState extends ConsumerState<_TeamScheduleBody> {
       ),
     );
   }
+
+  Future<void> _deleteChore(String choreId, String choreName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete chore?'),
+        content: Text(
+          'Delete "$choreName" and its draft schedule entries? Other chores in the season will stay. Chores with completed or financial history cannot be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(dioProvider).delete('/chores/$choreId');
+      refreshChoreState(ref, widget.houseId);
+      await _fetch();
+      if (mounted) showAppMessage(context, 'Chore deleted');
+    } catch (error) {
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+    }
+  }
 }
 
 class _TeamOccurrenceTile extends StatelessWidget {
@@ -499,10 +537,12 @@ class _TeamOccurrenceTile extends StatelessWidget {
     required this.occurrence,
     required this.members,
     required this.houseId,
+    this.onDelete,
   });
   final ChoreOccurrence occurrence;
   final List<HouseMember> members;
   final String houseId;
+  final VoidCallback? onDelete;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -534,7 +574,21 @@ class _TeamOccurrenceTile extends StatelessWidget {
           name,
           style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
         ),
-        trailing: _KarmaTag(points: occurrence.karmaPoints),
+        trailing: onDelete == null
+            ? _KarmaTag(points: occurrence.karmaPoints)
+            : PopupMenuButton<String>(
+                tooltip: 'Chore options',
+                onSelected: (value) {
+                  if (value == 'delete') onDelete?.call();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'delete', child: Text('Delete chore')),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _KarmaTag(points: occurrence.karmaPoints),
+                ),
+              ),
         onTap: () => context.push('/houses/$houseId/chores/${occurrence.id}'),
       ),
     );

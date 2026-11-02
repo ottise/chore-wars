@@ -210,3 +210,10 @@ final unreadAssistantCountProvider = Provider.family<int, String>(
       .where((n) => n.isTaskRequest && n.houseId == houseId && !n.isRead)
       .length,
 );
+final unreadBountyCountProvider = Provider.family<int, String>(
+  (ref, houseId) => ref
+      .watch(notificationNotifierProvider)
+      .notifications
+      .where((n) => n.isBountyPosted && n.houseId == houseId && !n.isRead)
+      .length,
+);

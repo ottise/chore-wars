@@ -21,6 +21,7 @@ class AppNotification {
 
   bool get isChat => type == 'CHAT_MESSAGE' || type == 'CHAT_MENTION';
   bool get isSupply => type == 'SUPPLY_UPDATE';
+  bool get isBountyPosted => type == 'BOUNTY_POSTED';
   bool get isTaskRequest => metadata['targetType'] == 'AI_REQUEST';
   String? get houseId => metadata['houseId']?.toString();
   String? get targetId => metadata['targetId']?.toString();

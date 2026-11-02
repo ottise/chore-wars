@@ -59,8 +59,47 @@ public class SeasonService : ISeasonService
         if (member == null || member.Status != HouseMemberStatus.ACTIVE)
             throw new ForbiddenException("Only house members can view seasons.");
 
-        var seasons = await _unitOfWork.Seasons.GetByHouseIdAsync(houseId, cancellationToken);
+        var seasons = (await _unitOfWork.Seasons.GetByHouseIdAsync(houseId, cancellationToken))
+            .Where(s => s.Status != SeasonStatus.CANCELLED);
         return _mapper.Map<IEnumerable<SeasonResponse>>(seasons);
+    }
+
+    public async Task DeleteSeasonAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken)
+            ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
+        if (_mutations == null)
+        {
+            await DeleteSeasonCoreAsync(seasonId, userId, cancellationToken);
+            return;
+        }
+        await _mutations.RunAsync(season.HouseId, () => DeleteSeasonCoreAsync(seasonId, userId, cancellationToken), cancellationToken);
+    }
+
+    private async Task DeleteSeasonCoreAsync(Guid seasonId, Guid userId, CancellationToken cancellationToken)
+    {
+        var season = await _unitOfWork.Seasons.GetByIdAsync(seasonId, cancellationToken)
+            ?? throw new NotFoundException(nameof(ChoreSeason), seasonId);
+        var member = await _unitOfWork.HouseMembers.GetByHouseAndUserIdAsync(season.HouseId, userId, cancellationToken);
+        if (member?.Status != HouseMemberStatus.ACTIVE || member.Role != HouseRole.OWNER)
+            throw new ForbiddenException("Only active house owners can delete seasons.");
+        if (season.Status == SeasonStatus.CANCELLED) return;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            season.Status = SeasonStatus.CANCELLED;
+            season.ScheduleRevision++;
+            _unitOfWork.Seasons.Update(season);
+            await _unitOfWork.SeasonConfirmations.DeleteBySeasonIdAsync(seasonId, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<SeasonResponse> CreateSeasonAsync(Guid houseId, CreateSeasonRequest request, Guid userId, CancellationToken cancellationToken = default)

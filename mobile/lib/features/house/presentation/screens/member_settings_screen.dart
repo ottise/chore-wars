@@ -518,7 +518,7 @@ class _MemberSettingsScreenState extends ConsumerState<MemberSettingsScreen> {
                       ),
                       onPressed: _isSaving || !_loaded ? null : _save,
                       child: Text(
-                        _isSaving ? 'Saving…' : 'Save Changes',
+                        _isSaving ? 'Saving…' : 'Save Capacity & Preferences',
                         style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w700,

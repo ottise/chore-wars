@@ -47,8 +47,10 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
           houseId: widget.houseId,
           leavingHouse: _leavingHouse,
           onLeave: () => _leaveHouse(house),
+          onRename: () => _renameHouse(house),
           onRotate: () => _adminAction('rotate-invite'),
           onArchive: () => _adminAction('archive'),
+          onDeleteHouse: () => _deleteHouse(house),
         ),
       ),
     );
@@ -100,8 +102,8 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
         title: const Text('Leave house?'),
         content: Text(
           house.myRole == HouseRole.owner
-              ? 'You are the owner. Transfer ownership before leaving, or the house will be left without an owner.'
-              : 'You will lose access to "${house.name}" and all associated chores.',
+              ? 'You will leave "${house.name}". Open chores will be reassigned, debts and payment history will remain, and ownership will transfer to another member. If you are the last member, the household will be archived.'
+              : 'You will leave "${house.name}". Open chores will be reassigned. Debts and payment history will remain recorded.',
         ),
         actions: [
           TextButton(
@@ -128,6 +130,82 @@ class _HouseSettingsScreenState extends ConsumerState<HouseSettingsScreen> {
       if (mounted) setState(() => _leavingHouse = false);
     }
   }
+
+  Future<void> _deleteHouse(House house) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete household?'),
+        content: Text(
+          '"${house.name}" will be archived and removed from household lists. Members will lose access; chores, debts, and payment history are retained for records.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete household'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _leavingHouse = true);
+    try {
+      await ref.read(dioProvider).delete('/houses/${widget.houseId}');
+      refreshHouseState(ref, houseId: widget.houseId);
+      if (mounted) context.go('/houses');
+    } catch (error) {
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _leavingHouse = false);
+    }
+  }
+
+  Future<void> _renameHouse(House house) async {
+    final controller = TextEditingController(text: house.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename household'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 100,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Household name'),
+          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty || name == house.name || !mounted) return;
+    setState(() => _leavingHouse = true);
+    try {
+      await ref
+          .read(dioProvider)
+          .put('/houses/${widget.houseId}/name', data: {'name': name});
+      refreshHouseState(ref, houseId: widget.houseId);
+      if (mounted) showAppMessage(context, 'Household name updated');
+    } catch (error) {
+      if (mounted) showAppMessage(context, apiErrorMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _leavingHouse = false);
+    }
+  }
 }
 
 class _SettingsBody extends StatelessWidget {
@@ -136,15 +214,19 @@ class _SettingsBody extends StatelessWidget {
     required this.houseId,
     required this.leavingHouse,
     required this.onLeave,
+    required this.onRename,
     required this.onRotate,
     required this.onArchive,
+    required this.onDeleteHouse,
   });
 
   final House house;
   final String houseId;
   final bool leavingHouse;
   final VoidCallback onLeave;
+  final VoidCallback onRename;
   final VoidCallback onRotate, onArchive;
+  final VoidCallback onDeleteHouse;
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +241,8 @@ class _SettingsBody extends StatelessWidget {
               _SettingsRow(
                 icon: Icons.home_outlined,
                 title: house.name,
-                subtitle: 'Name',
+                subtitle: 'Tap to rename this household',
+                onTap: leavingHouse ? null : onRename,
               ),
               const Divider(height: 1, indent: 64),
               _SettingsRow(
@@ -254,6 +337,14 @@ class _SettingsBody extends StatelessWidget {
                 onTap: () => context.push('/houses/$houseId/members'),
               ),
               if (owner) ...[
+                const Divider(height: 1, indent: 64),
+                _SettingsRow(
+                  icon: Icons.delete_outline,
+                  title: 'Delete Household',
+                  subtitle: 'Remove access while preserving payment history',
+                  destructive: true,
+                  onTap: leavingHouse ? null : onDeleteHouse,
+                ),
                 const Divider(height: 1, indent: 64),
                 _SettingsRow(
                   icon: Icons.archive_outlined,

@@ -11,6 +11,8 @@ public interface IHouseService
     Task<InvitePreviewResponse> PreviewInviteAsync(string code, CancellationToken ct = default);
     Task<string> RotateInviteAsync(Guid houseId, Guid userId, CancellationToken ct = default);
     Task ArchiveAsync(Guid houseId, Guid userId, CancellationToken ct = default);
+    Task DeleteHouseAsync(Guid houseId, Guid userId, CancellationToken ct = default);
+    Task UpdateHouseNameAsync(Guid houseId, UpdateHouseNameRequest request, Guid userId, CancellationToken ct = default);
     Task<HouseResponse> CreateHouseAsync(CreateHouseRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task<List<ChoreWars.Application.DTOs.Season.RedistributionResult>> JoinHouseAsync(JoinHouseRequest request, Guid userId, CancellationToken cancellationToken = default);
     Task LeaveHouseAsync(Guid houseId, Guid userId, CancellationToken cancellationToken = default);

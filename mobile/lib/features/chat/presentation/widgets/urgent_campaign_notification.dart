@@ -243,7 +243,15 @@ class UrgentCampaignNotification extends ConsumerWidget {
           return assigned == myUserId;
         }).toList();
         if (myTasks.isEmpty) {
-          return (shouldShow: false, taskCount: 0, subtitle: '');
+          // The active campaign is household-wide. A member may have no
+          // assigned chores in the newest campaign while another active
+          // campaign (or the rest of this event) still needs attention.
+          // Keep the reminder visible instead of hiding the bomb entirely.
+          return (
+            shouldShow: true,
+            taskCount: taskMaps.length,
+            subtitle: 'Household urgent tasks · Tap to view',
+          );
         }
         final names = myTasks
             .map((t) => (t['Name'] ?? t['name'] ?? '').toString().trim())
