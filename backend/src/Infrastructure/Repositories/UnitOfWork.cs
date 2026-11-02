@@ -34,6 +34,7 @@ public class UnitOfWork : IUnitOfWork
     public IChoreBountyRepository ChoreBounties { get; }
     public IPaymentObligationRepository PaymentObligations { get; }
     public INotificationRepository Notifications { get; }
+    public IPushDeviceTokenRepository PushDeviceTokens { get; }
     public IChatRepository Chats { get; }
     public IActionProposalRepository ActionProposals { get; }
 
@@ -60,6 +61,7 @@ public class UnitOfWork : IUnitOfWork
         IChoreBountyRepository choreBounties,
         IPaymentObligationRepository paymentObligations,
         INotificationRepository notifications,
+        IPushDeviceTokenRepository pushDeviceTokens,
         IChatRepository chats,
         IActionProposalRepository actionProposals,
         ISupplyRepository supplies)
@@ -87,6 +89,7 @@ public class UnitOfWork : IUnitOfWork
         ChoreBounties = choreBounties;
         PaymentObligations = paymentObligations;
         Notifications = notifications;
+        PushDeviceTokens = pushDeviceTokens;
         Chats = chats;
         ActionProposals = actionProposals;
     }

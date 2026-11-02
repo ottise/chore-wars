@@ -16,13 +16,15 @@ public class NotificationService : INotificationService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
     private readonly INotificationRealtimePublisher _realtimePublisher;
+    private readonly IPushNotificationPublisher? _pushPublisher;
 
-    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper, INotificationRealtimePublisher realtimePublisher, IAfterCommitActions? afterCommit = null)
+    public NotificationService(IUnitOfWork unitOfWork, IMapper mapper, INotificationRealtimePublisher realtimePublisher, IAfterCommitActions? afterCommit = null, IPushNotificationPublisher? pushPublisher = null)
     {
         _afterCommit = afterCommit;
         _unitOfWork = unitOfWork;
         _mapper = mapper;
         _realtimePublisher = realtimePublisher;
+        _pushPublisher = pushPublisher;
     }
 
     public async Task<IEnumerable<NotificationResponse>> GetNotificationsAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -99,7 +101,15 @@ public class NotificationService : INotificationService
         await _unitOfWork.Notifications.AddAsync(notification, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         var response = _mapper.Map<NotificationResponse>(notification);
-        if (_afterCommit != null) _afterCommit.Enqueue(() => _realtimePublisher.PublishAsync(response, cancellationToken));
-        else await _realtimePublisher.PublishAsync(response, cancellationToken);
+        if (_afterCommit != null)
+        {
+            _afterCommit.Enqueue(() => _realtimePublisher.PublishAsync(response, cancellationToken));
+            if (_pushPublisher != null) _afterCommit.Enqueue(() => _pushPublisher.PublishAsync(response, cancellationToken));
+        }
+        else
+        {
+            await _realtimePublisher.PublishAsync(response, cancellationToken);
+            if (_pushPublisher != null) await _pushPublisher.PublishAsync(response, cancellationToken);
+        }
     }
 }

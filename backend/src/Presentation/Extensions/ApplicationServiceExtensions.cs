@@ -50,6 +50,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IGamificationService, GamificationService>();
         services.AddScoped<IBountyService, BountyService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IPushDeviceService, PushDeviceService>();
         services.AddScoped<IOverduePenaltyService, OverduePenaltyService>();
         services.AddScoped<IBountyExpirationService, BountyExpirationService>();
         services.AddScoped<IChoreAllocationService, ChoreAllocationService>();

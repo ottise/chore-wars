@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "940096350136",
+    "project_id": "chore-wars-513006",
+    "storage_bucket": "chore-wars-513006.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:940096350136:android:dacaf9aef8b440b1ddd14d",
+        "android_client_info": {
+          "package_name": "com.chorewars.chore_wars"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "940096350136-2k6sarq4ii63t5pm5uicgoenmdb6qvpa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEAAv5EYA2kmo3ZijzMl7dbqO9U0l2oSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "940096350136-2k6sarq4ii63t5pm5uicgoenmdb6qvpa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

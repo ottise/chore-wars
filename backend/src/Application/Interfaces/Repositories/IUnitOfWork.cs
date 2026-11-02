@@ -28,6 +28,7 @@ public interface IUnitOfWork : IDisposable
     IChoreBountyRepository ChoreBounties { get; }
     IPaymentObligationRepository PaymentObligations { get; }
     INotificationRepository Notifications { get; }
+    IPushDeviceTokenRepository PushDeviceTokens { get; }
     IChatRepository Chats { get; }
     IActionProposalRepository ActionProposals { get; }
 

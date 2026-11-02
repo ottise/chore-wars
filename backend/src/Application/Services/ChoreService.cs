@@ -201,17 +201,22 @@ public partial class ChoreService : IChoreService
 
         await EnsureEditableOccurrenceAsync(occurrence, userId, cancellationToken);
         if (occurrence.Status == ChoreOccurrenceStatus.COMPLETED && occurrence.CompletedByUserId == userId) return;
+        var now = _clock.GetUtcNow().UtcDateTime;
+        var scheduledDay = DateOnly.FromDateTime(ScheduleTime.Local(occurrence.DueDate));
+        var currentDay = DateOnly.FromDateTime(ScheduleTime.Local(now));
+        if (currentDay != scheduledDay)
+            throw new ConflictException("A chore can only be completed on its scheduled day (Vietnam time).");
         if (request?.EvidenceId.HasValue == true && !string.IsNullOrWhiteSpace(request.ProofImageUrl)) throw new DomainException("Send EvidenceId or legacy proof, not both.");
         if (occurrence.Status != ChoreOccurrenceStatus.ASSIGNED &&
             occurrence.Status != ChoreOccurrenceStatus.OVERDUE &&
             occurrence.Status != ChoreOccurrenceStatus.CRITICAL_OVERDUE)
             throw new ConflictException("Chore is not in a completable state.");
 
-        if (_penalties != null && occurrence.DueDate < _clock.GetUtcNow().UtcDateTime)
-            await _penalties.ApplyUntilAsync(occurrence.Id, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+        if (_penalties != null && occurrence.DueDate < now)
+            await _penalties.ApplyUntilAsync(occurrence.Id, now, cancellationToken);
         occurrence.CompletedByUserId = userId;
         occurrence.Status = ChoreOccurrenceStatus.COMPLETED;
-        occurrence.CompletedAt = _clock.GetUtcNow().UtcDateTime;
+        occurrence.CompletedAt = now;
 
         if (!string.IsNullOrWhiteSpace(request?.ProofImageUrl))
         {
@@ -250,13 +255,13 @@ public partial class ChoreService : IChoreService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var responsibility = await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, _clock.GetUtcNow().UtcDateTime, cancellationToken);
+            var responsibility = await ChoreResponsibilityService.EnsureAsync(_unitOfWork, occurrence, now, cancellationToken);
             if (request?.EvidenceId.HasValue == true)
             {
                 if (_evidence == null) throw new ConflictException("Evidence storage is not configured.");
                 await _evidence.AttachAsync(occurrenceId, request.EvidenceId.Value, userId, cancellationToken);
             }
-            responsibility.EndedAt = _clock.GetUtcNow().UtcDateTime;
+            responsibility.EndedAt = now;
             responsibility.CompletedByUserId = userId;
             _unitOfWork.ChoreOccurrences.Update(occurrence);
             var transactionType = chore.Type == ChoreType.BONUS
@@ -328,7 +333,10 @@ public partial class ChoreService : IChoreService
             && season.Status is SeasonStatus.ACTIVE or SeasonStatus.COMPLETED
             && _clock.GetUtcNow().UtcDateTime >= season.StartDate
             && occurrence.AssignedUserId == userId;
-        response.CanComplete = editable && occurrence.Status is ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE;
+        var currentDay = DateOnly.FromDateTime(ScheduleTime.Local(_clock.GetUtcNow().UtcDateTime));
+        var scheduledDay = DateOnly.FromDateTime(ScheduleTime.Local(occurrence.DueDate));
+        response.CanComplete = editable && currentDay == scheduledDay
+            && occurrence.Status is (ChoreOccurrenceStatus.ASSIGNED or ChoreOccurrenceStatus.OVERDUE or ChoreOccurrenceStatus.CRITICAL_OVERDUE);
         response.CanUploadEvidence = editable && occurrence.Status != ChoreOccurrenceStatus.SKIPPED
             && (occurrence.Status != ChoreOccurrenceStatus.COMPLETED || occurrence.CompletedByUserId == userId);
         return response;

@@ -9,6 +9,7 @@ import '../../../../core/storage/secure_storage.dart';
 import '../../data/datasources/notification_remote_data_source.dart';
 import '../../data/repositories/notification_repository_impl.dart';
 import '../../data/services/notification_signalr_service.dart';
+import '../../data/services/notification_push_service.dart';
 import '../../domain/entities/notification_models.dart';
 
 final notificationRemoteDataSourceProvider =
@@ -39,6 +40,7 @@ class NotificationState {
 
 class NotificationNotifier extends Notifier<NotificationState> {
   NotificationSignalRService? _realtime;
+  NotificationPushService? _push;
   int _generation = 0;
   bool _current(int generation) => ref.mounted && generation == _generation;
   @override
@@ -46,8 +48,10 @@ class NotificationNotifier extends Notifier<NotificationState> {
     ref.watch(sessionEpochProvider);
     final generation = ++_generation;
     NotificationSignalRService? service;
+    NotificationPushService? push;
     ref.onDispose(() {
       service?.disconnect();
+      push?.dispose();
     });
     Future.microtask(() {
       if (!_current(generation)) return;
@@ -99,6 +103,12 @@ class NotificationNotifier extends Notifier<NotificationState> {
         },
       );
       _realtime = service;
+      push = NotificationPushService(
+        ref.read(dioProvider),
+        () => ref.read(secureStorageProvider).getAccessToken(),
+      );
+      _push = push;
+      push.register();
       loadNotifications();
     });
     return const NotificationState();
