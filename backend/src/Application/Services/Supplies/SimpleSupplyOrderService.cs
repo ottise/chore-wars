@@ -35,6 +35,9 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
             if (!supplier.Active) throw new ConflictException("This supplier is not available.");
             if (string.IsNullOrWhiteSpace(supplier.Phone)) throw new ConflictException("Add a supplier phone number before preparing an SMS order.");
             var now = clock.GetUtcNow().UtcDateTime;
+            var activeHouseMembers = (await uow.HouseMembers.GetByHouseIdAsync(house, ct))
+                .Where(m => m.Status == HouseMemberStatus.ACTIVE)
+                .ToList();
             var order = new SupplyOrder { Id = Guid.NewGuid(), HouseId = house, CreatorUserId = actor, PayerUserId = actor,
                 ClientRequestId = request.ClientRequestId, SupplierId = supplier.Id, SupplierName = supplier.Name,
                 SupplierPhone = supplier.Phone, SupplierEmail = supplier.Email.Trim(), DeliveryFee = supplier.DeliveryFee,
@@ -54,11 +57,11 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
             if (order.Total <= 0 || order.Total > SupplyConstants.MaxMoney) throw new DomainException("Invalid order total.");
             var requestedShares = request.Shares is { Count: > 0 }
                 ? request.Shares
-                : [new OrderCostShareRequest(actor)];
+                : activeHouseMembers.Select(m => new OrderCostShareRequest(m.UserId)).ToList();
             if (requestedShares.Count > SupplyConstants.MaxMembers ||
-                requestedShares.Select(x => x.UserId).Distinct().Count() != requestedShares.Count ||
-                !requestedShares.Any(x => x.UserId == actor))
-                throw new DomainException("Choose unique household members including the person paying.");
+                requestedShares.Count == 0 ||
+                requestedShares.Select(x => x.UserId).Distinct().Count() != requestedShares.Count)
+                throw new DomainException("Choose one or more unique household members to share this order.");
             if (requestedShares.Any(x => x.Amount.HasValue) && requestedShares.Any(x => !x.Amount.HasValue))
                 throw new DomainException("Specify every member's share or split the total equally.");
             var amounts = requestedShares.All(x => !x.Amount.HasValue)
@@ -96,7 +99,10 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
         return await mutations.RunAsync(house, async () =>
         {
             await Access(house, actor, ct);
-            var order = await OwnedOrder(house, id, actor, ct);
+            var order = await store.OrderAsync(id, ct) ?? throw new NotFoundException("Order not found.");
+            if (order.HouseId != house) throw new NotFoundException("Order not found.");
+            if (order.Workflow is not (SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT) && order.CreatorUserId != actor)
+                throw new ForbiddenException("Only the person who placed this order can change it.");
             var isCash = request.Reference.Trim().StartsWith("CASH:", StringComparison.OrdinalIgnoreCase);
             var isCashOrQr = isCash || request.Reference.Trim().StartsWith("QR:", StringComparison.OrdinalIgnoreCase);
             if (!isCashOrQr && order.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT)
@@ -115,6 +121,7 @@ public sealed class SimpleSupplyOrderService(ISupplyRepository store, IUnitOfWor
             if (isCash && request.Amount != order.Total)
                 throw new ConflictException("Cash payment must match the full order total.");
             var now = clock.GetUtcNow().UtcDateTime;
+            order.PayerUserId = actor;
             // Cash completes the order locally. Keep old online attempts for late-payment review.
             if (isCash)
                 foreach (var payment in payments.Where(p => p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING))

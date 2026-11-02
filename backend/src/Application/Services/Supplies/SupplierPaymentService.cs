@@ -20,7 +20,8 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
    await access.EnsureActiveAsync(house,actor,ct);await access.EnsureWritableAsync(house,ct);
    var o=await store.OrderAsync(order,ct)??throw new NotFoundException("Order not found.");
    if(o.HouseId!=house)throw new NotFoundException("Order not found.");
-   if(o.PayerUserId!=actor)throw new ForbiddenException("Only the designated payer can checkout.");
+   var simpleOrder=o.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT;
+   if(!simpleOrder&&o.PayerUserId!=actor)throw new ForbiddenException("Only the designated payer can checkout.");
    return (await store.PaymentsAsync(order,ct)).FirstOrDefault(p=>p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING or SupplierPaymentStatus.VERIFIED);
   },ct);
 
@@ -71,7 +72,7 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
    var active=(await store.PaymentsAsync(order,ct)).FirstOrDefault(p=>p.Status is SupplierPaymentStatus.CREATING or SupplierPaymentStatus.PENDING or SupplierPaymentStatus.VERIFIED);
    if(active!=null)return active;
    if(o.Status==SupplyOrderStatus.PAID)throw new ConflictException("This order has already been paid.");
-   var simple=o.Workflow is SupplyOrderWorkflow.SIMPLE_SMS or SupplyOrderWorkflow.SIMPLE_CONTACT;
+   var simple=simpleOrder;
    if(simple){if(o.Version!=version)throw new ConflictException("This order changed. Refresh and try again.");if(o.Status!=SupplyOrderStatus.DRAFT)throw new ConflictException("Only an unpaid order can start PayOS checkout.");}
    else {SupplyOrderService.CheckVersion(o,version);if(o.Status!=SupplyOrderStatus.APPROVED||!o.StockReserved||!o.Shares.All(s=>s.ApprovedAt.HasValue))throw new ConflictException("Every participant must approve before checkout.");}
    // A saved simple order retains its agreed amount after the catalog quote expires.
@@ -79,6 +80,7 @@ public sealed class SupplierPaymentService(ISupplyRepository store,IUnitOfWork u
    if(o.Shares.Count==0)throw new ConflictException("Choose household cost shares before checkout.");
    if(o.Shares.Sum(s=>s.Amount)!=o.Total)throw new ConflictException("Household shares do not match the order total.");
    foreach(var s in o.Shares)await access.EnsureActiveAsync(house,s.UserId,ct);
+   if(simple&&o.PayerUserId!=actor){o.PayerUserId=actor;o.Version++;}
    gateway.EnsureConfigured();
    var payment=new SupplierPayment{Id=Guid.NewGuid(),OrderId=o.Id,Amount=o.Total,OrderCode=RandomNumberGenerator.GetInt32(100_000_000,1_000_000_000)+(DateTimeOffset.UtcNow.ToUnixTimeSeconds()*1_000_000),
     CreatedAt=clock.GetUtcNow().UtcDateTime,ExpiresAt=clock.GetUtcNow().UtcDateTime.AddMinutes(SupplyConstants.CheckoutMinutes)};

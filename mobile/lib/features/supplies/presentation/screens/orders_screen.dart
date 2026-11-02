@@ -216,10 +216,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           final me = ref.watch(userProfileProvider).asData?.value.id;
           if (!_sharesInitialized && members.isNotEmpty && me != null) {
             _sharesInitialized = true;
+            final aiParticipants = (widget.aiDraft?['participant_ids'] as List? ?? [])
+                .map((id) => id.toString())
+                .where((id) => members.any((member) => member.userId == id))
+                .toSet();
             _shareUserIds
               ..clear()
-              ..addAll(members.map((member) => member.userId));
-            _shareUserIds.add(me);
+              ..addAll(
+                aiParticipants.isEmpty
+                    ? members.map((member) => member.userId)
+                    : aiParticipants,
+              );
+            if (widget.aiDraft == null ||
+                (widget.aiDraft?['participant_ids'] as List? ?? []).isEmpty) {
+              _shareUserIds.add(me);
+            }
           }
           if (shops.isEmpty) {
             return ListView(
