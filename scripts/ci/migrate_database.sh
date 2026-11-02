@@ -9,6 +9,7 @@ mkdir -p artifacts/migrations
 sql="artifacts/migrations/$target.sql"
 if [[ "$mode" == review ]]; then
   if [[ "$target" == core ]]; then
+    dotnet restore backend/src/Presentation/Presentation.csproj
     dotnet tool restore
     dotnet ef migrations script --idempotent --project backend/src/Infrastructure --startup-project backend/src/Presentation --output "$sql"
   elif [[ "$target" == ai ]]; then
